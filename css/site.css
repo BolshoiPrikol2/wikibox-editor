@@ -357,6 +357,17 @@ tr+tr>.ib-cw{border-top:1px solid var(--border-sub)}
 .mcard-img{display:block;line-height:0;margin-bottom:6px}
 @media (max-width:999px){.mapedit{grid-template-columns:minmax(0,1fr)}.me-canvas{position:static;order:-1}}
 
+/* ---------- импорт из Википедии ---------- */
+.wi-box{border:1px solid var(--border-sub);background:var(--blue-subtle);padding:12px 16px 14px;margin:12px 0 18px;font-size:14px}
+.mw-content .wi-h{font-family:var(--serif);font-size:1.35em;margin:0 0 6px;border:0;padding:0}
+.wi-box p{margin:0 0 10px}
+.wi-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.wi-row select{width:auto;flex:none}
+.wi-row input{flex:1;min-width:220px}
+.cnt.err{color:var(--destructive)}
+.dd-menu .dd-link{padding:6px 14px;font-size:14px}
+.dd-menu .dd-link:hover{background:var(--bg-hover);text-decoration:none}
+
 #toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:9px 16px;border-radius:2px;font-size:14px;z-index:60;max-width:calc(100vw - 32px);box-shadow:0 2px 8px var(--shadow)}
 #toast.err{background:var(--destructive);color:#fff}
 

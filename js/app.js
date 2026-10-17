@@ -59,7 +59,7 @@ function applyBrand(){$('#logo-name').textContent=P.wiki.name;$('#logo-motto').t
 function mainMenuHTML(){
   const counts={};P.pages.forEach(p=>counts[p.type]=(counts[p.type]||0)+1);
   return `<div class="side-h">Главное меню</div><ul class="menu-list">
-    <li><a href="#/">Заглавная страница</a></li><li><a href="#/all">Все статьи</a></li><li><a href="#/random">Случайная статья</a></li><li><a href="#/new">Создать статью</a></li></ul>
+    <li><a href="#/">Заглавная страница</a></li><li><a href="#/all">Все статьи</a></li><li><a href="#/random">Случайная статья</a></li><li><a href="#/new">Создать статью</a></li><li><a href="#/import">Импорт из Википедии</a></li></ul>
     <div class="side-h2">Служебные</div><ul class="menu-list"><li><a href="#/media">Медиатека</a></li><li><a href="#/file">Файл проекта</a></li></ul>
     <div class="side-h2">Разделы</div><ul class="menu-list">${Object.keys(TPL).filter(k=>counts[k]).map(k=>`<li><a href="#/all/${k}">${TPL[k].name}</a> <span class="cnt">${counts[k]}</span></li>`).join('')||'<li class="cnt">пока пусто</li>'}</ul>`;
 }
@@ -72,11 +72,11 @@ function tabsHTML(mode,pg){
     <div class="dd-h">Действия</div>
     <button data-act="snap" data-w="ib">Скачать карточку (PNG)</button><button data-act="snap" data-w="all">Скачать статью (PNG)</button><button data-act="dl-html">Скачать статью (HTML)</button>
     <div class="dd-h">Страница</div>
-    <button data-act="feature">${P.featured===pg.id?'Это избранная статья':'Сделать избранной статьёй'}</button><button data-act="dup-page">Создать копию</button><button data-act="del-page" class="danger">Удалить страницу</button>
+    ${pg.source?`<a class="dd-link" href="${esc(pg.source.url)}" target="_blank" rel="noopener">Исходная статья в Википедии</a>`:''}<button data-act="feature">${P.featured===pg.id?'Это избранная статья':'Сделать избранной статьёй'}</button><button data-act="dup-page">Создать копию</button><button data-act="del-page" class="danger">Удалить страницу</button>
   </div></span></div></div>`;
 }
 function footerHTML(pg){
-  return `<footer class="vfooter">${pg?`<p>Последнее изменение страницы: ${fmtDate(pg.updated)}.</p>`:''}<p>Все государства, события и персоны в статьях «${esc(P.wiki.name)}» вымышлены или изменены. Сайт сделан в Wikibox Editor.</p>
+  return `<footer class="vfooter">${pg?`<p>Последнее изменение страницы: ${fmtDate(pg.updated)}.</p>`:''}${pg&&pg.source?`<p>Основано на статье «<a class="external" href="${esc(pg.source.url)}" target="_blank" rel="noopener">${esc(pg.source.title)}</a>» из Википедии (${esc(pg.source.lang)}). Текст доступен по лицензии <a class="external" href="https://creativecommons.org/licenses/by-sa/4.0/deed.ru" target="_blank" rel="noopener">CC BY-SA 4.0</a>.</p>`:''}<p>Все государства, события и персоны в статьях «${esc(P.wiki.name)}» вымышлены или изменены. Сайт сделан в Wikibox Editor.</p>
   <ul><li><a href="#/">Заглавная страница</a></li><li><a href="#/all">Все статьи</a></li><li><a href="#/file">Файл проекта</a></li></ul></footer>`;
 }
 function shell({title,mode,pg,content,sub=true,foot=true,cls=''}){
@@ -93,6 +93,7 @@ function route(){
   if(k==='wiki'){const pg=pageFind(arg);pg?viewArticle(pg):viewMissing(arg);}
   else if(k==='edit'){const pg=P.pages.find(p=>p.id===arg.replace(/ /g,'_'))||P.pages.find(p=>p.id===arg)||pageFind(arg);pg?viewEdit(pg):viewMissing(arg);}
   else if(k==='new')viewNew(arg);
+  else if(k==='import')viewNew(arg,true);
   else if(k==='cat')viewCat(arg);
   else if(k==='all')viewAll(arg);
   else if(k==='search')viewSearch(arg);
@@ -171,13 +172,13 @@ function viewSearch(q){
 }
 
 /* ---------- создание ---------- */
-function viewNew(title){
+function viewNew(title,focusImport){
   $('#main').classList.remove('is-main');
-  const content=`<p>Выберите шаблон карточки. Любые строки карточки потом можно убрать, добавить или переставить.</p>
+  const content=`${wiImportHTML(focusImport?title:'')}<h2>Новая статья по шаблону</h2><p>Выберите шаблон карточки. Любые строки карточки потом можно убрать, добавить или переставить.</p>
   <label class="fld"><span>Название статьи</span><input id="np-title" value="${esc(title||'')}" placeholder="Например: Битва при Тоболе"></label>
   <div class="tgrid">${Object.entries(TPL).map(([k,t])=>`<button class="tcard" data-act="create-page" data-tpl="${k}"><b>${t.name}</b><span>${t.desc}</span></button>`).join('')}</div>`;
   setView(mainMenuHTML(),shell({title:'Создание статьи',content}),'Создание статьи');
-  setTimeout(()=>$('#np-title')?.focus(),20);
+  setTimeout(()=>{if(focusImport){$('#wi')?.scrollIntoView();$('#wi-q')?.focus();}else $('#np-title')?.focus();},20);
 }
 
 /* ---------- медиатека ---------- */
