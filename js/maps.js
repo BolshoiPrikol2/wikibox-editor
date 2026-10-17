@@ -3,7 +3,7 @@
    провинции, передача провинций между государствами, разрез и объединение провинций */
 
 const GEO={countries:null,prov:{},tpl:{},names:null,tplIndex:null};
-const GV='?v=19';
+const GV='?v=21';
 const geoJobs={};
 function fetchJSON(url){return geoJobs[url]=geoJobs[url]||fetch(url).then(r=>{if(!r.ok)throw new Error('нет файла '+url);return r.json();});}
 async function loadTplIndex(){if(!GEO.tplIndex){try{GEO.tplIndex=await fetchJSON('data/geo/tpl/index.json'+GV);}catch(e){GEO.tplIndex={years:[]};}}return GEO.tplIndex;}
@@ -40,6 +40,42 @@ const MAP_PRESETS={
   'АСЕАН':'BRN KHM IDN LAO MYS MMR PHL SGP THA VNM TLS',
   'Лига арабских государств':'DZA BHR COM DJI EGY IRQ JOR KWT LBN LBY MRT MAR OMN PSX QAT SAU SOM SDN SYR TUN ARE YEM',
 };
+/* Готовые виды: проекция, рамка [запад, юг, восток, север], пропорции, мини-карта */
+const MAP_VIEWS={
+  'Мир':{proj:'robinson',lon:10,lat:0,zoom:1,aspect:'',inset:false},
+  'Глобус':{proj:'ortho',lon:20,lat:40,zoom:1,aspect:'',inset:false},
+  'Европа':{proj:'laea',bbox:[-12,34,45,71],aspect:'6:5',inset:true},
+  'Западная Европа':{proj:'laea',bbox:[-11,36,17,60],aspect:'1:1',inset:true},
+  'Центральная Европа':{proj:'laea',bbox:[5,44,30,57],aspect:'4:3',inset:true},
+  'Восточная Европа':{proj:'laea',bbox:[18,42,50,62],aspect:'4:3',inset:true},
+  'Балканы':{proj:'laea',bbox:[13,35,30,47.5],aspect:'1:1',inset:true},
+  'Прибалтика':{proj:'laea',bbox:[19,53,30,60.5],aspect:'1:1',inset:true},
+  'Скандинавия':{proj:'laea',bbox:[4,54,32,71.5],aspect:'3:4',inset:true},
+  'Британские острова':{proj:'laea',bbox:[-11,49.5,2.5,61],aspect:'3:4',inset:true},
+  'Кавказ':{proj:'laea',bbox:[36,38,51,45],aspect:'4:3',inset:true},
+  'Ближний Восток':{proj:'laea',bbox:[25,12,63,42],aspect:'4:3',inset:true},
+  'Средняя Азия':{proj:'laea',bbox:[46,35,88,56],aspect:'4:3',inset:true},
+  'Россия и СНГ':{proj:'conic',bbox:[20,38,180,78],aspect:'16:9',inset:true},
+  'Восточная Азия':{proj:'laea',bbox:[95,18,150,55],aspect:'1:1',inset:true},
+  'Южная Азия':{proj:'laea',bbox:[60,5,98,37],aspect:'1:1',inset:true},
+  'Юго-Восточная Азия':{proj:'laea',bbox:[90,-11,142,28],aspect:'4:3',inset:true},
+  'Африка':{proj:'laea',bbox:[-20,-36,53,38],aspect:'3:4',inset:true},
+  'Северная Америка':{proj:'laea',bbox:[-170,7,-50,75],aspect:'4:3',inset:true},
+  'Южная Америка':{proj:'laea',bbox:[-82,-56,-34,13],aspect:'3:4',inset:true},
+  'Австралия и Океания':{proj:'laea',bbox:[110,-48,180,0],aspect:'4:3',inset:true},
+};
+function applyView(name){
+  const v=MAP_VIEWS[name];if(!v)return;const s=S();
+  s.proj=v.proj;s.aspect=v.aspect;s.inset=v.inset;s.grat=v.proj==='ortho';s.shade=v.proj==='ortho';s.bw=v.proj==='ortho'?.5:.6;
+  if(!v.bbox){s.lon=v.lon;s.lat=v.lat;s.zoom=v.zoom;return;}
+  const [w,so,e,n]=v.bbox;s.lon=(w+e)/2;s.lat=(so+n)/2;s.zoom=1;
+  // подбираем масштаб, чтобы рамка региона заполнила кадр
+  const {p,W,H}=MapDraw.projection(s);const pts=[];
+  for(let k=0;k<=20;k++){const t=k/20;pts.push([w+(e-w)*t,so],[w+(e-w)*t,n],[w,so+(n-so)*t],[e,so+(n-so)*t]);}
+  const xy=pts.map(q=>p(q)).filter(q=>q&&isFinite(q[0]));
+  const xs=xy.map(q=>q[0]),ys=xy.map(q=>q[1]);
+  s.zoom=Math.max(1,Math.min(60,+(Math.min(W/(Math.max(...xs)-Math.min(...xs)),H/(Math.max(...ys)-Math.min(...ys)))*.97).toFixed(2)));
+}
 const MAP_COLORS=['#346733','#66cc66','#1f93c0','#c0392b','#e67e22','#8e44ad','#f1c40f','#16a085','#7f8c8d','#2c3e50'];
 const MAP_TOOLS={
   pan:['Двигать','Перетаскивайте карту, колесо мыши меняет масштаб.'],
@@ -54,7 +90,7 @@ const MAP_TOOLS={
   merge:['Объединить','Щёлкайте по провинциям одной страны, потом нажмите «Объединить выбранные».',1],
 };
 
-const ME={spec:null,name:'',orig:null,active:0,tool:'prov',drag:null,raf:0,stroke:null,space:false,draft:null,sel:new Map(),ownT:'',ownMode:'pick',regT:'',regMode:'pick'};
+const ME={spec:null,name:'',orig:null,active:0,tool:'prov',drag:null,raf:0,stroke:null,space:false,draft:null,sel:new Map(),ownT:'',ownMode:'pick',regT:'',regMode:'pick',hist:[],fut:[],pend:null};
 const S=()=>ME.spec;
 function normSpec(s){
   for(const g of s.groups){g.countries=g.countries||[];g.regions=g.regions||[];g.prov=g.prov||[];}
@@ -103,6 +139,15 @@ function unitOptions(){
   const custom=Object.entries(s.states).map(([id,v])=>[id,v.name+' (новое)']);
   return [...custom,...list];
 }
+/* ---- отмена и повтор ---- */
+function updUndo(){const u=$('[data-act="me-undo"]'),r=$('[data-act="me-redo"]');if(u)u.disabled=!ME.hist.length;if(r)r.disabled=!ME.fut.length;}
+function meSnap(){const s=S();if(!s)return;ME.hist.push(JSON.stringify(s));if(ME.hist.length>80)ME.hist.shift();ME.fut=[];setTimeout(updUndo,0);}
+async function undoRedo(back){
+  const from=back?ME.hist:ME.fut,to=back?ME.fut:ME.hist;if(!from.length){toast(back?'Отменять нечего':'Повторять нечего');return;}
+  to.push(JSON.stringify(S()));ME.spec=normSpec(JSON.parse(from.pop()));ME.sel.clear();ME.draft=null;
+  try{await loadFor(ME.spec);}catch(e){}
+  renderMePanel();drawMe();
+}
 function renderMeTools(){
   const t=$('#me-tools');if(!t)return;const s=S();
   const tb=list=>list.map(([k,v])=>`<button class="${ME.tool===k?'on':''}" data-act="me-tool" data-k="${k}">${v[0]}</button>`).join('');
@@ -133,6 +178,7 @@ function renderMeTools(){
   }
   t.innerHTML=`<div class="seg">${tb(Object.entries(MAP_TOOLS).filter(([k,v])=>!v[2]))}</div>
     <span class="me-tl">Границы:</span><div class="seg">${tb(Object.entries(MAP_TOOLS).filter(([k,v])=>v[2]))}</div>
+    <div class="seg"><button data-act="me-undo" title="Отменить (Ctrl+Z)" aria-label="Отменить"${ME.hist.length?'':' disabled'}>↶</button><button data-act="me-redo" title="Повторить (Ctrl+Y)" aria-label="Повторить"${ME.fut.length?'':' disabled'}>↷</button></div>
     <div class="seg"><button data-act="me-zoom" data-z="1.5" aria-label="Приблизить" title="Приблизить">+</button><button data-act="me-zoom" data-z="0.667" aria-label="Отдалить" title="Отдалить">−</button></div>
     ${ME.tool==='owner'?'':`<span class="me-active">Цвет кисти: ${s.groups[ME.active]?`<span class="legend-color" style="background:${esc(s.groups[ME.active].color)}"></span> ${esc(s.groups[ME.active].name)}`:'нет групп'}</span>`}
     ${extra}`;
@@ -150,7 +196,7 @@ function renderMePanel(){
     ${s.base?`<p class="cnt">Исторические границы: <a class="external" href="https://github.com/aourednik/historical-basemaps" target="_blank" rel="noopener">historical-basemaps</a> (А. Уреднек, GPL-3.0), разложены по провинциям — их можно перекраивать.</p>`:''}
   </fieldset>
   <fieldset class="grp"><legend>Государства и союзы (цвета)</legend>
-    <div class="me-groups">${s.groups.map((g,i)=>`<div class="me-g${i===ME.active?' on':''}" data-act="me-active" data-i="${i}"><input type="color" value="${esc(g.color)}" data-mg="color" data-i="${i}" aria-label="Цвет"><div class="me-g-txt"><input value="${esc(g.name)}" data-mg="name" data-i="${i}" aria-label="Название"><span class="cnt">${groupStat(g)}</span></div><span class="me-g-btns"><button class="ic" data-act="me-gup" data-i="${i}" aria-label="Выше" title="Рисовать ниже других">↑</button><button class="ic x" data-act="me-gdel" data-i="${i}" aria-label="Удалить">✕</button></span></div>`).join('')}</div>
+    <div class="me-groups">${s.groups.map((g,i)=>`<div class="me-g${i===ME.active?' on':''}" data-act="me-active" data-i="${i}"><input type="color" value="${esc(g.color)}" data-mg="color" data-i="${i}" aria-label="Цвет"><div class="me-g-txt"><input value="${esc(g.name)}" data-mg="name" data-i="${i}" aria-label="Название"><span class="cnt">${groupStat(g)}</span></div><span class="me-g-btns"><button class="ic${g.circle?' on':''}" data-act="me-gcircle" data-i="${i}" aria-label="Обвести кружком" title="Обвести кружком на карте (для маленьких государств)">◯</button><button class="ic" data-act="me-gup" data-i="${i}" aria-label="Выше" title="Рисовать ниже других">↑</button><button class="ic x" data-act="me-gdel" data-i="${i}" aria-label="Удалить">✕</button></span></div>`).join('')}</div>
     <div class="line"><button class="btn sm" data-act="me-gadd">+ государство или союз</button>
     ${s.base?'':`<select id="me-preset" aria-label="Готовый союз"><option value="">Готовый союз…</option>${Object.keys(MAP_PRESETS).map(k=>`<option>${k}</option>`).join('')}</select>`}</div>
     <p class="cnt">Щёлкните по группе, чтобы рисовать её цветом. Если союзы пересекаются, сверху рисуется тот, что ниже в списке.</p>
@@ -158,11 +204,15 @@ function renderMePanel(){
   ${s.split.length?`<fieldset class="grp"><legend>Разбиты на провинции</legend><div class="chips">${s.split.map(u=>`<span class="chip on">${esc(uname(u))} <button class="ic x" data-act="me-unsplit" data-k="${esc(u)}" aria-label="Собрать обратно" title="Собрать обратно">✕</button></span>`).join('')}</div>
     ${editedFiles.length?`<p class="cnt">Изменены границы провинций: ${editedFiles.map(c=>`${esc(cname(c))} <button class="ic" data-act="me-preset-reset" data-k="${c}" title="Вернуть исходные провинции" aria-label="Вернуть исходные провинции">⟲</button>`).join(' ')}</p>`:''}</fieldset>`:''}
   <fieldset class="grp"><legend>Вид</legend>
+    <label class="fld"><span>Готовый вид</span><select id="me-view"><option value="">Выберите регион…</option>${Object.keys(MAP_VIEWS).map(k=>`<option>${k}</option>`).join('')}</select></label>
     <div class="seg">${Object.entries(pr).map(([k,v])=>`<button class="${s.proj===k?'on':''}" data-act="me-proj" data-k="${k}">${v.name}</button>`).join('')}</div>
     <label class="fld"><span>Долгота центра: <b id="me-lon-v">${Math.round(s.lon)}°</b></span><input type="range" id="me-lon" min="-180" max="180" step="1" value="${s.lon}"></label>
     ${s.proj==='ortho'||s.zoom>1?`<label class="fld"><span>Широта центра: <b id="me-lat-v">${Math.round(s.lat)}°</b></span><input type="range" id="me-lat" min="-90" max="90" step="1" value="${s.lat}"></label>`:''}
-    <label class="fld"><span>Масштаб: <b id="me-zoom-v">${(+s.zoom).toFixed(1)}×</b></span><input type="range" id="me-zoom" min="1" max="12" step="0.1" value="${s.zoom}"></label>
+    <label class="fld"><span>Масштаб: <b id="me-zoom-v">${(+s.zoom).toFixed(1)}×</b></span><input type="range" id="me-zoom" min="1" max="60" step="0.1" value="${s.zoom}"></label>
     <div><button class="btn sm" data-act="me-center">Повернуть к выбранной группе</button></div>
+    <div class="line"><label class="inl">Обрезка <select id="me-aspect">${[['','без обрезки'],['1:1','квадрат 1:1'],['6:5','6:5'],['4:3','4:3'],['3:2','3:2'],['16:9','16:9'],['3:4','вертикально 3:4']].map(([v,l])=>`<option value="${v}"${(s.aspect||'')===v?' selected':''}>${l}</option>`).join('')}</select></label>
+      <label class="inl"><input type="checkbox" data-ms="inset"${s.inset?' checked':''}> мини-карта мира</label>
+      ${s.inset?`<select id="me-insetpos" aria-label="Угол мини-карты">${[['tl','слева вверху'],['tr','справа вверху'],['bl','слева внизу'],['br','справа внизу']].map(([v,l])=>`<option value="${v}"${(s.insetPos||'tl')===v?' selected':''}>${l}</option>`).join('')}</select>`:''}</div>
   </fieldset>
   <fieldset class="grp"><legend>Оформление</legend>
     <div class="line"><label class="inl">Суша <input type="color" data-ms="land" value="${s.land}"></label><label class="inl">Границы <input type="color" data-ms="border" value="${s.border}"></label><label class="inl">Океан <input type="color" data-ms="ocean" value="${s.ocean}"></label></div>
@@ -297,7 +347,7 @@ function applyStroke(el){
   st.changed=true;
 }
 async function splitUnit(u,quiet){
-  const s=S();if(!u||s.split.includes(u))return true;
+  const s=S();if(!u||s.split.includes(u))return true;if(!quiet)meSnap();
   if(s.states[u]){s.split.push(u);return true;}
   const h=$('#me-hover');if(h)h.textContent='Загружаю провинции: '+uname(u)+'…';
   try{await loadFor(s,[u]);}catch(e){toast('Не удалось загрузить провинции: '+e.message,true);return false;}
@@ -439,7 +489,7 @@ function meUnsplit(u){
   renderMePanel();drawMe();
 }
 async function changeBase(v){
-  const s=S();if(String(v)===String(s.base))return;
+  const s=S();if(String(v)===String(s.base))return;meSnap();
   const had=s.split.length||Object.keys(s.owner).length||s.groups.some(g=>g.countries.length);
   s.base=v?String(v):'';s.split=[];s.owner={};s.ownerV=(s.ownerV||0)+1;for(const g of s.groups)g.countries=[];
   ME.ownT='';ME.sel.clear();
@@ -489,6 +539,7 @@ async function pickOwner(u){
 /* события редактора карт */
 document.addEventListener('click',e=>{
   const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act;const s=S();
+  if(/^me-(proj|gadd|gup|gdel|gcircle|unsplit|addstate|ownreset|delstate|addregion|delregion|regreset|merge|preset-reset|center)$/.test(a)&&!b.hasAttribute('data-armed'))meSnap();
   if(e.target.closest('input')&&a==='me-active'&&e.target.type!=='color')return;
   switch(a){
     case 'map-start':ME.kind=b.dataset.k;ME.spec=null;ME.orig=null;location.hash='#/map/new';break;
@@ -504,6 +555,9 @@ document.addEventListener('click',e=>{
     case 'me-unsel':ME.sel.clear();$$('#me-svg path.sel').forEach(p=>p.classList.remove('sel'));renderMeTools();break;
     case 'me-preset-reset':resetBorders(b.dataset.k);break;
     case 'me-zoom':setZoom(s.zoom*+b.dataset.z);break;
+    case 'me-undo':undoRedo(true);break;
+    case 'me-redo':undoRedo(false);break;
+    case 'me-gcircle':{e.stopPropagation();const g=s.groups[+b.dataset.i];g.circle=!g.circle;renderMePanel();drawMe();break;}
     case 'me-unsplit':meUnsplit(b.dataset.k);break;
     case 'me-addstate':{const id=newState();ME.ownT=id;ME.ownMode='paint';renderMeTools();drawMe();toast('Страна «'+s.states[id].name+'» создана. Проводите мышью по провинциям, чтобы отдать ей земли, а название поменяйте в списке.');break;}
     case 'me-regmode':ME.regMode=b.dataset.k;ME.draft=null;renderMeTools();break;
@@ -518,8 +572,10 @@ document.addEventListener('click',e=>{
     case 'me-center':{const c=MapDraw.groupCentroid(s,ME.active,GEO);if(!c){toast('В выбранной группе пока ничего нет',true);break;}s.lon=Math.round(c[0]);if(s.proj==='ortho')s.lat=Math.round(Math.max(-60,Math.min(60,c[1])));syncSliders();drawMe();break;}
   }
 });
+document.addEventListener('focusin',e=>{if(S()&&e.target.closest&&e.target.closest('#me-panel,#me-tools')&&/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))ME.pend=JSON.stringify(S());});
 document.addEventListener('input',e=>{
   const el=e.target;const s=S();
+  if(ME.pend&&s&&e.target.closest&&e.target.closest('#me-panel,#me-tools')){ME.hist.push(ME.pend);ME.fut=[];ME.pend=null;if(ME.hist.length>80)ME.hist.shift();updUndo();}
   if(s&&el.dataset&&el.dataset.region&&s.regions[el.dataset.region]){s.regions[el.dataset.region].name=el.value;const t=$('.me-target b');if(t&&ME.regT===el.dataset.region)t.textContent=el.value;return;}
   if(s&&el.dataset&&el.dataset.state&&s.states[el.dataset.state]){s.states[el.dataset.state].name=el.value;const t=$('.me-target b');if(t&&ME.ownT===el.dataset.state)t.textContent=el.value;const o=$('#me-own option[value="'+el.dataset.state+'"]');if(o)o.textContent=el.value+' (новое)';return;}
   if(!s||!el.closest('#me-panel'))return;
@@ -530,6 +586,9 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',e=>{
   const el=e.target;const s=S();if(!s)return;
+  if(el.id==='me-view'&&el.value){meSnap();applyView(el.value);el.value='';renderMePanel();drawMe();return;}
+  if(el.id==='me-aspect'){meSnap();s.aspect=el.value;renderMePanel();drawMe();return;}
+  if(el.id==='me-insetpos'){meSnap();s.insetPos=el.value;drawMe();return;}
   if(el.dataset&&(el.dataset.state||el.dataset.region)){renderMePanel();return;}
   if(el.id==='me-base'){changeBase(el.value);return;}
   if(el.id==='me-own'){pickOwner(el.value);return;}
@@ -540,13 +599,19 @@ document.addEventListener('change',e=>{
 document.addEventListener('keydown',e=>{if(e.code==='Space'&&$('#me-svg')&&!/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)){ME.space=true;e.preventDefault();}});
 document.addEventListener('keyup',e=>{if(e.code==='Space')ME.space=false;});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&ME.draft){ME.draft=null;drawDraft();}});
+document.addEventListener('keydown',e=>{
+  if(!$('#me-svg')||!S()||!(e.ctrlKey||e.metaKey))return;if(/INPUT|TEXTAREA/.test(e.target.tagName)&&e.target.type!=='checkbox'&&e.target.type!=='range'&&e.target.type!=='color')return;
+  const k=e.key.toLowerCase();
+  if((k==='z'||k==='я')&&!e.shiftKey){e.preventDefault();undoRedo(true);}
+  else if(k==='y'||k==='н'||((k==='z'||k==='я')&&e.shiftKey)){e.preventDefault();undoRedo(false);}
+});
 document.addEventListener('contextmenu',e=>{if(e.target.closest('#me-svg'))e.preventDefault();});
 /* перетаскивание, кисть, щипок и колесо на карте */
 const PTRS=new Map();
 function pinchState(){const [a,b]=[...PTRS.values()];return {d:Math.hypot(a.x-b.x,a.y-b.y),mx:(a.x+b.x)/2,my:(a.y+b.y)/2};}
-function setZoom(z){const s=S();s.zoom=Math.max(1,Math.min(12,+z.toFixed(2)));if(s.proj!=='ortho'&&s.zoom>1&&!$('#me-lat'))renderMePanel();syncSliders();drawMeSoon();}
+function setZoom(z){const s=S();s.zoom=Math.max(1,Math.min(60,+z.toFixed(2)));if(s.proj!=='ortho'&&s.zoom>1&&!$('#me-lat'))renderMePanel();syncSliders();drawMeSoon();}
 function endStroke(){
-  const st=ME.stroke;ME.stroke=null;if(!st||!st.changed)return;
+  const st=ME.stroke;ME.stroke=null;if(!st||!st.changed){if(st)ME.hist.pop();return;}
   if(!st.owner)S().groups.forEach(compact);
   renderMePanel();drawMe();
 }
@@ -571,13 +636,13 @@ document.addEventListener('pointerdown',e=>{
   if(ME.tool==='regions'&&left){
     if(ME.regMode==='lasso'){const g0=clientToGeo(e);ME.draft={pts:g0?[g0]:[],x:e.clientX,y:e.clientY,moved:false,target:t,newRegion:true};return;}
     if(ME.regMode==='pick'){if(t.dataset&&t.dataset.p){ME.regT=t.dataset.r;ME.regMode='paint';renderMeTools();drawMe();}else if(t.dataset&&t.dataset.u)splitUnit(t.dataset.u);return;}
-    if(t.dataset&&t.dataset.p){if(!ME.regT){toast('Сначала выберите регион или создайте новый',true);return;}ME.stroke={reg:true,done:new Set(),changed:false};applyStroke(t);return;}
+    if(t.dataset&&t.dataset.p){if(!ME.regT){toast('Сначала выберите регион или создайте новый',true);return;}meSnap();ME.stroke={reg:true,done:new Set(),changed:false};applyStroke(t);return;}
   }
   if(ME.tool==='owner'&&left&&ME.ownMode==='pick'){if(t.dataset&&t.dataset.u)pickOwner(t.dataset.u);return;}
   if(ME.tool==='owner'&&left&&ME.ownMode==='lasso'){const g0=clientToGeo(e);ME.draft={pts:g0?[g0]:[],x:e.clientX,y:e.clientY,moved:false,target:t,newState:true};return;}
   if(ME.tool==='owner'&&left&&t.dataset.p){
     if(!ME.ownT){toast('Сначала выберите, кому отходят земли',true);return;}
-    ME.stroke={owner:true,region:e.shiftKey,done:new Set(),changed:false};applyStroke(t);return;
+    meSnap();ME.stroke={owner:true,region:e.shiftKey,done:new Set(),changed:false};applyStroke(t);return;
   }
   if(['prov','region','erase'].includes(ME.tool)&&left&&t.dataset.p){
     const g=S().groups[ME.active];
@@ -585,7 +650,7 @@ document.addEventListener('pointerdown',e=>{
     let mode='add';
     if(ME.tool==='erase')mode='remove';
     else if(g&&MapDraw.owns(g,t.dataset.u,t.dataset.r,t.dataset.p))mode='remove';
-    ME.stroke={mode,all:ME.tool==='erase',done:new Set(),changed:false};
+    meSnap();ME.stroke={mode,all:ME.tool==='erase',done:new Set(),changed:false};
     applyStroke(t);return;
   }
   ME.drag={x:e.clientX,y:e.clientY,lon:S().lon,lat:S().lat,moved:false,target:t,k,click:left};
@@ -594,7 +659,7 @@ document.addEventListener('pointermove',e=>{
   if(PTRS.has(e.pointerId))PTRS.set(e.pointerId,{x:e.clientX,y:e.clientY});
   if(ME.pinch&&PTRS.size>=2){
     const q=ME.pinch,st=pinchState(),s=S();
-    s.zoom=Math.max(1,Math.min(12,+(q.zoom*st.d/Math.max(10,q.d)).toFixed(2)));
+    s.zoom=Math.max(1,Math.min(60,+(q.zoom*st.d/Math.max(10,q.d)).toFixed(2)));
     const {p}=MapDraw.projection(s);const deg=180/Math.PI/p.scale()*q.k;
     s.lon=((q.lon-(st.mx-q.mx)*deg+540)%360)-180;
     if(s.proj==='ortho'||s.zoom>1)s.lat=Math.max(-90,Math.min(90,q.lat+(st.my-q.my)*deg));
@@ -624,6 +689,7 @@ document.addEventListener('pointerup',async e=>{
     const d=ME.draft;ME.draft=null;
     if(!d.moved){drawDraft();const t=d.target;if(t&&t.dataset&&t.dataset.u&&!t.dataset.p)splitUnit(t.dataset.u);return;}
     $('#me-hover').textContent=d.newState?'Создаю страну…':ME.tool==='cut'?'Режу провинции…':'Создаю провинцию…';
+    meSnap();
     try{if(d.newRegion)await doNewRegionLasso(d.pts);else if(d.newState)await doNewStateLasso(d.pts);else if(ME.tool==='cut')await doCut(d.pts);else await doLasso(d.pts);}
     catch(err){console.error(err);toast('Не получилось изменить границы: '+(err.message||err),true);drawMe();}
     $('#me-hover').textContent=' ';return;
@@ -634,6 +700,7 @@ document.addEventListener('pointerup',async e=>{
   const t=d.target,s=S(),g=s.groups[ME.active];
   if(!t.dataset||!t.dataset.u)return;
   if(ME.tool==='country'){
+    if(g)meSnap();
     if(!g){toast('Сначала добавьте государство или союз',true);return;}
     const u=t.dataset.u;if(g.countries.includes(u))rm(g.countries,u);else g.countries.push(u);
     renderMePanel();drawMe();return;
@@ -647,6 +714,6 @@ document.addEventListener('pointerup',async e=>{
 });
 document.addEventListener('wheel',e=>{
   if(!e.target.closest('#me-svg')||!S())return;e.preventDefault();
-  const s=S();s.zoom=Math.max(1,Math.min(12,+(s.zoom*(e.deltaY<0?1.15:1/1.15)).toFixed(2)));
+  const s=S();s.zoom=Math.max(1,Math.min(60,+(s.zoom*(e.deltaY<0?1.15:1/1.15)).toFixed(2)));
   if(s.proj!=='ortho'&&s.zoom>1&&!$('#me-lat'))renderMePanel();syncSliders();drawMeSoon();
 },{passive:false});

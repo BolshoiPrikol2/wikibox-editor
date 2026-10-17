@@ -50,9 +50,9 @@ function loadAppearance(){try{Object.assign(APP,JSON.parse(localStorage.getItem(
 function applyAppearance(){const d=document.documentElement;d.dataset.size=APP.size;d.dataset.width=APP.width;if(APP.theme==='auto')delete d.dataset.theme;else d.dataset.theme=APP.theme;}
 function appearanceHTML(px){
   const grp=(key,title,opts)=>`<fieldset class="ap-grp"><legend>${title}</legend>${opts.map(([v,l])=>`<label><input type="radio" name="${px}-${key}" data-ap="${key}" value="${v}"${APP[key]===v?' checked':''}> ${l}</label>`).join('')}</fieldset>`;
-  return grp('size','Текст',[['0','Мелкий'],['1','Стандартный'],['2','Крупный']])+grp('width','Ширина',[['std','Стандартная'],['wide','Широкая']])+grp('theme','Цвет',[['auto','Автоматически'],['light','Светлая'],['dark','Тёмная']]);
+  return grp('size','Текст',[['0','Мелкий'],['1','Стандартный'],['2','Крупный']])+grp('width','Ширина',[['std','Стандартная'],['wide','Широкая']])+grp('theme','Цвета (бета)',[['auto','Автоматически'],['light','Светлая'],['dark','Тёмная']]);
 }
-function renderTools(){$('#tools').innerHTML=`<div class="side-h">Внешний вид</div>${appearanceHTML('t')}`;}
+function renderTools(){$('#tools').innerHTML=`<div class="side-h">Внешний вид <button class="pill" data-act="ap-toggle">${state.apHidden?'показать':'скрыть'}</button></div><div class="ap-body"${state.apHidden?' hidden':''}>${appearanceHTML('t')}</div>`;}
 
 /* ---------- каркас страниц ---------- */
 function applyBrand(){$('#logo-name').textContent=P.wiki.name;$('#logo-motto').textContent=P.wiki.motto||'';$('#logo-motto').hidden=!P.wiki.motto;$('#q').placeholder='Искать в '+P.wiki.name.replace(/ия$/,'ии');}
@@ -67,8 +67,8 @@ function tabsHTML(mode,pg){
   if(!pg)return `<div class="tabs"><div><span class="sel">${mode==='main'?'Заглавная страница':'Служебная страница'}</span></div><div></div></div>`;
   const read='#/wiki/'+slug(pg.title),edit='#/edit/'+pg.id;
   return `<div class="tabs"><div><a class="sel" href="${read}">Статья</a><span class="off" title="Обсуждений пока нет">Обсуждение</span></div>
-  <div><a${mode==='read'?' class="sel"':''} href="${read}">Читать</a><a${mode==='edit'?' class="sel"':''} href="${edit}">Править</a>
-  <span class="dd"><button class="tab-btn" data-act="dd" aria-expanded="false">Инструменты ▾</button><div class="dd-menu" hidden>
+  <div><a${mode==='read'?' class="sel"':''} href="${read}">Читать</a><a${mode==='edit'?' class="sel"':''} href="${edit}">Править</a><a href="${edit}/code">Править код</a><span class="off" title="История правок не ведётся">История</span>
+  <span class="dd"><button class="tab-btn tab-more" data-act="dd" aria-expanded="false" aria-label="Инструменты" title="Инструменты">⋮</button><div class="dd-menu" hidden>
     <div class="dd-h">Действия</div>
     <button data-act="snap" data-w="ib">Скачать карточку (PNG)</button><button data-act="snap" data-w="all">Скачать статью (PNG)</button><button data-act="dl-html">Скачать статью (HTML)</button>
     <div class="dd-h">Страница</div>
@@ -80,7 +80,7 @@ function footerHTML(pg){
   <ul><li><a href="#/">Заглавная страница</a></li><li><a href="#/all">Все статьи</a></li><li><a href="#/file">Файл проекта</a></li></ul></footer>`;
 }
 function shell({title,mode,pg,content,sub=true,foot=true,cls=''}){
-  return `<div class="snap-area ${cls}"><div class="titlebar"><h1 class="fh" id="top">${title}</h1></div>${tabsHTML(mode,pg)}${sub?`<div class="sitesub">${esc(P.wiki.tag)}</div>`:''}<div class="mw-content">${content}</div></div>${foot?footerHTML(pg):''}`;
+  return `<div class="snap-area ${cls}"><div class="titlebar"><h1 class="fh" id="top">${title}</h1></div>${tabsHTML(mode,pg)}${sub?`<div class="sitesub"><span>${esc(P.wiki.tag)}</span>${pg&&mode==='read'?`<span class="sitesub-r">[<a href="#/edit/${pg.id}/code">править код</a>]</span>`:''}</div>`:''}<div class="mw-content">${content}</div></div>${foot?footerHTML(pg):''}`;
 }
 function setView(side,main,title){$('#side').innerHTML=side;$('#main').innerHTML=main;document.title=title?title+' — '+P.wiki.name:P.wiki.name;}
 
@@ -91,7 +91,7 @@ function route(){
   document.body.classList.toggle('mode-edit',k==='edit'||(k==='map'&&!!arg));
   if(k==='random'){const p=P.pages[Math.floor(Math.random()*P.pages.length)];if(p){location.replace('#/wiki/'+slug(p.title));return;}}
   if(k==='wiki'){const pg=pageFind(arg);pg?viewArticle(pg):viewMissing(arg);}
-  else if(k==='edit'){const pg=P.pages.find(p=>p.id===arg.replace(/ /g,'_'))||P.pages.find(p=>p.id===arg)||pageFind(arg);pg?viewEdit(pg):viewMissing(arg);}
+  else if(k==='edit'){const code=/\/code$/.test(arg);const id=arg.replace(/\/code$/,'');const pg=P.pages.find(p=>p.id===id.replace(/ /g,'_'))||P.pages.find(p=>p.id===id)||pageFind(id);if(pg){viewEdit(pg);if(code)setTimeout(()=>{const t=$('#f-body');if(t){t.scrollIntoView({block:'center'});t.focus();}},60);}else viewMissing(id);}
   else if(k==='new')viewNew(arg);
   else if(k==='import')viewNew(arg,true);
   else if(k==='cat')viewCat(arg);
@@ -121,11 +121,14 @@ function viewMain(){
 }
 
 /* ---------- статья ---------- */
-function tocList(heads){return `<ul><li><a href="#" data-jump="top" class="active">Начало</a></li>${heads.filter(h=>h.lv<=3).map(h=>`<li class="lv${h.lv}"><a href="#" data-jump="${h.id}">${h.text}</a></li>`).join('')}</ul>`;}
+function tocList(heads){
+  const top=[];for(const h of heads.filter(h=>h.lv<=3)){if(h.lv===2||!top.length)top.push({h,kids:[]});else top[top.length-1].kids.push(h);}
+  return `<ul><li><a href="#" data-jump="top" class="active">Начало</a></li>${top.map(t=>`<li class="lv2${t.kids.length?' has-kids':''}">${t.kids.length?'<button class="toc-tg" data-act="toc-tg" aria-label="Развернуть" aria-expanded="false">›</button>':''}<a href="#" data-jump="${t.h.id}">${t.h.text}</a>${t.kids.length?`<ul hidden>${t.kids.map(k=>`<li class="lv3"><a href="#" data-jump="${k.id}">${k.text}</a></li>`).join('')}</ul>`:''}</li>`).join('')}</ul>`;
+}
 function viewArticle(pg){
   $('#main').classList.remove('is-main');
   const {content,heads}=articleParts(pg,{editLinks:true});
-  const side=heads.length?`<div class="vtoc${state.tocHidden?' collapsed':''}"><div class="side-h">Содержание <button class="linkbtn" data-act="toc-toggle">${state.tocHidden?'показать':'скрыть'}</button></div>${tocList(heads)}</div>`:mainMenuHTML();
+  const side=heads.length?`<div class="vtoc${state.tocHidden?' collapsed':''}"><div class="side-h">Содержание <button class="pill" data-act="toc-toggle">${state.tocHidden?'показать':'скрыть'}</button></div>${tocList(heads)}</div>`:mainMenuHTML();
   const mob=heads.length?`<details class="toc-mobile"><summary>Содержание</summary>${tocList(heads)}</details>`:'';
   setView(side,shell({title:fmt(esc(pg.title)),mode:'read',pg,content:mob+content+catlinksHTML(pg)}),pg.title);
   tocSpy();
@@ -141,7 +144,8 @@ function tocSpy(){
   window.addEventListener('scroll',()=>{if(raf)return;raf=requestAnimationFrame(()=>{raf=0;
     const links=$$('.vtoc a[data-jump]');if(!links.length)return;
     let cur='top';for(const a of links){const el=document.getElementById(a.dataset.jump);if(el&&el.getBoundingClientRect().top<110)cur=a.dataset.jump;}
-    links.forEach(a=>a.classList.toggle('active',a.dataset.jump===cur));});},{passive:true});
+    links.forEach(a=>a.classList.toggle('active',a.dataset.jump===cur));
+    const act=links.find(a=>a.dataset.jump===cur);const sub=act&&act.closest('ul[hidden]');if(sub){sub.hidden=false;const b=sub.parentElement.querySelector('.toc-tg');if(b){b.classList.add('open');b.setAttribute('aria-expanded','true');}}});},{passive:true});
 }
 
 /* ---------- списки, категории, поиск ---------- */
@@ -293,6 +297,7 @@ function editorForm(pg){
     <label class="fld"><span>Пометка над текстом</span>${inp('hatnote',pg.hatnote,'Например: Об одноимённом городе см. [[Омск]]')}</label>
   </fieldset>
   <fieldset class="grp"><legend>Карточка</legend>
+    <label class="fld"><span>Надпись над заголовком карточки</span>${ta1('ib.above',pg.ib.above||'','Например: Город-государство под протекторатом [[Лига Наций|Лиги Наций]]')}</label>
     <label class="fld"><span>Заголовок карточки</span>${ta1('ib.title',pg.ib.title)}</label>
     <div class="line"><label class="inl"><input type="checkbox" id="f-ib-custom" data-p="ib.custom"${pg.ib.custom?' checked':''}> свой цвет шапок</label>${col('ib.theme',pg.ib.theme)}<label class="inl">Ширина, em ${num('ib.w',pg.ib.w,14,40)}</label></div>
     <div id="rows">${pg.ib.rows.map(rowEditor).join('')}</div>
@@ -449,6 +454,8 @@ document.addEventListener('click',e=>{
   switch(act){
     case 'burger':{const m=$('#menu');if(m.hidden)renderMenu();m.hidden=!m.hidden;btn.setAttribute('aria-expanded',String(!m.hidden));break;}
     case 'dd':{const m=btn.nextElementSibling;m.hidden=!m.hidden;btn.setAttribute('aria-expanded',String(!m.hidden));break;}
+    case 'toc-tg':{const li=btn.closest('li');const ul=li&&li.querySelector('ul');if(ul){ul.hidden=!ul.hidden;btn.setAttribute('aria-expanded',String(!ul.hidden));btn.classList.toggle('open',!ul.hidden);}break;}
+    case 'ap-toggle':state.apHidden=!state.apHidden;renderTools();break;
     case 'toc-toggle':state.tocHidden=!state.tocHidden;$('.vtoc')?.classList.toggle('collapsed',state.tocHidden);btn.textContent=state.tocHidden?'показать':'скрыть';break;
     case 'ed-tab':state.edTab=btn.dataset.v;$('.editor').dataset.tab=state.edTab;$$('.ed-switch button').forEach(b=>b.classList.toggle('on',b.dataset.v===state.edTab));break;
     case 'create-page':{const t=($('#np-title')?.value||'').trim();if(t&&pageFind(t)){toast('Статья «'+t+'» уже есть — откройте её или выберите другое название',true);break;}const p=newPage(btn.dataset.tpl,t);P.pages.push(p);save();location.hash='#/edit/'+p.id;break;}

@@ -11,7 +11,11 @@ function makeMapDraw(d3,topojson){
     equalearth:{name:'Мир (Equal Earth)',make:()=>d3.geoEqualEarth()},
     eqrect:{name:'Равнопромежуточная',make:()=>d3.geoEquirectangular()},
     mercator:{name:'Меркатор',make:()=>d3.geoMercator()},
+    laea:{name:'Регион (равновеликая)',make:()=>d3.geoAzimuthalEqualArea().clipAngle(179.9).precision(.3)},
+    conic:{name:'Регион (коническая)',make:()=>d3.geoConicConformal().precision(.3)},
   };
+  /* обрезка кадра: ширина к высоте */
+  const ASPECTS={'':0,'1:1':1,'6:5':1.2,'4:3':4/3,'3:2':1.5,'16:9':16/9,'3:4':.75};
   const SPHERE={type:'Sphere'};
   const r1=n=>Math.round(n*100)/100;
 
@@ -23,17 +27,26 @@ function makeMapDraw(d3,topojson){
   }
   function projection(spec){
     const p=PROJ[spec.proj]?PROJ[spec.proj].make():PROJ.ortho.make();
-    const zoom=Math.max(1,+spec.zoom||1),lon=+spec.lon||0,lat=+spec.lat||0;
+    const zoom=Math.max(1,+spec.zoom||1),lon=+spec.lon||0,lat=+spec.lat||0;const a=ASPECTS[spec.aspect]||0;
     if(spec.proj==='ortho'||!PROJ[spec.proj]){
-      const W=500,H=500;p.rotate([-lon,-lat]).scale(245*zoom).translate([W/2,H/2]);return {p,W,H};
+      const W=500,H=a?Math.round(W/a):500;p.rotate([-lon,-lat]).scale(245*zoom).translate([W/2,H/2]);return {p,W,H};
+    }
+    if(spec.proj==='laea'||spec.proj==='conic'){
+      const W=1000,H=Math.round(W/(a||1.25));
+      if(spec.proj==='laea')p.rotate([-lon,-lat]).scale(W/4*zoom);
+      else p.parallels([lat-12,lat+12]).rotate([-lon,0]).center([0,lat]).scale(W/6*zoom);
+      p.translate([W/2,H/2]).clipExtent([[-2,-2],[W+2,H+2]]);
+      return {p,W,H};
     }
     const W=1000;let H;
     p.rotate([-lon,0]);
     if(spec.proj==='mercator'){p.scale(W/(2*Math.PI)).translate([0,0]);H=Math.round(W*.72);}
     else{p.fitWidth(W,SPHERE);const b=d3.geoPath(p).bounds(SPHERE);H=Math.ceil(b[1][1]-b[0][1]);}
+    if(a)H=Math.round(W/a);
     p.scale(p.scale()*zoom).translate([0,0]);
-    const c=p([lon,zoom>1||spec.proj==='mercator'?lat:0])||[0,0];
+    const c=p([lon,zoom>1||a||spec.proj==='mercator'?lat:0])||[0,0];
     p.translate([W/2-c[0],H/2-c[1]]);
+    if(a||zoom>1)p.clipExtent([[-2,-2],[W+2,H+2]]);
     return {p,W,H};
   }
 
@@ -126,6 +139,8 @@ function makeMapDraw(d3,topojson){
     let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`;
     if(globe)s+=`<defs><radialGradient id="mo" cx="42%" cy="40%" r="62%"><stop offset="0" stop-color="${spec.ocean}"/><stop offset=".72" stop-color="${spec.ocean}"/><stop offset="1" stop-color="#d4d4d4"/></radialGradient><radialGradient id="ms" cx="42%" cy="40%" r="62%"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".16"/></radialGradient></defs>`;
     const sph=path(SPHERE)||'';
+    const regional=spec.proj==='laea'||spec.proj==='conic';
+    if(regional)s+=`<rect width="${W}" height="${H}" fill="${spec.ocean}"/>`;
     s+=`<path d="${sph}" fill="${globe&&spec.shade?'url(#mo)':spec.ocean}"/>`;
     if(spec.grat)s+=`<path d="${path(d3.geoGraticule10())}" fill="none" stroke="#000" stroke-opacity=".13" stroke-width=".5"/>`;
     // государства основы, которые не разбиты на провинции
@@ -174,8 +189,29 @@ function makeMapDraw(d3,topojson){
     }
     if(spec.lakes&&geo._lakes.length){let l='';for(const f of geo._lakes){const d=path(f);if(d)l+=`<path d="${d}"/>`;}s+=`<g fill="${spec.ocean}"${ia?' pointer-events="none"':''}>${l}</g>`;}
     if(globe&&spec.shade)s+=`<path d="${sph}" fill="url(#ms)" pointer-events="none"/>`;
-    s+=`<path d="${sph}" fill="none" stroke="#9a9a9a" stroke-width="${globe?1:.8}" pointer-events="none"/>`;
+    if(!regional)s+=`<path d="${sph}" fill="none" stroke="#9a9a9a" stroke-width="${globe?1:.8}" pointer-events="none"/>`;
+    // кружок вокруг маленьких государств (как на карте Данцига)
+    (spec.groups||[]).forEach((g,i)=>{if(!g.circle)return;const c=groupCentroid(spec,i,geo);const xy=c&&p(c);
+      if(xy&&isFinite(xy[0]))s+=`<circle cx="${xy[0].toFixed(1)}" cy="${xy[1].toFixed(1)}" r="${regional||globe?11:8}" fill="none" stroke="#333" stroke-width="1.4" pointer-events="none"/>`;});
+    if(spec.inset)s+=insetSVG(spec,geo,p,W,H);
     return s+'</svg>';
+  }
+  /* Мини-карта мира в углу с рамкой показанной области (как на карте Чехии) */
+  function insetSVG(spec,geo,p,W,H){
+    const iw=Math.round(W*.3),ih=Math.round(iw*.51),pad=Math.round(W*.012);
+    const pos=spec.insetPos||'tl';const x0=pos[1]==='r'?W-iw-pad:pad,y0=pos[0]==='b'?H-ih-pad:pad;
+    const ip=d3.geoRobinson().rotate([-(+spec.lon||0),0]).fitExtent([[x0,y0],[x0+iw,y0+ih]],SPHERE);
+    const ipath=d3.geoPath(ip).digits(1);
+    let s=`<g pointer-events="none"><path d="${ipath(SPHERE)}" fill="${spec.ocean}" stroke="#8a8a8a" stroke-width="1"/>`;
+    s+=`<path d="${ipath({type:'FeatureCollection',features:geo._c})}" fill="${spec.land}"/>`;
+    // область основной карты: обходим края кадра и переносим точки на мини-карту
+    const pts=[];const N=40;
+    const edge=(ax,ay,bx,by)=>{for(let k=0;k<N;k++){const t=k/N;const g=p.invert([ax+(bx-ax)*t,ay+(by-ay)*t]);if(g&&isFinite(g[0])&&isFinite(g[1])){const q=ip(g);if(q)pts.push(q);}}};
+    const full=spec.proj==='ortho'&&(+spec.zoom||1)<1.6;
+    if(full){const c=d3.geoCircle().center([+spec.lon||0,+spec.lat||0]).radius(89)();const d=ipath(c);if(d)s+=`<path d="${d}" fill="#c00" fill-opacity=".12" stroke="#c00" stroke-width="1.2"/>`;}
+    else{edge(0,0,W,0);edge(W,0,W,H);edge(W,H,0,H);edge(0,H,0,0);
+      if(pts.length>3)s+=`<path d="M${pts.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join('L')}Z" fill="#c00" fill-opacity=".12" stroke="#c00" stroke-width="1.2" stroke-linejoin="round"/>`;}
+    return s+'</g>';
   }
   /* Центр группы — чтобы повернуть глобус к выбранному государству */
   function groupCentroid(spec,gi,geo){
@@ -187,7 +223,7 @@ function makeMapDraw(d3,topojson){
     const c=d3.geoCentroid({type:'FeatureCollection',features:feats});
     return isFinite(c[0])?c:null;
   }
-  return {PROJ,defaults,projection,prepare,provFor,splitData,baseUnit,ownerOf,regionOf,filesFor,unitName,tplOf,drawMap,groupCentroid,owns,colorOf};
+  return {PROJ,ASPECTS,defaults,projection,prepare,provFor,splitData,baseUnit,ownerOf,regionOf,filesFor,unitName,tplOf,drawMap,groupCentroid,owns,colorOf};
 }
 if(typeof module!=='undefined'&&module.exports)module.exports=makeMapDraw;
 else root.MapDraw=makeMapDraw(root.d3,root.topojson);

@@ -133,7 +133,7 @@ function renderBody(src,ctx,pid){
     if(m=t.match(/^(={2,4})\s*(.+?)\s*\1$/)){
       flush();const lv=m[1].length,id='sec-'+heads.length;
       const text=inline(m[2],newCtx());heads.push({lv,id,text:text.replace(/<[^>]+>/g,'')});
-      const ed=pid&&lv===2?`<span class="mw-editsection"><span class="br">[</span><a href="#/edit/${pid}">править</a><span class="br">]</span></span>`:'';
+      const ed=pid&&lv===2?`<span class="mw-editsection"><span class="br">[</span><a href="#/edit/${pid}">править</a><span class="sep">|</span><a href="#/edit/${pid}/code">править код</a><span class="br">]</span></span>`:'';
       out.push(`<h${lv} id="${id}">${inline(m[2],ctx)}${ed}</h${lv}>`);i++;continue;}
     if(/^\{\|/.test(t)){flush();const tl=[];i++;while(i<lines.length&&!/^\|\}/.test(lines[i].trim())){tl.push(lines[i]);i++;}i++;out.push(renderTable(tl,ctx));continue;}
     if(/^[*#]/.test(t)){flush();const ll=[];while(i<lines.length&&/^[*#]/.test(lines[i].trim())){ll.push(lines[i].trim());i++;}out.push(renderList(ll,ctx));continue;}
@@ -205,9 +205,9 @@ function renderInfobox(ib,ctx){
   const th=ib.custom?safeColor(ib.theme):'';const fg=th?textOn(th):'';
   const hs={st:th?` style="background:${th};color:${fg}"`:'',st2:th?` style="background:${th};color:${fg}"`:'',dk:fg==='#ffffff'?' dk':''};
   let h='';for(const r of ib.rows||[])h+=(RENDER[r.t]?RENDER[r.t](r,ctx,hs):'');
-  if(!h&&!ib.title)return '';
+  if(!h&&!ib.title&&!ib.above)return '';
   const w=Math.min(40,Math.max(14,+ib.w||23));
-  return `<table class="infobox" style="width:${w}em"><tbody>${ib.title?`<tr><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
+  return `<table class="infobox" style="width:${w}em"><tbody>${ib.above?`<tr><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
 }
 
 /* ---------- article ---------- */
