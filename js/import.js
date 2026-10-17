@@ -4,6 +4,7 @@
 const WI_LANGS={ru:'Русская',en:'English',uk:'Українська',be:'Беларуская',de:'Deutsch',fr:'Français',es:'Español',it:'Italiano',pl:'Polski',pt:'Português',ja:'日本語',zh:'中文'};
 const WI_STOP=/^(примечания|комментарии|литература|ссылки|см\.\s*также|источники|библиография|references|notes|citations|footnotes|external links|further reading|see also|sources|bibliography|einzelnachweise|weblinks|literatur|siehe auch|anmerkungen|notes et références|liens externes|bibliographie|voir aussi|примітки|посилання|література|див\. також)$/i;
 const WI_TYPES=[
+  [/выбор|election|референдум|referendum/i,'election'],
   [/государственный деятель|политик|officeholder|ib-officeholder|president|prime minister/i,'leader'],
   [/монарх|royalty|ib-royalty/i,'monarch'],
   [/вооружённый конфликт|сражение|military conflict|ib-military-conflict|battle/i,'battle'],
@@ -157,6 +158,11 @@ function wiInfobox(tbl,C){
       continue;
     }
     if(one&&one.querySelector('hr')&&!one.textContent.trim()){rows.push(R.hr());continue;}
+    {const tl=one&&one.querySelector('[class*="хронология"],.ts-Карточка-хронология');
+     if(tl){const part=sel=>{const e=tl.querySelector(sel);return e?C.inline(e,false).replace(/^\s*←\s*|\s*→\s*$/g,'').trim():'';};
+       rows.push(R.s(part('[class*="изображение"]'),part('[class*="prev"]'),part('[class*="next"]')));continue;}}
+    if(cells.length===3&&!th.length&&/^\s*←/.test(cells[0].textContent)&&/→\s*$/.test(cells[2].textContent)){
+      const v=c=>C.inline(c,false).replace(/^\s*←\s*|\s*→\s*$/g,'').trim();rows.push(R.s(v(cells[1]),v(cells[0]),v(cells[2])));continue;}
     // стороны конфликта во вложенной таблице (русская Википедия): колонки
     const nt=one&&[...one.querySelectorAll('table')].find(t=>t.closest('td')===one&&[...t.rows].some(r=>r.cells.length>=2)&&![...t.querySelectorAll('img')].some(i=>(+i.getAttribute('width')||0)>60||(+i.getAttribute('height')||0)>60));
     if(nt){
@@ -179,8 +185,9 @@ function wiInfobox(tbl,C){
           for(const extra of big.slice(2))rows.push(R.i(C.mediaName(extra),'',Math.min(300,+extra.getAttribute('width')||250)));
         }else{
           const clone=one.cloneNode(true);clone.querySelectorAll('img').forEach(i=>{const w=+i.getAttribute('width')||0;if(w>60)i.remove();});
-          const capText=caps.length?C.inline(caps[0],false):C.inline(clone,false);
-          rows.push(R.i(C.mediaName(big[0]),capText,Math.min(300,+big[0].getAttribute('width')||250)));
+          clone.querySelectorAll('figcaption').forEach(f=>{if(!f.textContent.trim())f.remove();});
+          const capText=caps.map(x=>C.inline(x,false)).find(Boolean)||C.inline(clone,false);
+          rows.push(R.i(C.mediaName(big[0]),capText,Math.min(400,+big[0].getAttribute('width')||250)));
         }
         continue;
       }
@@ -188,6 +195,28 @@ function wiInfobox(tbl,C){
       if(/text-align:\s*left/i.test(st)&&/font-weight:\s*bold/i.test(st)){const v=C.inline(one,false);if(v)rows.push(R.f('='+v,''));continue;}
       const v=C.inline(one,true);if(v)rows.push(R.t(v));continue;
     }
+    if(th.length===1&&td.length>=2&&cells[0]===th[0]){
+      const label=C.inline(th[0],false).replace(/\u00ad/g,'');let cr=rows[rows.length-1];
+      if(!cr||cr.t!=='cands'||!cr._open){cr={t:'cands',per:td.length,cands:[],stats:[],wiki:true,_open:true,_base:0};rows.push(cr);}
+      const big=td.map(c=>[...c.querySelectorAll('img')].find(i=>(+i.getAttribute('width')||0)>60||(+i.getAttribute('height')||0)>60));
+      const colorOf=c=>{for(const e of [c,...c.querySelectorAll('[style]')]){const m=(e.getAttribute('style')||'').match(/(?:border-bottom|border-top|background(?:-color)?)\s*:[^;]*?(#[0-9a-f]{3,8}\b|rgb\([^)]*\))/i);if(m)return m[1];}return '';};
+      const ensure=n=>{while(cr.cands.length<n)cr.cands.push({name:'',src:'',color:'#a2a9b1'});};
+      // несколько кандидатов рядами (ru.wiki: по двое) — каждая новая строка фото или имён начинает следующий ряд
+      const group=()=>cr.cands.slice(cr._base);
+      const isPhoto=big.some(Boolean)&&C.opts.images;
+      const isName=/^(кандидат|candidate|nominee|лидер|leader)$/i.test(label.trim());
+      if((isPhoto&&group().some(x=>x.src||x.name))||(isName&&group().some(x=>x.name)))cr._base=cr.cands.length;
+      const b0=cr._base;
+      if(isPhoto){ensure(b0+td.length);td.forEach((c,k)=>{if(big[k])cr.cands[b0+k].src=C.mediaName(big[k]);const col=colorOf(c);if(col)cr.cands[b0+k].color=col;});cr.photoLabel=label;continue;}
+      if(td.every(c=>!c.textContent.trim())&&td.some(c=>colorOf(c))){ensure(b0+td.length);td.forEach((c,k)=>{const col=colorOf(c);if(col)cr.cands[b0+k].color=col;});continue;}
+      const vals=td.map(c=>C.inline(c,true));
+      if(isName){ensure(b0+vals.length);vals.forEach((v,k)=>cr.cands[b0+k].name=v);cr.nameLabel=label;continue;}
+      // строка данных: та же подпись во втором ряду дополняет уже начатую строку
+      let st=cr.stats.find(x=>x.label===label&&vals.every((v,k)=>!String(x.values[b0+k]||'').trim()));
+      if(!st){st={label,values:[]};cr.stats.push(st);}
+      vals.forEach((v,k)=>st.values[b0+k]=v);continue;
+    }
+    {const last=rows[rows.length-1];if(last&&last._open)delete last._open;}
     if(th.length===1&&td.length===1){const label=C.inline(th[0],false),v=C.inline(td[0],true);if(v)rows.push(R.f(label,v));continue;}
     if(td.length>=2&&!th.length){
       const vals=td.map(c=>C.inline(c,true));
@@ -199,6 +228,17 @@ function wiInfobox(tbl,C){
     }
     const v=C.inline(tr,true);if(v)rows.push(R.t(v));
   }
+  // кандидаты: убираем пустые колонки (в ru.wiki их всегда на одну больше)
+  for(const r of rows){if(r.t!=='cands')continue;delete r._open;delete r._base;
+    const W=Math.max(1,r.per||2);let n=Math.max(r.cands.length,...r.stats.map(s=>s.values.length));
+    for(const st of r.stats)for(let k=0;k<n;k++)if(st.values[k]==null)st.values[k]='';
+    const used=j=>(r.cands[j]&&(r.cands[j].name||r.cands[j].src))||r.stats.some(s=>String(s.values[j]||'').trim());
+    while(r.cands.length<n)r.cands.push({name:'',src:'',color:'#a2a9b1'});
+    // в каждом ряду ширины W убираем пустые хвостовые колонки, если они пусты во всех рядах
+    let w=W;while(w>1){let empty=true;for(let g=0;g<n;g+=W)if(used(g+w-1))empty=false;if(!empty)break;w--;}
+    const keep=[...Array(n).keys()].filter(j=>j%W<w&&(j<n));
+    const last=keep.filter(used).pop();const keep2=keep.filter(j=>last==null||j<=last);
+    r.cands=keep2.map(j=>r.cands[j]);r.stats.forEach(s=>s.values=keep2.map(j=>s.values[j]||''));r.per=Math.max(1,Math.min(4,w));}
   return {title,rows};
 }
 

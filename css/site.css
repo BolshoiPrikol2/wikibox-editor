@@ -508,3 +508,12 @@ textarea.one{resize:none;min-height:32px;overflow:hidden}
 /* режим Википедии: прячем всё, что относится к правке */
 html[data-wmode="wiki"] .mw-editsection,html[data-wmode="wiki"] .sitesub-r,html[data-wmode="wiki"] .tabs .tab-ed,html[data-wmode="wiki"] .tools-hint{display:none!important}
 html[data-wmode="wiki"] #main .mw-content [data-l]:hover,html[data-wmode="wiki"] #main .infobox tr[data-ib]:hover>*,html[data-wmode="wiki"] #main .hatnote[data-ib]:hover{background-color:transparent}
+
+/* кандидаты в стиле ru.wiki «Карточка выборов» */
+.ib-cands-w th{text-align:left;vertical-align:top;padding:1px;font-weight:bold;width:1%;min-width:5.5em}
+.ib-cands-w td.cl{text-align:left;padding:1px 3px}
+.ib-cands-w tr.cph td{vertical-align:bottom;text-align:center}
+.ib-cands-w tr.cph th{vertical-align:top}
+.ib-cands-w img{width:auto;max-width:none;height:180px;aspect-ratio:auto;object-fit:contain}
+.ib-cands-w .cbar{height:6px;margin:.25em 0 0;max-width:none;width:100%}
+@media (max-width:720px){.ib-cands-w img{height:auto;max-width:100%}}

@@ -239,11 +239,17 @@ const RENDER={
     for(let s=0;s<cs.length;s+=per){
       const ch=cs.slice(s,s+per).map((x,j)=>({...x,idx:s+j}));const w=`style="width:${(100/per).toFixed(1)}%"`;
       let t='<table class="ib-cands"><tbody>';
+      const lab=k=>r[k]?`<th>${inline(r[k],c)}</th>`:'<td></td>';
+      if(r.wiki){
+        if(ch.some(x=>mediaSrc(x.src)))t+=`<tr class="cph">${lab('photoLabel')}${ch.map(x=>`<td ${w}>${mediaSrc(x.src)?`<img src="${mediaSrc(x.src)}" alt="">`:''}<div class="cbar" style="background:${safeColor(x.color)}"></div></td>`).join('')}</tr>`;
+        if(ch.some(x=>String(x.name||'').trim()))t+=`<tr>${lab('nameLabel')}${ch.map(x=>`<td class="cl">${inline(x.name,c)}</td>`).join('')}</tr>`;
+      }else{
       if(ch.some(x=>mediaSrc(x.src)))t+=`<tr><td></td>${ch.map(x=>`<td ${w}>${mediaSrc(x.src)?`<img src="${mediaSrc(x.src)}" alt="">`:''}</td>`).join('')}</tr>`;
       t+=`<tr><td></td>${ch.map(x=>`<td ${w}><div class="cbar" style="background:${safeColor(x.color)}"></div></td>`).join('')}</tr>`;
       t+=`<tr><td></td>${ch.map(x=>`<td><b>${inline(x.name,c)}</b></td>`).join('')}</tr>`;
-      for(const st of r.stats||[])t+=`<tr><th>${inline(st.label,c)}</th>${ch.map(x=>`<td>${ibVal((st.values||[])[x.idx]||'',c)}</td>`).join('')}</tr>`;
-      h+=`<tr><td colspan="2" class="ib-nest ib-cw">${t}</tbody></table></td></tr>`;
+      }
+      for(const st of r.stats||[])t+=`<tr><th>${inline(st.label,c)}</th>${ch.map(x=>`<td${r.wiki?' class="cl"':''}>${ibVal((st.values||[])[x.idx]||'',c)}</td>`).join('')}</tr>`;
+      h+=`<tr><td colspan="2" class="ib-nest ib-cw">${t.replace('<table class="ib-cands">',`<table class="ib-cands${r.wiki?' ib-cands-w':''}">`)}</tbody></table></td></tr>`;
     }
     return h;},
 };
