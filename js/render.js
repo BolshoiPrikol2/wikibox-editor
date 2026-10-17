@@ -52,7 +52,7 @@ function inline(src,ctx){
   const tok=[];const keep=h=>'\u0001'+(tok.push(h)-1)+'\u0002';
   let s=String(src).replace(REF_RE,(m,name,content)=>keep(refHTML(name,content,ctx)));
   s=esc(s);
-  s=s.replace(/&lt;br\s*\/?&gt;/gi,'<br>').replace(/&lt;(\/?)(small|big|s|u|sup|sub|code)&gt;/gi,'<$1$2>');
+  s=s.replace(/\r?\n/g,'<br>').replace(/&lt;br\s*\/?&gt;/gi,'<br>').replace(/&lt;(\/?)(small|big|s|u|sup|sub|code)&gt;/gi,'<$1$2>');
   s=s.replace(/\{\{([^{}]+)\}\}/g,(m,inner)=>keep(tplInline(inner)));
   s=s.replace(/\[\[(?:Файл|File|Изображение|Image):([^\]]+)\]\]/gi,(m,spec)=>{const a=spec.split('|');const src=mediaSrc(unesc(a[0].trim()));const px=a.find(x=>/^\d+px$/.test(x.trim()));return keep(src?`<img src="${src}" alt="" style="height:${px?parseInt(px):20}px;width:auto;vertical-align:middle">`:'');});
   s=s.replace(/\[\[([^\[\]|]+)(?:\|([^\[\]]*))?\]\]/g,(m,t,x)=>keep(linkHTML(t,x||undefined)));
@@ -61,12 +61,15 @@ function inline(src,ctx){
   return s.replace(/\u0001(\d+)\u0002/g,(m,i)=>tok[+i]);
 }
 function ibVal(v,ctx){
-  let html='',list=[];
+  let html='',list=[],blank=0;
   const fl=()=>{if(list.length){html+='<ul>'+list.map(x=>'<li>'+inline(x,ctx)+'</li>').join('')+'</ul>';list=[];}};
   for(const l of String(v??'').split('\n')){
     const m=l.match(/^\s*\*\s*(.*)$/);
-    if(m){list.push(m[1]);continue;}
-    fl();if(l.trim())html+=(html&&!html.endsWith('</ul>')?'<br>':'')+inline(l,ctx);
+    if(m){list.push(m[1]);blank=0;continue;}
+    fl();
+    // пустая строка в значении — пустая строка в карточке
+    if(!l.trim()){if(html)blank++;continue;}
+    html+=(html&&!html.endsWith('</ul>')?'<br>':'')+'<br>'.repeat(blank)+inline(l,ctx);blank=0;
   }
   fl();return html;
 }
@@ -121,7 +124,7 @@ function renderThumb(spec,ctx){
 function renderBody(src,ctx,pid){
   const lines=String(src||'').replace(/\r/g,'').split('\n');
   const out=[],heads=[];let para=[];let i=0,m;
-  const flush=()=>{if(para.length){out.push('<p>'+inline(para.join(' '),ctx)+'</p>');para=[];}};
+  const flush=()=>{if(para.length){out.push('<p>'+inline(para.join('\n'),ctx)+'</p>');para=[];}};
   while(i<lines.length){
     const t=lines[i].trim();
     if(!t){flush();i++;continue;}

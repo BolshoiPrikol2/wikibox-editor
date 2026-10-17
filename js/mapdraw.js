@@ -132,7 +132,7 @@ function makeMapDraw(d3,topojson){
     for(const [f,u] of baseFeats){
       if(D&&splitSet.has(u))continue;
       const d=path(f);if(!d)continue;
-      land+=`<path d="${d}" fill="${colorOf(spec,u)||spec.land}"${ia?` data-u="${u}"`:''}/>`;
+      land+=`<path d="${d}" fill="${colorOf(spec,u)||spec.land}"${ia?` data-u="${u}"`:''}${ia&&opt.hl&&opt.hl===u?' class="tgt"':''}/>`;
     }
     s+=`<g stroke="${B}" stroke-width="${bw}" stroke-linejoin="round">${land}</g>`;
     // провинции разбитых государств
@@ -144,7 +144,7 @@ function makeMapDraw(d3,topojson){
       if(ia){
         let pv='';
         for(const f of D.feats){const d=path(f);if(!d)continue;const {id,r,c}=f.properties;
-          pv+=`<path d="${d}" fill="${colF(f)}" data-p="${id}" data-r="${r}" data-c="${c}" data-u="${own(f)}"/>`;}
+          pv+=`<path d="${d}" fill="${colF(f)}" data-p="${id}" data-r="${r}" data-c="${c}" data-u="${own(f)}"${opt.hl&&opt.hl===own(f)?' class="tgt"':''}/>`;}
         s+=`<g stroke="${B}" stroke-width="${r1(bw*.3)}" stroke-opacity=".6">${pv}</g>`;
         const reg=path(topojson.mesh(D.topo,D.obj,(a,b)=>a!==b&&a.properties.r!==b.properties.r&&ownG(a)===ownG(b)));
         if(reg)s+=`<path d="${reg}" fill="none" stroke="${B}" stroke-width="${r1(bw*.8)}" stroke-opacity=".85" pointer-events="none"/>`;
