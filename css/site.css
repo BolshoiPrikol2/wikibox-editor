@@ -489,3 +489,15 @@ textarea.one{resize:none;min-height:32px;overflow:hidden}
 
 .flaglink{text-decoration:none!important}
 .flaglink img{vertical-align:middle}
+
+/* [показать] / [скрыть] в карточке, как в «НАТО» */
+.fold-tg{float:right;margin-left:.6em;padding:0;border:0;background:none;font:inherit;font-weight:normal;color:var(--link);cursor:pointer;white-space:nowrap;text-align:right}
+.fold-tg::before{content:'[';color:var(--text)}.fold-tg::after{content:']';color:var(--text)}
+.fold-tg:hover{text-decoration:underline}
+.infobox .dk .fold-tg,.infobox .dk .fold-tg::before,.infobox .dk .fold-tg::after{color:inherit}
+.fold-sum{font-weight:bold}
+.infobox tr[hidden],.fold-body[hidden]{display:none}
+.rw-set{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;padding:6px 8px;border-top:1px dashed var(--border-sub);font-size:13.5px}
+.rw-set .rw-type{flex-basis:100%}
+.rw-set-sum{flex:1 1 240px;display:flex;gap:6px;align-items:center}
+.rw-set-sum input{flex:1;min-width:120px}

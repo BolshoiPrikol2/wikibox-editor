@@ -208,15 +208,18 @@ function parlSVG(parties){
 }
 
 /* ---------- infobox (как «Государственный деятель» в русской Википедии) ---------- */
+/* Кнопка «показать/скрыть», как в карточке «НАТО»: у строки сворачивается значение, у заголовка — строки до следующего заголовка */
+function foldBtn(open,id){return `<button type="button" class="fold-tg" aria-expanded="${open}"${id?` data-fold="${id}"`:''}>${open?'скрыть':'показать'}</button>`;}
+function foldBox(r,html,c){if(!r.fold)return html;const open=!!r.foldOpen;return `<div class="ib-fold">${foldBtn(open)}${String(r.foldSum||'').trim()?`<div class="fold-sum">${inline(r.foldSum,c)}</div>`:''}<div class="fold-body"${open?'':' hidden'}>${html}</div></div>`;}
 function hdr(content,c,hs){return `<tr><th colspan="2" scope="colgroup" class="infobox-header${hs.dk}"${hs.st}>${content}</th></tr>`;}
 const RENDER={
-  header:(r,c,hs)=>{
+  header:(r,c,hs,i)=>{
     if(!r.text)return '';
-    const l=mediaSrc(r.l),rr=mediaSrc(r.r);
-    if(!l&&!rr)return hdr(inline(r.text,c),c,hs);
-    return hdr(`<div class="ib-office"><div class="ib-office-img">${l?`<img src="${l}" alt="">`:''}</div><div class="ib-office-label">${inline(r.text,c)}</div><div class="ib-office-img">${rr?`<img src="${rr}" alt="">`:''}</div></div>`,c,hs);},
-  field:(r,c)=>{const lb=String(r.label||'');if(/^=/.test(lb))return `<tr><td colspan="2" class="ib-sub">${inline(lb.replace(/^=\s*/,''),c)}${String(r.value||'').trim()?' '+ibVal(r.value,c):''}</td></tr>`;if(!String(r.value||'').trim())return '';return r.label?`<tr><th scope="row" class="plainlist${/^\s*•/.test(lb)?' ib-l2':''}">${inline(/^\s*•/.test(lb)?'\u00a0•\u00a0'+lb.replace(/^\s*•\s*/,''):r.label,c)}</th><td class="plainlist">${ibVal(r.value,c)}</td></tr>`:`<tr><td colspan="2" class="plainlist">${ibVal(r.value,c)}</td></tr>`;},
-  text:(r,c)=>String(r.value||'').trim()?`<tr><td colspan="2" class="plainlist" style="text-align:center">${ibVal(r.value,c)}</td></tr>`:'',
+    const l=mediaSrc(r.l),rr=mediaSrc(r.r);const fb=r.fold?foldBtn(!!r.foldOpen,'f'+i):'';
+    if(!l&&!rr)return hdr(fb+inline(r.text,c),c,hs);
+    return hdr(fb+`<div class="ib-office"><div class="ib-office-img">${l?`<img src="${l}" alt="">`:''}</div><div class="ib-office-label">${inline(r.text,c)}</div><div class="ib-office-img">${rr?`<img src="${rr}" alt="">`:''}</div></div>`,c,hs);},
+  field:(r,c)=>{const lb=String(r.label||'');if(/^=/.test(lb))return `<tr><td colspan="2" class="ib-sub">${inline(lb.replace(/^=\s*/,''),c)}${String(r.value||'').trim()?' '+ibVal(r.value,c):''}</td></tr>`;if(!String(r.value||'').trim())return '';return r.label?`<tr><th scope="row" class="plainlist${/^\s*•/.test(lb)?' ib-l2':''}">${inline(/^\s*•/.test(lb)?'\u00a0•\u00a0'+lb.replace(/^\s*•\s*/,''):r.label,c)}</th><td class="plainlist">${foldBox(r,ibVal(r.value,c),c)}</td></tr>`:`<tr><td colspan="2" class="plainlist">${foldBox(r,ibVal(r.value,c),c)}</td></tr>`;},
+  text:(r,c)=>String(r.value||'').trim()?`<tr><td colspan="2" class="plainlist" style="text-align:center">${foldBox(r,ibVal(r.value,c),c)}</td></tr>`:'',
   hr:()=>`<tr><td colspan="2" class="ib-hr"><hr></td></tr>`,
   anthem:(r,c)=>{const v=String(r.value||'').trim();if(!v&&!r.dur)return '';return `<tr><td colspan="2" class="plainlist ib-anthem">${r.label?inline(r.label,c)+': ':''}${v?ibVal(v,c):''}${r.dur?playerHTML(r.dur):''}</td></tr>`;},
   below:(r,c,hs)=>String(r.value||'').trim()?`<tr><td colspan="2" class="infobox-below${hs.dk}"${hs.st2}>${ibVal(r.value,c)}</td></tr>`:'',
@@ -244,7 +247,11 @@ const RENDER={
 function renderInfobox(ib,ctx,mark){
   const th=ib.custom?safeColor(ib.theme):'';const fg=th?textOn(th):'';
   const hs={st:th?` style="background:${th};color:${fg}"`:'',st2:th?` style="background:${th};color:${fg}"`:'',dk:fg==='#ffffff'?' dk':''};
-  let h='';(ib.rows||[]).forEach((r,i)=>{let x=RENDER[r.t]?RENDER[r.t](r,ctx,hs):'';if(mark)x=x.replace(/<tr(?=[ >])/g,`<tr data-ib="${i}"`);h+=x;});
+  let h='',fold=null;(ib.rows||[]).forEach((r,i)=>{
+    if(r.t==='header')fold=r.fold&&r.text?{id:'f'+i,open:!!r.foldOpen}:null;
+    let x=RENDER[r.t]?RENDER[r.t](r,ctx,hs,i):'';if(mark)x=x.replace(/<tr(?=[ >])/g,`<tr data-ib="${i}"`);
+    if(fold&&r.t!=='header')x=x.replace(/<tr(?=[ >])/g,`<tr data-fold="${fold.id}"${fold.open?'':' hidden'}`);
+    h+=x;});
   if(!h&&!ib.title&&!ib.above)return '';
   const w=Math.min(40,Math.max(14,+ib.w||23));
   return `<table class="infobox" style="width:${w+.4}em"><tbody>${ib.above?`<tr${mark?' data-ib="above"':''}><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr${mark?' data-ib="title"':''}><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;

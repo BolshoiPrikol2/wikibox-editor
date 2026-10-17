@@ -264,11 +264,18 @@ function picker(path,val,label){
   const s=mediaSrc(val);
   return `<div class="pick">${label?`<span class="pick-l">${label}</span>`:''}<span class="pthumb">${s?`<img src="${s}" alt="">`:''}</span><select id="${fid(path)}" data-p="${path}" aria-label="${label||'Изображение'}"><option value="">— нет —</option>${P.media.map(m=>`<option value="${esc(m.name)}"${m.name===val?' selected':''}>${esc(m.name)}</option>`).join('')}${val&&!s?`<option value="${esc(val)}" selected>${esc(val)} (нет в медиатеке)</option>`:''}</select><label class="btn sm" title="Загрузить картинку с компьютера">Загрузить<input type="file" accept="image/*" data-up="${path}" hidden></label></div>`;
 }
-const rbtns=(i,dup=true)=>`<span class="rbtns"><span class="drag" data-drag="${i}" title="Перетащите, чтобы переставить строку" aria-label="Перетащить строку">⠿</span><button class="ic" data-act="row-up" data-i="${i}" aria-label="Выше" title="Выше">↑</button><button class="ic" data-act="row-down" data-i="${i}" aria-label="Ниже" title="Ниже">↓</button>${dup?`<button class="ic" data-act="row-dup" data-i="${i}" aria-label="Копировать строку" title="Копировать">⧉</button>`:''}<button class="ic x" data-act="row-del" data-i="${i}" aria-label="Удалить строку" title="Удалить">✕</button></span>`;
+const FOLDABLE=['field','text','header'];const SETOPEN=new Set();
+/* панель настроек строки (⚙): кнопка «показать/скрыть» */
+function rowSet(r,i){
+  if(!FOLDABLE.includes(r.t))return '';const p='ib.rows.'+i;
+  const cb=(k,txt)=>`<label class="inl"><input type="checkbox" id="${fid(p+'.'+k)}" data-p="${p}.${k}"${r[k]?' checked':''}> ${txt}</label>`;
+  return `<div class="rw-set"${r.fold||SETOPEN.has(i)?'':' hidden'}><span class="rw-type">Настройки строки</span>${cb('fold','Кнопка «показать / скрыть»')}${cb('foldOpen','сначала развёрнуто')}${r.t==='header'?'<span class="cnt">Сворачивает строки карточки до следующего заголовка</span>':`<label class="inl rw-set-sum">Видно, пока свёрнуто ${inp(p+'.foldSum',r.foldSum||'','например: 32 государства')}</label>`}</div>`;
+}
+const rbtns=(i,dup=true,set=false)=>`<span class="rbtns">${set?`<button class="ic" data-act="row-set" data-i="${i}" aria-label="Настройки строки" title="Настройки строки: кнопка «показать / скрыть»">⚙</button>`:''}<span class="drag" data-drag="${i}" title="Перетащите, чтобы переставить строку" aria-label="Перетащить строку">⠿</span><button class="ic" data-act="row-up" data-i="${i}" aria-label="Выше" title="Выше">↑</button><button class="ic" data-act="row-down" data-i="${i}" aria-label="Ниже" title="Ниже">↓</button>${dup?`<button class="ic" data-act="row-dup" data-i="${i}" aria-label="Копировать строку" title="Копировать">⧉</button>`:''}<button class="ic x" data-act="row-del" data-i="${i}" aria-label="Удалить строку" title="Удалить">✕</button></span>`;
 function rowEditor(r,i){
   const p='ib.rows.'+i;
-  if(r.t==='field')return `<div class="rw f" data-row="${i}">${ta1(p+'.label',r.label,'Подпись')}${ta(p+'.value',r.value,r.ph||'Значение')}${rbtns(i,false)}</div>`;
-  if(r.t==='header')return `<div class="rw h" data-row="${i}"><div class="rw-line">${ta1(p+'.text',r.text,'Заголовок раздела или название должности')}${rbtns(i,false)}</div><div class="two">${picker(p+'.l',r.l,'Слева')}${picker(p+'.r',r.r,'Справа')}</div></div>`;
+  if(r.t==='field')return `<div class="rw f" data-row="${i}">${ta1(p+'.label',r.label,'Подпись')}${ta(p+'.value',r.value,r.ph||'Значение')}${rbtns(i,false,true)}${rowSet(r,i)}</div>`;
+  if(r.t==='header')return `<div class="rw h" data-row="${i}"><div class="rw-line">${ta1(p+'.text',r.text,'Заголовок раздела или название должности')}${rbtns(i,false,true)}</div><div class="two">${picker(p+'.l',r.l,'Слева')}${picker(p+'.r',r.r,'Справа')}</div>${rowSet(r,i)}</div>`;
   if(r.t==='hr')return `<div class="rw f hr" data-row="${i}"><span class="rw-type">Разделительная линия</span><span></span>${rbtns(i,false)}</div>`;
   let x='';
   switch(r.t){
@@ -289,7 +296,7 @@ function rowEditor(r,i){
       <div class="stats"><span class="cnt">Строки данных: подпись, затем значение для каждого кандидата</span>${r.stats.map((s,k)=>`<div class="stat" style="grid-template-columns:minmax(110px,1.3fr) repeat(${n},minmax(80px,1fr)) auto">${inp(p+'.stats.'+k+'.label',s.label,'Подпись')}${r.cands.map((c,j)=>inp(p+'.stats.'+k+'.values.'+j,(s.values||[])[j]||'','№ '+(j+1))).join('')}<button class="ic x" data-act="stat-del" data-i="${i}" data-j="${k}" aria-label="Убрать строку">✕</button></div>`).join('')}</div>
       <div><button class="btn sm" data-act="stat-add" data-i="${i}">+ строка данных</button></div>`;break;}
   }
-  return `<div class="rw" data-row="${i}"><div class="rw-h"><span class="rw-type">${ROWTYPES[r.t]?ROWTYPES[r.t][0]:r.t}</span>${rbtns(i)}</div>${x}</div>`;
+  return `<div class="rw" data-row="${i}"><div class="rw-h"><span class="rw-type">${ROWTYPES[r.t]?ROWTYPES[r.t][0]:r.t}</span>${rbtns(i,true,FOLDABLE.includes(r.t))}</div>${x}${rowSet(r,i)}</div>`;
 }
 let edPage=null;
 function editorForm(pg){
@@ -520,6 +527,10 @@ document.addEventListener('dblclick',ieOpen);
 document.addEventListener('keydown',e=>{if(!IE||!e.target.closest('.ie'))return;if(e.key==='Escape'){e.preventDefault();closeIE();}else if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();ieSave();}});
 document.addEventListener('click',e=>{
   const ieb=e.target.closest('[data-ie]');if(ieb){e.preventDefault();ieb.dataset.ie==='ok'?ieSave():closeIE();return;}
+  const ft=e.target.closest('.fold-tg');if(ft){e.preventDefault();let open;const box=ft.closest('.ib-fold');
+    if(box){const b=box.querySelector('.fold-body');open=b.hidden;b.hidden=!open;}
+    else{const rows=[...ft.closest('table').querySelectorAll(`tr[data-fold="${ft.dataset.fold}"]`)];open=rows.length?rows[0].hidden:false;rows.forEach(r=>r.hidden=!open);}
+    ft.textContent=open?'скрыть':'показать';ft.setAttribute('aria-expanded',String(open));return;}
   const fp=e.target.closest('.fplayer');if(fp){e.preventDefault();fpToggle(fp);return;}
   const tb=e.target.closest('[data-tb]');if(tb){e.preventDefault();insertTB(+tb.dataset.tb);return;}
   const j=e.target.closest('[data-jump],[data-cite],[data-back]');
@@ -551,7 +562,8 @@ document.addEventListener('click',e=>{
     case 'row-up':if(i>0){[rows[i-1],rows[i]]=[rows[i],rows[i-1]];re();}break;
     case 'row-down':if(i<rows.length-1){[rows[i+1],rows[i]]=[rows[i],rows[i+1]];re();}break;
     case 'row-dup':rows.splice(i+1,0,JSON.parse(JSON.stringify(rows[i])));re();break;
-    case 'row-del':rows.splice(i,1);re();break;
+    case 'row-del':rows.splice(i,1);SETOPEN.clear();re();break;
+    case 'row-set':{const box=btn.closest('.rw').querySelector('.rw-set');if(box){box.hidden=!box.hidden;box.hidden?SETOPEN.delete(i):SETOPEN.add(i);if(!box.hidden)box.querySelector('input')?.focus();}break;}
     case 'cell-add':rows[i].cells.push('');re();break;
     case 'cell-del':rows[i].cells.splice(jx,1);re();break;
     case 'party-add':rows[i].parties.push({name:'Новая партия',seats:10,color:'#888888'});re();break;
