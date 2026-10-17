@@ -1,1 +1,1 @@
-{"type":"Topology","arcs":[[[0,0],[22984,39999],[17015,-19705],[-39999,-20294]]],"transform":{"scale":[0.0000017925448136203375,0.000001020025500637448],"translate":[7.3658,43.7227]},"objects":{"MCO":{"type":"GeometryCollection","geometries":[{"arcs":[[0]],"type":"Polygon","properties":{"id":"MCO+00?.0","r":"MCO+00?","c":"MCO"}}]}}}
+{"type":"Topology","arcs":[[[7.366,43.723],[7.407,43.764],[7.438,43.743],[7.366,43.723]]],"objects":{"MCO":{"type":"GeometryCollection","geometries":[{"arcs":[[0]],"type":"Polygon","properties":{"id":"MCO+00?.0","r":"MCO+00?","c":"MCO"}}]}}}

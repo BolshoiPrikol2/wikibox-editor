@@ -348,6 +348,9 @@ tr+tr>.ib-cw{border-top:1px solid var(--border-sub)}
 .me-g-btns{display:flex;gap:1px}
 .me-tools{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-bottom:6px}
 .me-svg path.sel{stroke:#d33!important;stroke-width:2.5px!important;stroke-opacity:1!important}
+.me-own{display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%}
+.me-own select{width:auto;max-width:260px}
+.me-own input{width:180px}
 .me-tl{font-size:13px;color:var(--subtle)}
 .me-active{font-size:13px;color:var(--subtle);display:inline-flex;align-items:center;gap:6px}
 .me-g.on{border-color:var(--progressive);box-shadow:inset 3px 0 0 var(--progressive)}
