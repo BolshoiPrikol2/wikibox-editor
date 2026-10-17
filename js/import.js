@@ -156,6 +156,16 @@ function wiInfobox(tbl,C){
     const one=cells.length===1?cells[0]:null;
     if(one&&(one.classList.contains('infobox-above')||(!rows.length&&!title&&one.tagName==='TH'&&!one.querySelector('img')))){title=title||C.inline(one,false);continue;}
     if(one&&one.classList.contains('infobox-below')){const v=C.inline(one,true);if(v)rows.push(R.below(v));continue;}
+    // строка предшественников и преемников (ru.wiki «Государство»): плавающие блоки слева и справа, даты посередине
+    if(one){const ch=[...one.children].filter(d=>d.tagName==='DIV');const fl=d=>(d.getAttribute('style')||'').match(/float:\s*(left|right)/i);
+      const L=ch.find(d=>fl(d)&&/left/i.test(fl(d)[1])),Rr=ch.find(d=>fl(d)&&/right/i.test(fl(d)[1]));
+      if(L&&Rr){
+        const side=(div,left)=>{const parts=[...div.querySelectorAll(':scope > .nowrap, :scope > span')];const items=(parts.length?parts:[div]).map(el=>{const img=el.querySelector('img');
+            if(img&&C.opts.images){const a=[...el.querySelectorAll('a')].find(x=>x.getAttribute('title'))||img.closest('a');const t=a&&(a.getAttribute('title')||'').trim();const nm=C.mediaName(img);
+              if(nm)return left?`[[${t||nm}|←]] {{флаг-|${nm}|${t||nm}}}`:`{{флаг-|${nm}|${t||nm}}} [[${t||nm}|→]]`;}
+            return C.inline(el,false);}).filter(Boolean);return items.join('\n');};
+        const mid=ch.find(d=>d!==L&&d!==Rr&&d.textContent.trim());
+        const rs=R.s(mid?C.inline(mid,false):'',side(L,true),side(Rr,false));rs.raw=true;rs.hd=one.tagName==='TH'||one.classList.contains('infobox-header');rows.push(rs);continue;}}
     if(one&&(one.classList.contains('infobox-header')||one.tagName==='TH')){
       const imgs=C.opts.images?[...one.querySelectorAll('img')]:[];
       const lbl=one.querySelector('.label');const text=C.inline(lbl||one,false);

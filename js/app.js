@@ -32,9 +32,32 @@ function normalize(p){
   return p;
 }
 let svT,pvT;
+/* Хранилище проекта. localStorage вмещает всего ~5 МБ — несколько импортированных статей его переполняют,
+   поэтому основная копия лежит в IndexedDB (сотни мегабайт), а localStorage — запасная, пока проект в неё влезает */
+const IDBS={p:null,
+  open(){if(!this.p)this.p=new Promise(res=>{try{const r=indexedDB.open('wikibox-editor',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>res(null);r.onblocked=()=>res(null);}catch(e){res(null);}});return this.p;},
+  async get(k){const db=await this.open();if(!db)return null;return new Promise(res=>{try{const q=db.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result??null);q.onerror=()=>res(null);}catch(e){res(null);}});},
+  async set(k,v){const db=await this.open();if(!db)return false;return new Promise(res=>{try{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=()=>res(true);t.onerror=t.onabort=()=>res(false);}catch(e){res(false);}});},
+  async del(k){const db=await this.open();if(!db)return;return new Promise(res=>{try{const t=db.transaction('kv','readwrite');t.objectStore('kv').delete(k);t.oncomplete=t.onerror=t.onabort=()=>res();}catch(e){res();}});}
+};
+let saveSeq=0;
 function save(){
-  try{localStorage.setItem(LS,serializeProject());state.source='local';setEdStatus('Сохранено в этом браузере в '+new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}));}
-  catch(e){toast('Не удалось сохранить: в браузере закончилось место. Скачайте проект на странице «Файл проекта».',true);}
+  const s=serializeProject(),t=Date.now(),seq=++saveSeq;state.source='local';
+  let lsOk=false;
+  try{localStorage.setItem(LS,s);localStorage.setItem(LS+'-t',String(t));lsOk=true;}
+  catch(e){try{localStorage.removeItem(LS);IDBS.del(LS);localStorage.setItem(LS+'-t',String(t));}catch(x){}}
+  IDBS.set(LS,{s,t}).then(ok=>{
+    if(seq!==saveSeq)return;
+    if(ok||lsOk)setEdStatus('Сохранено в этом браузере в '+new Date(t).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}));
+    else toast('Не удалось сохранить: браузер не даёт места для проекта. Скачайте проект на странице «Файл проекта».',true);
+  });
+}
+/* прочитать сохранённый проект: берём более свежую из двух копий */
+async function loadSaved(){
+  const rec=await IDBS.get(LS);let ls=null,lsT=0;
+  try{ls=localStorage.getItem(LS);lsT=+(localStorage.getItem(LS+'-t')||0);}catch(e){}
+  if(rec&&rec.s&&(!ls||(+rec.t||0)>=lsT))return rec.s;
+  return ls;
 }
 function changed(pg){if(pg)pg.updated=Date.now();clearTimeout(pvT);pvT=setTimeout(renderEdPreview,120);clearTimeout(svT);svT=setTimeout(save,500);}
 function setEdStatus(t){const s=$('#ed-status');if(s)s.textContent=t;}
@@ -565,7 +588,7 @@ document.addEventListener('click',e=>{
     case 'dl-json':download(btn.dataset.n||(P.wiki.name+' '+new Date().toISOString().slice(0,10)+'.json'),serializeProject(true),'application/json');break;
     case 'imp-merge':doImport('merge');break;
     case 'imp-replace':if(armed(btn,'Заменить? Текущие статьи пропадут'))doImport('replace');break;
-    case 'load-published':if(armed(btn,'Ваши правки в этом браузере пропадут. Точно?'))fetch('data/wiki.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error('файл не найден');return r.json();}).then(d=>{P=normalize(d);try{localStorage.removeItem(LS);}catch(x){}state.source='published';applyBrand();toast('Загружена опубликованная версия');location.hash='#/';route();renderStoredMaps().then(ok=>{if(ok)route();});}).catch(err=>toast('Не получилось загрузить data/wiki.json: '+err.message,true));break;
+    case 'load-published':if(armed(btn,'Ваши правки в этом браузере пропадут. Точно?'))fetch('data/wiki.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error('файл не найден');return r.json();}).then(d=>{P=normalize(d);try{localStorage.removeItem(LS);IDBS.del(LS);}catch(x){}state.source='published';applyBrand();toast('Загружена опубликованная версия');location.hash='#/';route();renderStoredMaps().then(ok=>{if(ok)route();});}).catch(err=>toast('Не получилось загрузить data/wiki.json: '+err.message,true));break;
     case 'reset-sample':if(armed(btn,'Точно? Текущие статьи пропадут')){P=sampleProject();save();applyBrand();location.hash='#/';route();renderStoredMaps().then(ok=>{if(ok)route();});}break;
     case 'reset-empty':if(armed(btn,'Точно? Всё будет удалено')){P=normalize({v:2,wiki:P.wiki,media:[],pages:[]});save();location.hash='#/';route();}break;
   }
@@ -603,7 +626,7 @@ window.addEventListener('hashchange',route);
 /* ---------- запуск ---------- */
 (async function boot(){
   loadAppearance();applyAppearance();renderTools();
-  try{const s=localStorage.getItem(LS);if(s){P=normalize(JSON.parse(s));state.source='local';}}catch(e){P=null;}
+  try{const s=await loadSaved();if(s){P=normalize(JSON.parse(s));state.source='local';}}catch(e){P=null;}
   if(!P){try{const r=await fetch('data/wiki.json',{cache:'no-cache'});if(r.ok){P=normalize(await r.json());state.source='published';}}catch(e){}}
   if(!P){P=sampleProject();state.source='sample';}
   // проект из браузера мог быть сохранён до появления карт: добавляем недостающие картинки и карты из опубликованной версии

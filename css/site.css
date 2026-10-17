@@ -602,3 +602,9 @@ html[data-wmode="wiki"] .tbl-edit{display:none}
 /* колонки без разделителя (как «Предшественники и преемники» у СССР) */
 .ib-cols-plain td+td{border-left:0}
 .ib-cols-plain td{text-align:left;padding:0 .4em 0 0}
+
+/* строка предшественников и преемников в шапке карточки государства */
+.ib-succ-hd{background:var(--blue150)}
+.ib-succ .l{text-align:left;white-space:nowrap}.ib-succ .r{text-align:right;white-space:nowrap}.ib-succ .m{text-align:center}
+.ib-succ-hd .ib-succ .m{font-weight:bold}
+.ib-succ.raw .l,.ib-succ.raw .r{width:4em}
