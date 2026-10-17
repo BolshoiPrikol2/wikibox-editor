@@ -37,7 +37,9 @@ function tplInline(inner){
   const a=inner.split('|').map(x=>x.trim());const n=a[0].toLowerCase();
   switch(n){
     case 'флаг':case 'flag':case 'флагификация':return flagIcon(a[1])+'&nbsp;'+linkHTML(a[2]||a[1]||'',a[3]);
-    case 'флагик':case 'flagicon':return flagIcon(a[1]);
+    case 'флагик':case 'flagicon':if(!a[2])return flagIcon(a[1]);
+    /* флаг-ссылка без названия: {{флаг-|Сибирь|Сибирская Республика}} */
+    case 'флаг-':case 'флагссылка':case 'flaglink':{const t=a[2]||a[1]||'';const ic=flagIcon(a[1]);if(!ic)return linkHTML(t,a[3]);const raw=unesc(t).split('#')[0].trim();const p=pageFind(raw);return `<a class="flaglink" href="${p?'#/wiki/'+slug(p.title):'#/new/'+slug(raw)}" title="${esc(p?p.title:raw)}">${ic}</a>`;}
     case 'красная ссылка':case 'красная':case 'redlink':return linkHTML(a[1]||'',a[2],true);
     case 'цвет':case 'color':return `<span class="legend-color" style="background:${safeColor(unesc(a[1]))}"></span>`+(a[2]?' '+a[2]:'');
     case 'рост':case 'up':case 'увеличение':return trend('up','good')+(a[1]?' '+a[1]:'');
@@ -88,7 +90,8 @@ function inline(src,ctx){
   s=s.replace(/\{\{([^{}]+)\}\}/g,(m,inner)=>keep(tplInline(inner)));
   s=s.replace(/\[\[(?:Файл|File|Изображение|Image):([^\]]+)\]\]/gi,(m,spec)=>{const a=spec.split('|');const src=mediaSrc(unesc(a[0].trim()));const px=a.find(x=>/^\d+px$/.test(x.trim()));return keep(src?`<img src="${src}" alt="" style="height:${px?parseInt(px):20}px;width:auto;vertical-align:middle">`:'');});
   // буквы сразу после ссылки входят в неё, как в Википедии: [[1993 год]]а → «1993 года»
-  s=s.replace(/\[\[(!?)([^\[\]|]+)(?:\|([^\[\]]*))?\]\]([а-яёa-z]*)/g,(m,r,t,x,tr)=>keep(linkHTML(t,tr?(x||t)+tr:x||undefined,!!r)));
+  // в тексте ссылки допустимы одиночные скобки: [[МФА|[ˈtʃɛskɔ]]]
+  s=s.replace(/\[\[(!?)([^\[\]|]+)(?:\|((?:[^\[\]]|\[[^\[\]]*\])*))?\]\]([а-яёa-z]*)/g,(m,r,t,x,tr)=>keep(linkHTML(t,tr?(x||t)+tr:x||undefined,!!r)));
   s=s.replace(/\[(https?:\/\/[^\s\]]+)(?:\s+([^\]]+))?\]/g,(m,u,t)=>keep(`<a class="external" href="${u}" target="_blank" rel="noopener">${t?fmt(t):u}</a>`));
   s=fmt(s);
   return s.replace(/\u0001(\d+)\u0002/g,(m,i)=>tok[+i]);

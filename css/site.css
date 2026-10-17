@@ -486,3 +486,6 @@ textarea.one{resize:none;min-height:32px;overflow:hidden}
 .infobox .ib-flags td{text-align:center;vertical-align:middle;padding:1px}
 .infobox .ib-flags img.ib-flag{width:160px;max-width:100%;height:auto;max-height:160px;border:1px solid var(--border-muted,#eaecf0)}
 .infobox .ib-flags img.ib-coat{width:auto;height:auto;max-width:90px;max-height:108px}
+
+.flaglink{text-decoration:none!important}
+.flaglink img{vertical-align:middle}

@@ -251,7 +251,7 @@ function doImport(mode){
 /* ---------- редактор ---------- */
 const TB=[
   ['Ж',"'''","'''",'жирный'],['К',"''","''",'курсив'],['[[ссылка]]','[[',']]','Статья'],['Красная ссылка','[[!',']]','Статья'],['Раздел','\n== ',' ==\n','Раздел'],
-  ['Сноска','<ref>','</ref>','Источник'],['Список','\n* ','','пункт'],['Флаг','{{флаг|','}}','Сибирь'],['Цвет','{{цвет|','}}','#3366cc'],
+  ['Сноска','<ref>','</ref>','Источник'],['Список','\n* ','','пункт'],['Флаг','{{флаг|','}}','Сибирь'],['Флаг без названия','{{флаг-|','}}','Сибирь|Сибирская Республика'],['Цвет','{{цвет|','}}','#3366cc'],
   ['Картинка','\n[[Файл:','|200px|Подпись]]\n','__MEDIA__'],['Таблица','\n{| class="wikitable"\n! Заголовок 1 !! Заголовок 2\n|-\n| ',' || ячейка\n|}\n','ячейка'],
   ['Осн. статья','{{основная статья|','}}','Статья'],['↗ рост','{{рост|','}}','5'],['↘ падение','{{падение|','}}','5'],['▶ плеер','{{плеер|','}}','1:13'],['и. о.','{{и. о.','}}',''],
 ];
@@ -317,6 +317,7 @@ function editorForm(pg){
       <tr><td><code>&lt;ref&gt;Источник&lt;/ref&gt;</code></td><td>сноска; повтор: <code>&lt;ref name="a"&gt;…&lt;/ref&gt;</code> и <code>&lt;ref name="a"/&gt;</code>; место списка — <code>{{примечания}}</code></td></tr>
       <tr><td><code>{{флаг|Сибирь|Сибирская Республика}}</code></td><td>флаг из медиатеки и ссылка</td></tr>
       <tr><td><code>{{флагик|Сибирь}}</code></td><td>только флажок</td></tr>
+      <tr><td><code>{{флаг-|Сибирь|Сибирская Республика}}</code></td><td>флажок-ссылка без названия: ведёт на статью, название видно при наведении</td></tr>
       <tr><td><code>{{цвет|#1d7a3e}}</code></td><td>цветной квадрат партии</td></tr>
       <tr><td><code>{{рост|5 %}}</code> <code>{{падение|3 %}}</code> <code>{{неизм}}</code></td><td>стрелки, как в статистике Википедии: ↗ зелёная, ↘ красная, → серая</td></tr>
       <tr><td><code>{{рост-|…}}</code> <code>{{падение+|…}}</code></td><td>наоборот: красный рост (например, безработицы) и зелёное падение</td></tr>
@@ -374,12 +375,17 @@ function renameMedia(i,nn){
   if(P.media.some(m=>m.name===nn)){toast('Картинка с таким именем уже есть',true);return false;}
   P.media[i].name=nn;
   const reEsc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-  const re=new RegExp('(\\{\\{\\s*(?:флаг|флагик|flag|flagicon|флагификация)\\s*\\|\\s*|\\[\\[(?:Файл|File|Изображение|Image):\\s*)'+reEsc(old)+'(?=\\s*[|}\\]])','gi');
+  const re=new RegExp('(\\{\\{\\s*(?:флаг-|флаг|флагик|flag|flagicon|флагификация|флагссылка)\\s*\\|\\s*|\\[\\[(?:Файл|File|Изображение|Image):\\s*)'+reEsc(old)+'(?=\\s*[|}\\]])','gi');
   const walk=o=>{for(const k in o){const v=o[k];if(typeof v==='string'){if(/^(src\d?|l|r)$/.test(k)&&v===old)o[k]=nn;else o[k]=v.replace(re,'$1'+nn);}else if(v&&typeof v==='object')walk(v);}};
   P.pages.forEach(walk);return true;
 }
 
 /* ---------- выгрузка ---------- */
+/* внешние картинки (Википедия) перезагружаем с crossorigin, иначе снимок выходит без них */
+async function prepImgs(root){
+  const ext=[...root.querySelectorAll('img')].filter(i=>/^https?:/.test(i.getAttribute('src')||'')&&!i.crossOrigin);
+  await Promise.all(ext.map(i=>new Promise(res=>{const done=()=>{i.removeEventListener('load',done);i.removeEventListener('error',done);res();};i.addEventListener('load',done);i.addEventListener('error',done);i.crossOrigin='anonymous';const s=i.src;i.src='';i.src=s;setTimeout(done,15000);})));
+}
 async function snap(which){
   if(!window.html2canvas){toast('Модуль снимков не загрузился — проверьте интернет и обновите страницу',true);return;}
   const area=$('#main .snap-area');const target=which==='ib'?$('#main .infobox'):area;
@@ -390,7 +396,8 @@ async function snap(which){
   const cut=[];$$('.tabs',area).forEach(el=>{cut.push([el,el.style.display]);el.style.display='none';});if(which==='lead'){const mc=$('.mw-content',area);let past=false;for(const el of [...mc.children]){if(/^H[2-4]$/.test(el.tagName))past=true;if((past&&!el.classList.contains('clear'))||el.matches('.toc-mobile,.reflist,.catlinks')){cut.push([el,el.style.display]);el.style.display='none';}}}
   closeIE();
   try{
-    const cv=await html2canvas(target,{backgroundColor:getComputedStyle(document.body).backgroundColor,scale:2,logging:false});
+    await prepImgs(target);
+    const cv=await html2canvas(target,{backgroundColor:getComputedStyle(document.body).backgroundColor,scale:2,logging:false,useCORS:true,imageTimeout:20000});
     cv.toBlob(b=>download(((cur()?.title)||'статья')+(which==='ib'?' — карточка':which==='lead'?' — главное':'')+'.png',b));
   }catch(e){toast('Не получилось сделать снимок: '+(e.message||e),true);}
   finally{ed.forEach(e=>e.style.visibility='');cut.forEach(([el,d])=>el.style.display=d);}
