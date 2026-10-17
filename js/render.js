@@ -62,6 +62,11 @@ function tplInline(inner){
     case '▲0':return tri('up','')+(a[1]?' '+a[1]:'');
     case '▼0':return tri('down','')+(a[1]?' '+a[1]:'');
     case '▬':return tri('flat','')+(a[1]?' '+a[1]:'');
+    /* текстовые треугольники, как в карточках компаний («Роснефть»): ▲ зелёный, ▼ красный, вплотную к числу */
+    case 'вверх':case 'texticon up':return ticon('up','good')+(a[1]||'');
+    case 'вниз':case 'texticon down':return ticon('down','bad')+(a[1]||'');
+    case 'вверх-':return ticon('up','bad')+(a[1]||'');
+    case 'вниз+':return ticon('down','good')+(a[1]||'');
     case 'плеер':case 'гимн':case 'аудио':case 'player':return playerHTML(a[a.length-1]&&a.length>1?a[a.length-1]:'');
     case 'и. о.':case 'ио':return '<abbr title="исполняющий обязанности">и.&nbsp;о.</abbr>';
     case 'нп':case 'nowrap':return '<span class="nowrap">'+a.slice(1).join('|')+'</span>';
@@ -81,6 +86,7 @@ function tri(dir,mood){
   const cl=mood==='good'?'ts-g':mood==='bad'?'ts-r':'ts-n';
   return `<span class="ts ${cl}" title="${tr(dir==='up'?'Рост':dir==='down'?'Падение':'Без изменений')}">${g}</span>`;
 }
+function ticon(dir,mood){return `<span class="ticon ${mood==='good'?'ticon-g':'ticon-r'}" title="${tr(dir==='up'?'Рост':'Падение')}">${dir==='up'?'▲':'▼'}</span>`;}
 /* Фейковый аудиоплеер, как у гимна в карточке «Чехии»: звука нет, но кнопка и время работают */
 function durSec(d){const m=String(d||'').trim().match(/^(?:(\d+):)?(\d{1,2}):(\d{2})$/);if(m)return (+m[1]||0)*3600+(+m[2])*60+(+m[3]);const n=parseInt(d,10);return n>0?n:0;}
 function fmtDur(s){s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),c=String(s%60).padStart(2,'0');return h?`${h}:${String(m).padStart(2,'0')}:${c}`:`${m}:${c}`;}

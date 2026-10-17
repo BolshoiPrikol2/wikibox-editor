@@ -592,3 +592,7 @@ body.te-open{overflow:hidden}
 .table-wrap:hover .tbl-edit,.tbl-edit:focus-visible{opacity:1}
 html[data-wmode="wiki"] .tbl-edit{display:none}
 @media (hover:none){.tbl-edit{opacity:1;position:static;margin-bottom:4px}}
+
+/* текстовые треугольники ({{вверх}}, {{вниз}}) — как в карточке «Роснефти» */
+.ticon{font-size:larger;font-weight:normal}
+.ticon-g{color:#0c0}.ticon-r{color:red}

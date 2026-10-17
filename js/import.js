@@ -57,7 +57,10 @@ function makeConverter(lang,opts){
   const TIMG=[[/^(increase2|increase|increase positive|green arrow up(?: darker)?|arrow up green|up green arrow)$/,'▲'],[/^(decrease2|decrease|decrease negative|red arrow down|arrow down red|down red arrow)$/,'▼'],[/^(increase negative|red arrow up|arrow up red)$/,'▲-'],[/^(decrease positive|green arrow down|arrow down green)$/,'▼+'],[/^(increase neutral|increase steady)$/,'▲0'],[/^(decrease neutral|decrease steady)$/,'▼0'],[/^(steady|steady hold|nochange|no change|blue steady|yellow arrow right|steady2)$/,'▬']];
   function trendOf(el){
     const tag=el.tagName.toLowerCase();
-    if(tag==='span'){for(const c of el.classList)if(TS[c])return `{{${TS[c]}}}`;}
+    if(tag==='span'){for(const c of el.classList)if(TS[c])return `{{${TS[c]}}}`;
+      // текстовый треугольник с цветом в style (карточки компаний: «Роснефть»)
+      const t=el.textContent.trim(),st=(el.getAttribute('style')||'').toLowerCase();
+      if((t==='▲'||t==='▼')&&/color/.test(st)){const red=/color:\s*(red|#f00\b|#ff0000|#d33|#c00\b|#cc0000|#b00|#d73333)/.test(st);return t==='▲'?(red?'{{вверх-}}':'{{вверх}}'):(red?'{{вниз}}':'{{вниз+}}');}}
     const img=tag==='img'?el:(tag==='span'||tag==='a'||tag==='figure')&&el.querySelectorAll('img').length===1&&!el.textContent.trim()?el.querySelector('img'):null;
     if(!img)return '';
     const w=+img.getAttribute('width')||0;if(w>30)return '';
