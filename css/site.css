@@ -451,7 +451,9 @@ textarea.one{resize:none;min-height:32px;overflow:hidden}
 .vside{padding-left:16px}
 .infobox-pre{text-align:center!important;font-size:95%;padding:.15em .3em .3em!important;line-height:1.35}
 
-.seatbar{display:block;width:100%;max-width:130px;height:8px;margin:3px 0 2px;border:1px solid var(--border);background:var(--bg)}
+/* полоса мест — как шаблон «Партия» в ru.wiki: ширина по тексту «350 из 450», 8px, серый фон */
+.seats-w{display:inline-block;white-space:nowrap;text-align:left;vertical-align:top}
+.seatbar{display:block;box-sizing:content-box;width:8em;max-width:100%;height:.5rem;margin:.2em 0 0;border:1px solid var(--border);background:var(--bg-sub)}
 .seatbar>span{display:block;height:100%}
 .infobox th.ib-l2{font-weight:normal}
 .infobox .ib-sub{font-weight:bold;text-align:left!important;padding-bottom:0!important}
