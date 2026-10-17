@@ -3,7 +3,7 @@
    провинции, передача провинций между государствами, разрез и объединение провинций */
 
 const GEO={countries:null,prov:{},tpl:{},names:null,tplIndex:null};
-const GV='?v=21';
+const GV='?v=22';
 const geoJobs={};
 function fetchJSON(url){return geoJobs[url]=geoJobs[url]||fetch(url).then(r=>{if(!r.ok)throw new Error('нет файла '+url);return r.json();});}
 async function loadTplIndex(){if(!GEO.tplIndex){try{GEO.tplIndex=await fetchJSON('data/geo/tpl/index.json'+GV);}catch(e){GEO.tplIndex={years:[]};}}return GEO.tplIndex;}
@@ -558,7 +558,7 @@ document.addEventListener('click',e=>{
     case 'me-undo':undoRedo(true);break;
     case 'me-redo':undoRedo(false);break;
     case 'me-gcircle':{e.stopPropagation();const g=s.groups[+b.dataset.i];g.circle=!g.circle;renderMePanel();drawMe();break;}
-    case 'me-unsplit':meUnsplit(b.dataset.k);break;
+    case 'me-unsplit':{const u=b.dataset.k;const D=SD();const has=D&&D.feats.some(f=>s.owner[f.properties.id]&&(f.properties.u===u||s.owner[f.properties.id]===u));if(has&&!armed(b,'Сбросить передачи земель?')){ME.hist.pop();break;}meUnsplit(u);break;}
     case 'me-addstate':{const id=newState();ME.ownT=id;ME.ownMode='paint';renderMeTools();drawMe();toast('Страна «'+s.states[id].name+'» создана. Проводите мышью по провинциям, чтобы отдать ей земли, а название поменяйте в списке.');break;}
     case 'me-regmode':ME.regMode=b.dataset.k;ME.draft=null;renderMeTools();break;
     case 'me-addregion':{const id=newRegion();ME.regT=id;ME.regMode='paint';renderMeTools();drawMe();toast('Регион «'+s.regions[id].name+'» создан. Проводите мышью по провинциям, чтобы добавить их в него.');break;}

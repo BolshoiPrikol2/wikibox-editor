@@ -88,6 +88,7 @@ function setView(side,main,title){$('#side').innerHTML=side;$('#main').innerHTML
 function parseHash(){const h=location.hash.replace(/^#\/?/,'');const i=h.indexOf('/');const k=i<0?h:h.slice(0,i);let arg=i<0?'':h.slice(i+1);try{arg=decodeURIComponent(arg);}catch(e){}return {k,arg:arg.replace(/_/g,' ')};}
 function route(){
   const {k,arg}=parseHash();closeMenus();
+  if(typeof ME!=='undefined'&&(k!=='map'||(arg&&arg!=='new')))ME.target=null;
   document.body.classList.toggle('mode-edit',k==='edit'||(k==='map'&&!!arg));
   if(k==='random'){const p=P.pages[Math.floor(Math.random()*P.pages.length)];if(p){location.replace('#/wiki/'+slug(p.title));return;}}
   if(k==='wiki'){const pg=pageFind(arg);pg?viewArticle(pg):viewMissing(arg);}
@@ -251,7 +252,7 @@ const TB=[
   ['Ж',"'''","'''",'жирный'],['К',"''","''",'курсив'],['[[ссылка]]','[[',']]','Статья'],['Красная ссылка','[[!',']]','Статья'],['Раздел','\n== ',' ==\n','Раздел'],
   ['Сноска','<ref>','</ref>','Источник'],['Список','\n* ','','пункт'],['Флаг','{{флаг|','}}','Сибирь'],['Цвет','{{цвет|','}}','#3366cc'],
   ['Картинка','\n[[Файл:','|200px|Подпись]]\n','__MEDIA__'],['Таблица','\n{| class="wikitable"\n! Заголовок 1 !! Заголовок 2\n|-\n| ',' || ячейка\n|}\n','ячейка'],
-  ['Осн. статья','{{основная статья|','}}','Статья'],['▲','{{рост|','}}','5'],['▼','{{падение|','}}','5'],['и. о.','{{и. о.','}}',''],
+  ['Осн. статья','{{основная статья|','}}','Статья'],['↗ рост','{{рост|','}}','5'],['↘ падение','{{падение|','}}','5'],['и. о.','{{и. о.','}}',''],
 ];
 const inp=(path,val,ph='')=>`<input id="${fid(path)}" data-p="${path}" value="${esc(val)}" placeholder="${esc(ph)}">`;
 const ta=(path,val,ph='',rows)=>`<textarea id="${fid(path)}" data-p="${path}" rows="${rows||Math.min(6,Math.max(1,String(val||'').split('\n').length))}" placeholder="${esc(ph)}">${esc(val)}</textarea>`;
@@ -315,7 +316,10 @@ function editorForm(pg){
       <tr><td><code>{{флаг|Сибирь|Сибирская Республика}}</code></td><td>флаг из медиатеки и ссылка</td></tr>
       <tr><td><code>{{флагик|Сибирь}}</code></td><td>только флажок</td></tr>
       <tr><td><code>{{цвет|#1d7a3e}}</code></td><td>цветной квадрат партии</td></tr>
-      <tr><td><code>{{рост|5}}</code> <code>{{падение|3}}</code> <code>{{неизм}}</code></td><td>▲ ▼ ▬ для результатов</td></tr>
+      <tr><td><code>{{рост|5 %}}</code> <code>{{падение|3 %}}</code> <code>{{неизм}}</code></td><td>стрелки, как в статистике Википедии: ↗ зелёная, ↘ красная, → серая</td></tr>
+      <tr><td><code>{{рост-|…}}</code> <code>{{падение+|…}}</code></td><td>наоборот: красный рост (например, безработицы) и зелёное падение</td></tr>
+      <tr><td><code>{{▲|5}}</code> <code>{{▼|3}}</code></td><td>треугольники для результатов выборов</td></tr>
+      <tr><td>подпись <code>• Итого</code></td><td>подстрока в карточке (обычным шрифтом); подпись <code>=ВВП (ППС)</code> — заголовок группы строк</td></tr>
       <tr><td><code>{{и. о.}}</code></td><td>и.&nbsp;о. с подсказкой</td></tr>
       <tr><td><code>[[Файл:Имя|200px|слева|Подпись]]</code></td><td>картинка-миниатюра из медиатеки</td></tr>
       <tr><td><code>{{основная статья|Статья}}</code> <code>{{см. также|А|Б}}</code></td><td>пометка под заголовком</td></tr>

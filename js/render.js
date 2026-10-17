@@ -40,13 +40,23 @@ function tplInline(inner){
     case 'флагик':case 'flagicon':return flagIcon(a[1]);
     case 'красная ссылка':case 'красная':case 'redlink':return linkHTML(a[1]||'',a[2],true);
     case 'цвет':case 'color':return `<span class="legend-color" style="background:${safeColor(unesc(a[1]))}"></span>`+(a[2]?' '+a[2]:'');
-    case 'рост':case 'up':return '<span class="up">▲</span>'+(a[1]?' '+a[1]:'');
-    case 'падение':case 'down':return '<span class="dn">▼</span>'+(a[1]?' '+a[1]:'');
-    case 'неизм':case 'steady':case '=':return '<span class="eq">▬</span>'+(a[1]?' '+a[1]:'');
+    case 'рост':case 'up':return trend('up','good')+(a[1]?' '+a[1]:'');
+    case 'падение':case 'down':return trend('down','bad')+(a[1]?' '+a[1]:'');
+    case 'рост-':case 'рост плохо':case 'рост отриц':return trend('up','bad')+(a[1]?' '+a[1]:'');
+    case 'падение+':case 'падение хорошо':case 'падение полож':return trend('down','good')+(a[1]?' '+a[1]:'');
+    case 'неизм':case 'steady':case '=':case 'без изменений':return trend('flat','')+(a[1]?' '+a[1]:'');
+    case '▲':case 'увеличение':return '<span class="up">▲</span>'+(a[1]?' '+a[1]:'');
+    case '▼':case 'уменьшение':return '<span class="dn">▼</span>'+(a[1]?' '+a[1]:'');
     case 'и. о.':case 'ио':return '<abbr title="исполняющий обязанности">и.&nbsp;о.</abbr>';
     case 'нп':case 'nowrap':return '<span class="nowrap">'+a.slice(1).join('|')+'</span>';
     default:return '{{'+inner+'}}';
   }
+}
+/* Стрелки, как в статистике Википедии: ↗ рост, ↘ падение, → без изменений */
+function trend(dir,mood){
+  const col=mood==='good'?'#14866d':mood==='bad'?'#d33':'#72777d';
+  const d=dir==='up'?'M2 10L9 3M4.5 3H9v4.5':dir==='down'?'M2 2l7 7M4.5 9H9V4.5':'M1.5 6h8M6.5 3l3 3-3 3';
+  return `<svg class="trend" viewBox="0 0 11 12" width="11" height="12" aria-hidden="true"><path d="${d}" fill="none" stroke="${col}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 function inline(src,ctx){
   if(src==null||src==='')return '';
@@ -178,7 +188,7 @@ const RENDER={
     const l=mediaSrc(r.l),rr=mediaSrc(r.r);
     if(!l&&!rr)return hdr(inline(r.text,c),c,hs);
     return hdr(`<div class="ib-office"><div class="ib-office-img">${l?`<img src="${l}" alt="">`:''}</div><div class="ib-office-label">${inline(r.text,c)}</div><div class="ib-office-img">${rr?`<img src="${rr}" alt="">`:''}</div></div>`,c,hs);},
-  field:(r,c)=>{if(!String(r.value||'').trim())return '';return r.label?`<tr><th scope="row" class="plainlist">${inline(r.label,c)}</th><td class="plainlist">${ibVal(r.value,c)}</td></tr>`:`<tr><td colspan="2" class="plainlist">${ibVal(r.value,c)}</td></tr>`;},
+  field:(r,c)=>{const lb=String(r.label||'');if(/^=/.test(lb))return `<tr><td colspan="2" class="ib-sub">${inline(lb.replace(/^=\s*/,''),c)}${String(r.value||'').trim()?' '+ibVal(r.value,c):''}</td></tr>`;if(!String(r.value||'').trim())return '';return r.label?`<tr><th scope="row" class="plainlist${/^\s*•/.test(lb)?' ib-l2':''}">${inline(r.label,c)}</th><td class="plainlist">${ibVal(r.value,c)}</td></tr>`:`<tr><td colspan="2" class="plainlist">${ibVal(r.value,c)}</td></tr>`;},
   text:(r,c)=>String(r.value||'').trim()?`<tr><td colspan="2" class="plainlist" style="text-align:center">${ibVal(r.value,c)}</td></tr>`:'',
   hr:()=>`<tr><td colspan="2" class="ib-hr"><hr></td></tr>`,
   below:(r,c,hs)=>String(r.value||'').trim()?`<tr><td colspan="2" class="infobox-below${hs.dk}"${hs.st2}>${ibVal(r.value,c)}</td></tr>`:'',
@@ -186,7 +196,7 @@ const RENDER={
   images2:(r,c)=>{const a=mediaSrc(r.src1),b=mediaSrc(r.src2);if(!a&&!b)return '';const one=(s,cap)=>s?`<div><img src="${s}" alt=""><span class="media-caption">${inline(cap,c)}</span></div>`:'';return `<tr><td colspan="2" class="infobox-image"><div class="ib-pair">${one(a,r.cap1)}${one(b,r.cap2)}</div></td></tr>`;},
   cols:(r,c,hs)=>{const cells=r.cells||[];if(!r.label&&cells.every(x=>!String(x).trim()))return '';const n=cells.length||1;return (r.label?hdr(inline(r.label,c),c,hs):'')+`<tr><td colspan="2" class="ib-nest"><table class="ib-in ib-cols"><tbody><tr>${cells.map(x=>`<td style="width:${(100/n).toFixed(2)}%">${ibVal(x,c)}</td>`).join('')}</tr></tbody></table></td></tr>`;},
   succ:(r,c)=>{if(!r.prev&&!r.next&&!r.label)return '';return `<tr><td colspan="2" class="ib-nest"><table class="ib-in ib-succ"><tbody><tr><td class="l">${r.prev?'← '+inline(r.prev,c):''}</td><td class="m">${inline(r.label,c)}</td><td class="r">${r.next?inline(r.next,c)+' →':''}</td></tr></tbody></table></td></tr>`;},
-  seats:(r,c,hs)=>{const have=+r.have||0,tot=Math.max(1,+r.total||1);return hdr(inline(r.label,c),c,hs)+`<tr><td colspan="2" style="text-align:center"><div class="seatnum">${have} / ${tot}</div><div class="seatbar"><span style="width:${Math.min(100,have/tot*100).toFixed(2)}%;background:${safeColor(r.color)}"></span></div></td></tr>`;},
+  seats:(r,c,hs)=>{const have=+r.have||0,tot=Math.max(1,+r.total||1);const pct=Math.min(100,have/tot*100).toFixed(2);return `<tr><th scope="row" class="plainlist">${inline(r.label,c)}</th><td class="plainlist">${have} из ${tot}<span class="seatbar"><span style="width:${pct}%;background:${safeColor(r.color)}"></span></span></td></tr>`;},
   parl:(r,c,hs)=>{const svg=parlSVG(r.parties||[]);if(!svg)return '';return (r.label?hdr(inline(r.label,c),c,hs):'')+`<tr><td colspan="2" class="parl">${svg}${r.legend?`<ul class="parl-legend">${r.parties.filter(p=>+p.seats>0).map(p=>`<li><span class="legend-color" style="background:${safeColor(p.color)}"></span><span>${inline(p.name,c)}: <b>${+p.seats}</b></span></li>`).join('')}</ul>`:''}</td></tr>`;},
   cands:(r,c)=>{
     const cs=r.cands||[];if(!cs.length)return '';const per=Math.max(1,Math.min(5,+r.per||3));let h='';
