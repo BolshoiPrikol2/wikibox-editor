@@ -608,3 +608,4 @@ html[data-wmode="wiki"] .tbl-edit{display:none}
 .ib-succ .l{text-align:left;white-space:nowrap}.ib-succ .r{text-align:right;white-space:nowrap}.ib-succ .m{text-align:center}
 .ib-succ-hd .ib-succ .m{font-weight:bold}
 .ib-succ.raw .l,.ib-succ.raw .r{width:4em}
+.ib-succ.raw td{vertical-align:top}

@@ -263,7 +263,10 @@ function wiInfobox(tbl,C){
     const keep=[...Array(n).keys()].filter(j=>j%W<w&&(j<n));
     const last=keep.filter(used).pop();const keep2=keep.filter(j=>last==null||j<=last);
     r.cands=keep2.map(j=>r.cands[j]);r.stats.forEach(s=>s.values=keep2.map(j=>s.values[j]||''));r.per=Math.max(1,Math.min(4,w));}
-  return {title,rows};
+  // своя ширина карточки (у СССР style="width:28em")
+  const wm=(tbl.getAttribute('style')||'').match(/(?:^|;)\s*width\s*:\s*([\d.]+)\s*(em|px)/i);
+  const w=wm?(wm[2].toLowerCase()==='px'?+wm[1]/14.4:+wm[1]):0;
+  return {title,rows,w:w>=14&&w<=40?Math.round(w*10)/10:0};
 }
 
 function wiBody(root,C,opts){
@@ -353,7 +356,7 @@ async function wikiImport(q,lang,opts){
   if(L==='en')pg.lang='en';else if(L==='ru'&&(P.wiki.lang||'ru')!=='ru')pg.lang='ru';
   Object.assign(pg,{hatnote:opts.body?hatnote:'',body:body||`'''${pageTitle}''' — …`,cats:cats.join(', '),
     source:{lang:L,title:parse.title,url:`https://${L}.wikipedia.org/wiki/${encodeURIComponent(parse.title.replace(/ /g,'_'))}`}});
-  pg.ib={title:ib.title||pageTitle,custom:false,theme:'#3366cc',w:23,rows:ib.rows.length?ib.rows:pg.ib.rows};
+  pg.ib={title:ib.title||pageTitle,custom:false,theme:'#3366cc',w:ib.w||23,rows:ib.rows.length?ib.rows:pg.ib.rows};
   P.media.push(...C.media);P.pages.push(pg);save();
   return {pg,images:C.media.length,refs:C.refCount};
 }
