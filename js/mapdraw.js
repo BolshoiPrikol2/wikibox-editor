@@ -79,6 +79,8 @@ function makeMapDraw(d3,topojson){
     return 'u'+(isNaN(k)||o[k]==null?o[0]:o[k]);
   }
   const ownerOf=(geo,spec,f)=>(spec.owner&&spec.owner[f.properties.id])||f.properties.u;
+  /* Регион провинции: свой (spec.preg) или исходный */
+  const regionOf=(spec,f)=>(spec.preg&&spec.preg[f.properties.id])||f.properties.r;
   /* Файлы провинций, нужные для государства основы */
   function filesFor(geo,spec,u){
     const T=tplOf(geo,spec);
@@ -127,27 +129,33 @@ function makeMapDraw(d3,topojson){
     s+=`<path d="${sph}" fill="${globe&&spec.shade?'url(#mo)':spec.ocean}"/>`;
     if(spec.grat)s+=`<path d="${path(d3.geoGraticule10())}" fill="none" stroke="#000" stroke-opacity=".13" stroke-width=".5"/>`;
     // государства основы, которые не разбиты на провинции
-    let land='';
+    let land='',under='';
     const baseFeats=T?T.feats.map(f=>[f,f.properties.u]):geo._c.map(f=>[f,f.properties.id]);
     for(const [f,u] of baseFeats){
-      if(D&&splitSet.has(u))continue;
+      if(D&&splitSet.has(u)){
+        // в готовой карте под провинциями лежит сплошное государство — микрозазоры между провинциями не видны
+        if(!ia){const d=path(f);if(d)under+=`<path d="${d}" fill="${colorOf(spec,u)||spec.land}"/>`;}
+        continue;
+      }
       const d=path(f);if(!d)continue;
       land+=`<path d="${d}" fill="${colorOf(spec,u)||spec.land}"${ia?` data-u="${u}"`:''}${ia&&opt.hl&&opt.hl===u?' class="tgt"':''}/>`;
     }
+    if(under)s+=`<g>${under}</g>`;
     s+=`<g stroke="${B}" stroke-width="${bw}" stroke-linejoin="round">${land}</g>`;
     // провинции разбитых государств
     if(D){
-      const own=f=>ownerOf(geo,spec,f);
-      const colF=f=>colorOf(spec,own(f),f.properties.r,f.properties.id)||spec.land;
+      const own=f=>ownerOf(geo,spec,f);const reg=f=>regionOf(spec,f);
+      const colF=f=>colorOf(spec,own(f),reg(f),f.properties.id)||spec.land;
       const geoms=D.obj.geometries;const ownG=g=>(spec.owner&&spec.owner[g.properties.id])||g.properties.u;
-      const colG=g=>colorOf(spec,ownG(g),g.properties.r,g.properties.id)||spec.land;
+      const colG=g=>colorOf(spec,ownG(g),reg(g),g.properties.id)||spec.land;
       if(ia){
         let pv='';
-        for(const f of D.feats){const d=path(f);if(!d)continue;const {id,r,c}=f.properties;
-          pv+=`<path d="${d}" fill="${colF(f)}" data-p="${id}" data-r="${r}" data-c="${c}" data-u="${own(f)}"${opt.hl&&opt.hl===own(f)?' class="tgt"':''}/>`;}
+        for(const f of D.feats){const d=path(f);if(!d)continue;const {id,c}=f.properties;const r=reg(f);
+          const hl=opt.hl&&opt.hl===own(f)||opt.hlr&&opt.hlr===r;
+          pv+=`<path d="${d}" fill="${colF(f)}" data-p="${id}" data-r="${r}" data-c="${c}" data-u="${own(f)}"${hl?' class="tgt"':''}/>`;}
         s+=`<g stroke="${B}" stroke-width="${r1(bw*.3)}" stroke-opacity=".6">${pv}</g>`;
-        const reg=path(topojson.mesh(D.topo,D.obj,(a,b)=>a!==b&&a.properties.r!==b.properties.r&&ownG(a)===ownG(b)));
-        if(reg)s+=`<path d="${reg}" fill="none" stroke="${B}" stroke-width="${r1(bw*.8)}" stroke-opacity=".85" pointer-events="none"/>`;
+        const rm=path(topojson.mesh(D.topo,D.obj,(a,b)=>a!==b&&reg(a)!==reg(b)&&ownG(a)===ownG(b)));
+        if(rm)s+=`<path d="${rm}" fill="none" stroke="${B}" stroke-width="${r1(bw*.8)}" stroke-opacity=".85" pointer-events="none"/>`;
         const grp=path(topojson.mesh(D.topo,D.obj,(a,b)=>a!==b&&ownG(a)===ownG(b)&&colG(a)!==colG(b)));
         if(grp)s+=`<path d="${grp}" fill="none" stroke="${B}" stroke-width="${r1(bw*1.6)}" pointer-events="none"/>`;
         const brd=path(topojson.mesh(D.topo,D.obj,(a,b)=>a===b||ownG(a)!==ownG(b)));
@@ -157,6 +165,9 @@ function makeMapDraw(d3,topojson){
         const byCol={};for(const g of geoms){const c=colG(g);(byCol[c]=byCol[c]||[]).push(g);}
         let fills='';for(const c in byCol){const d=path(topojson.merge(D.topo,byCol[c]));if(d)fills+=`<path d="${d}" fill="${c}" stroke="${c}" stroke-width=".3"/>`;}
         s+=`<g>${fills}</g>`;
+        // провинции и регионы видны на готовой карте, только если их включили
+        if(spec.showProv){const pm=path(topojson.mesh(D.topo,D.obj,(a,b)=>a!==b&&reg(a)===reg(b)&&ownG(a)===ownG(b)&&colG(a)===colG(b)));if(pm)s+=`<path d="${pm}" fill="none" stroke="${B}" stroke-width="${r1(bw*.35)}" stroke-opacity=".7"/>`;}
+        if(spec.showReg){const rm=path(topojson.mesh(D.topo,D.obj,(a,b)=>a!==b&&reg(a)!==reg(b)&&ownG(a)===ownG(b)&&colG(a)===colG(b)));if(rm)s+=`<path d="${rm}" fill="none" stroke="${B}" stroke-width="${r1(bw*.7)}"/>`;}
         const brd=path(topojson.mesh(D.topo,D.obj,(a,b)=>a===b||ownG(a)!==ownG(b)||colG(a)!==colG(b)));
         if(brd)s+=`<path d="${brd}" fill="none" stroke="${B}" stroke-width="${bw}" stroke-linejoin="round"/>`;
       }
@@ -171,12 +182,12 @@ function makeMapDraw(d3,topojson){
     prepare(geo);const g=spec.groups[gi];if(!g)return null;
     const T=tplOf(geo,spec);const D=splitData(geo,spec);const feats=[];
     for(const u of g.countries||[]){if(D&&D.splitSet.has(u))continue;const f=T?T.byU[u]:geo._cById[u];if(f)feats.push(f);}
-    if(D)for(const f of D.feats)if(owns(g,ownerOf(geo,spec,f),f.properties.r,f.properties.id))feats.push(f);
+    if(D)for(const f of D.feats)if(owns(g,ownerOf(geo,spec,f),regionOf(spec,f),f.properties.id))feats.push(f);
     if(!feats.length)return null;
     const c=d3.geoCentroid({type:'FeatureCollection',features:feats});
     return isFinite(c[0])?c:null;
   }
-  return {PROJ,defaults,projection,prepare,provFor,splitData,baseUnit,ownerOf,filesFor,unitName,tplOf,drawMap,groupCentroid,owns,colorOf};
+  return {PROJ,defaults,projection,prepare,provFor,splitData,baseUnit,ownerOf,regionOf,filesFor,unitName,tplOf,drawMap,groupCentroid,owns,colorOf};
 }
 if(typeof module!=='undefined'&&module.exports)module.exports=makeMapDraw;
 else root.MapDraw=makeMapDraw(root.d3,root.topojson);
