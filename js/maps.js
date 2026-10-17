@@ -5,11 +5,11 @@ const GEO={countries:null,prov:{},names:null};
 const geoJobs={};
 function fetchJSON(url){return geoJobs[url]=geoJobs[url]||fetch(url).then(r=>{if(!r.ok)throw new Error('нет файла '+url);return r.json();});}
 async function loadGeo(splitCodes){
-  if(!GEO.countries)GEO.countries=await fetchJSON('data/geo/countries.json?v=5');
+  if(!GEO.countries)GEO.countries=await fetchJSON('data/geo/countries.json?v=6');
   const codes=(splitCodes||[]).filter(c=>!GEO.prov[c]);
   if(codes.length||((splitCodes||[]).length&&!GEO.names)){
-    if(!GEO.names)GEO.names=await fetchJSON('data/geo/prov/index.json?v=5');
-    await Promise.all(codes.filter(c=>GEO.names.c[c]).map(async c=>{GEO.prov[c]=await fetchJSON('data/geo/prov/'+c+'.json?v=5');}));
+    if(!GEO.names)GEO.names=await fetchJSON('data/geo/prov/index.json?v=6');
+    await Promise.all(codes.filter(c=>GEO.names.c[c]).map(async c=>{GEO.prov[c]=await fetchJSON('data/geo/prov/'+c+'.json?v=6');}));
   }
   return GEO;
 }

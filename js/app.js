@@ -12,7 +12,10 @@ const APP={size:'1',width:'std',theme:'auto'};
 /* ---------- хранение ---------- */
 function normalize(p){
   if(!p||!Array.isArray(p.pages))throw new Error('в тексте нет списка страниц (pages)');
-  p.wiki=Object.assign({name:'Апокрифопедия',motto:'Энциклопедия несбывшейся истории',tag:'Материал из Апокрифопедии — свободной энциклопедии',welcome:'энциклопедия несбывшейся истории, которую может редактировать каждый'},p.wiki||{});
+  p.wiki=Object.assign({name:'Wikibox Editor',motto:'Энциклопедия несбывшейся истории',tag:'Материал из Wikibox Editor — свободной энциклопедии',welcome:'энциклопедия несбывшейся истории, которую может редактировать каждый'},p.wiki||{});
+  // старое название сайта меняем на новое
+  if(p.wiki.name==='Апокрифопедия')p.wiki.name='Wikibox Editor';
+  p.wiki.tag=String(p.wiki.tag).replace('Материал из Апокрифопедии','Материал из Wikibox Editor');
   p.media=Array.isArray(p.media)?p.media.filter(m=>m&&m.name&&(m.src||m.map)):[];
   p.pages=p.pages.map(pg=>{
     const ib=Object.assign({title:'',custom:false,theme:'#3366cc',w:23,rows:[]},pg.ib||{});
@@ -72,7 +75,7 @@ function tabsHTML(mode,pg){
   </div></span></div></div>`;
 }
 function footerHTML(pg){
-  return `<footer class="vfooter">${pg?`<p>Последнее изменение страницы: ${fmtDate(pg.updated)}.</p>`:''}<p>Все государства, события и персоны в статьях «${esc(P.wiki.name)}» вымышлены или изменены. Сайт сделан в редакторе «Апокриф».</p>
+  return `<footer class="vfooter">${pg?`<p>Последнее изменение страницы: ${fmtDate(pg.updated)}.</p>`:''}<p>Все государства, события и персоны в статьях «${esc(P.wiki.name)}» вымышлены или изменены. Сайт сделан в Wikibox Editor.</p>
   <ul><li><a href="#/">Заглавная страница</a></li><li><a href="#/all">Все статьи</a></li><li><a href="#/file">Файл проекта</a></li></ul></footer>`;
 }
 function shell({title,mode,pg,content,sub=true,foot=true,cls=''}){
