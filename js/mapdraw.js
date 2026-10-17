@@ -1,5 +1,6 @@
 'use strict';
 /* Рисование карт-локаторов в стиле Викисклада: глобус (ортографическая проекция) и плоские карты мира.
+   Страны можно разбить на мелкие провинции (по файлу на страну) и собирать из них новые государства.
    Работает в браузере (глобальные d3 и topojson) и в Node (для подготовки примеров). */
 (function(root){
 function makeMapDraw(d3,topojson){
@@ -11,13 +12,13 @@ function makeMapDraw(d3,topojson){
     mercator:{name:'Меркатор',make:()=>d3.geoMercator()},
   };
   const SPHERE={type:'Sphere'};
-  const r1=n=>Math.round(n*10)/10;
+  const r1=n=>Math.round(n*100)/100;
 
   function defaults(kind){
     const globe=kind!=='flat';
     return {proj:globe?'ortho':'robinson',lon:globe?60:10,lat:globe?45:0,zoom:1,
       land:'#c0c0c0',border:'#ffffff',ocean:'#ffffff',bw:globe?.5:.6,grat:globe,shade:globe,lakes:true,
-      groups:[{name:globe?'Государство':'Члены союза',color:globe?'#346733':'#1f93c0',countries:[],regions:[]}],split:[]};
+      groups:[{name:globe?'Государство':'Члены союза',color:globe?'#346733':'#1f93c0',countries:[],regions:[],prov:[]}],split:[]};
   }
   function projection(spec){
     const p=PROJ[spec.proj]?PROJ[spec.proj].make():PROJ.ortho.make();
@@ -34,35 +35,35 @@ function makeMapDraw(d3,topojson){
     p.translate([W/2-c[0],H/2-c[1]]);
     return {p,W,H};
   }
-  /* Подготовка геоданных: geo = {countries: topology, regions: topology|null} */
+  /* geo = {countries: topology, prov: {КОД: topology}, names: {r:{adm1:[имя,страна]}}} */
   function prepare(geo){
     if(!geo._c){
       const t=geo.countries;
       geo._c=topojson.feature(t,t.objects.countries).features;
       geo._lakes=t.objects.lakes?topojson.feature(t,t.objects.lakes).features:[];
       geo._cById={};geo._c.forEach(f=>geo._cById[f.properties.id]=f);
+      geo._p={};
     }
-    if(geo.regions&&!geo._r){
-      const t=geo.regions;geo._rGeoms={};geo._rByC={};geo._rById={};
-      for(const g of t.objects.regions.geometries){geo._rGeoms[g.properties.id]=g;}
-      geo._r=topojson.feature(t,t.objects.regions).features;
-      geo._r.forEach(f=>{const c=f.properties.c;(geo._rByC[c]=geo._rByC[c]||[]).push(f);geo._rById[f.properties.id]=f;});
+    for(const cid in geo.prov||{}){
+      if(geo._p[cid])continue;
+      const t=geo.prov[cid],obj=t.objects[Object.keys(t.objects)[0]];
+      const P={topo:t,obj,feats:topojson.feature(t,obj).features,byId:{},geom:{},byRegion:{},regions:[]};
+      obj.geometries.forEach(g=>P.geom[g.properties.id]=g);
+      P.feats.forEach(f=>{const {id,r}=f.properties;P.byId[id]=f;(P.byRegion[r]=P.byRegion[r]||(P.regions.push(r),[])).push(id);});
+      P.rmesh=topojson.mesh(t,obj,(a,b)=>a.properties.r!==b.properties.r);
+      geo._p[cid]=P;
     }
     return geo;
   }
-  function memberColor(spec,cid,rid){
-    let col=null;
-    for(const g of spec.groups||[]){
-      if((g.countries||[]).includes(cid))col=g.color;
-      if(rid&&(g.regions||[]).includes(rid))col=g.color;
-    }
-    return col;
-  }
+  const has=(a,v)=>!!a&&a.includes(v);
+  function owns(g,cid,rid,pid){return has(g.countries,cid)||(rid&&has(g.regions,rid))||(pid&&has(g.prov,pid));}
+  function colorOf(spec,cid,rid,pid){let col=null;for(const g of spec.groups||[])if(owns(g,cid,rid,pid))col=g.color;return col;}
+
   function drawMap(spec,geo,opt={}){
     prepare(geo);
     const {p,W,H}=projection(spec);const path=d3.geoPath(p).digits(spec.proj==='ortho'?1:0);
     const ia=!!opt.interactive,globe=spec.proj==='ortho';
-    const split=new Set((spec.split||[]).filter(c=>geo._rByC&&geo._rByC[c]));
+    const split=(spec.split||[]).filter(c=>geo._p[c]);const splitSet=new Set(split);
     const bw=+spec.bw||.5,B=spec.border||'#fff';
     let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`;
     if(globe)s+=`<defs><radialGradient id="mo" cx="42%" cy="40%" r="62%"><stop offset="0" stop-color="${spec.ocean}"/><stop offset=".72" stop-color="${spec.ocean}"/><stop offset="1" stop-color="#d4d4d4"/></radialGradient><radialGradient id="ms" cx="42%" cy="40%" r="62%"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".16"/></radialGradient></defs>`;
@@ -72,28 +73,40 @@ function makeMapDraw(d3,topojson){
     // страны целиком
     let land='';
     for(const f of geo._c){
-      const id=f.properties.id;if(split.has(id))continue;
+      const id=f.properties.id;if(ia&&splitSet.has(id))continue;
       const d=path(f);if(!d)continue;
-      const c=memberColor(spec,id)||spec.land;
-      land+=`<path d="${d}" fill="${c}"${ia?` data-c="${id}"`:''}/>`;
+      land+=`<path d="${d}" fill="${colorOf(spec,id)||spec.land}"${ia?` data-c="${id}"`:''}/>`;
     }
     s+=`<g stroke="${B}" stroke-width="${bw}" stroke-linejoin="round">${land}</g>`;
-    // страны, разбитые на регионы
-    if(split.size){
-      let reg='',outl='';
-      const merged=g=>{const geoms=(g.regions||[]).filter(id=>geo._rById[id]&&split.has(geo._rById[id].properties.c)).map(id=>geo._rGeoms[id]);return geoms.length?path(topojson.merge(geo.regions,geoms)):'';};
+    // страны, разбитые на провинции
+    if(split.length){
       if(ia){
-        for(const cid of split)for(const f of geo._rByC[cid]){
-          const d=path(f);if(!d)continue;
-          reg+=`<path d="${d}" fill="${memberColor(spec,cid,f.properties.id)||spec.land}" data-r="${f.properties.id}" data-rc="${cid}"/>`;
+        let pv='',mesh='',outl='';
+        for(const cid of split){
+          const P=geo._p[cid];
+          for(const f of P.feats){const d=path(f);if(!d)continue;const {id,r}=f.properties;
+            pv+=`<path d="${d}" fill="${colorOf(spec,cid,r,id)||spec.land}" data-p="${id}" data-r="${r}" data-c="${cid}"/>`;}
+          const dm=path(P.rmesh);if(dm)mesh+=`<path d="${dm}"/>`;
+          for(const g of spec.groups||[]){
+            const gs=P.feats.filter(f=>owns(g,cid,f.properties.r,f.properties.id)).map(f=>P.geom[f.properties.id]);
+            if(gs.length&&gs.length<P.feats.length){const d=path(topojson.merge(P.topo,gs));if(d)outl+=`<path d="${d}"/>`;}
+          }
+          const cf=geo._cById[cid];const dc=cf&&path(cf);if(dc)outl+=`<path d="${dc}"/>`;
         }
-        s+=`<g stroke="${B}" stroke-width="${r1(bw*.45)}" stroke-opacity=".8">${reg}</g>`;
-        for(const g of spec.groups||[]){const d=merged(g);if(d)outl+=`<path d="${d}"/>`;}
-        s+=`<g fill="none" stroke="${B}" stroke-width="${bw*1.6}" stroke-linejoin="round" pointer-events="none">${outl}</g>`;
+        s+=`<g stroke="${B}" stroke-width="${r1(bw*.3)}" stroke-opacity=".6">${pv}</g>`;
+        s+=`<g fill="none" stroke="${B}" stroke-width="${r1(bw*.9)}" stroke-opacity=".9" pointer-events="none">${mesh}</g>`;
+        s+=`<g fill="none" stroke="${B}" stroke-width="${r1(bw*2)}" stroke-linejoin="round" pointer-events="none">${outl}</g>`;
       }else{
-        // в готовой карте: страна целиком цветом суши, сверху — слитые области групп
-        for(const cid of split){const cf=geo._cById[cid];const d=cf&&path(cf);if(d)reg+=`<path d="${d}" fill="${memberColor(spec,cid)||spec.land}"/>`;}
-        for(const g of spec.groups||[]){const d=merged(g);if(d)reg+=`<path d="${d}" fill="${g.color}"/>`;}
+        // в готовой карте: поверх страны — слитые области каждой группы
+        let reg='';
+        for(const cid of split){
+          const P=geo._p[cid];
+          for(const g of spec.groups||[]){
+            if(has(g.countries,cid))continue;
+            const gs=P.feats.filter(f=>owns(g,cid,f.properties.r,f.properties.id)).map(f=>P.geom[f.properties.id]);
+            if(!gs.length)continue;const d=path(topojson.merge(P.topo,gs));if(d)reg+=`<path d="${d}" fill="${g.color}"/>`;
+          }
+        }
         s+=`<g stroke="${B}" stroke-width="${bw}" stroke-linejoin="round">${reg}</g>`;
       }
     }
@@ -105,15 +118,13 @@ function makeMapDraw(d3,topojson){
   /* Центр группы — чтобы повернуть глобус к выбранному государству */
   function groupCentroid(spec,gi,geo){
     prepare(geo);const g=spec.groups[gi];if(!g)return null;
-    const feats=[...(g.countries||[]).map(id=>geo._cById[id]),...(g.regions||[]).map(id=>geo._rById&&geo._rById[id])].filter(Boolean);
+    const feats=(g.countries||[]).map(id=>geo._cById[id]).filter(Boolean);
+    for(const cid in geo._p){const P=geo._p[cid];if(has(g.countries,cid))continue;for(const f of P.feats)if(owns(g,cid,f.properties.r,f.properties.id))feats.push(f);}
     if(!feats.length)return null;
-    let best=null,area=-1;
-    for(const f of feats){const a=d3.geoArea(f);if(a>area){area=a;best=f;}}
-    const all={type:'FeatureCollection',features:feats};
-    const c=d3.geoCentroid(all);
-    return isFinite(c[0])?c:d3.geoCentroid(best);
+    const c=d3.geoCentroid({type:'FeatureCollection',features:feats});
+    return isFinite(c[0])?c:null;
   }
-  return {PROJ,defaults,projection,prepare,drawMap,groupCentroid,memberColor};
+  return {PROJ,defaults,projection,prepare,drawMap,groupCentroid,owns,colorOf};
 }
 if(typeof module!=='undefined'&&module.exports)module.exports=makeMapDraw;
 else root.MapDraw=makeMapDraw(root.d3,root.topojson);

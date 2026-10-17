@@ -1,0 +1,1 @@
+{"type":"Topology","arcs":[[[39999,39999],[-7391,-39999],[-32608,17391],[39999,22608]]],"transform":{"scale":[2.3000575014357282e-7,5.750143753598203e-8],"translate":[149.9998,-16.1367]},"objects":{"CSI":{"type":"GeometryCollection","geometries":[{"arcs":[[0]],"type":"Polygon","properties":{"id":"CSI+00?.0","r":"CSI+00?","c":"CSI"}}]}}}

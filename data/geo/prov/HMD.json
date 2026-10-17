@@ -1,0 +1,1 @@
+{"type":"Topology","arcs":[[[39999,17819],[-25770,-17819],[-14229,38073],[23170,1926],[16829,-22180]]],"transform":{"scale":[0.000010155253881346993,0.00000431010775269372],"translate":[73.3289,-53.1892]},"objects":{"HMD":{"type":"GeometryCollection","geometries":[{"arcs":[[0]],"type":"Polygon","properties":{"id":"HMD+00?.0","r":"HMD+00?","c":"HMD"}}]}}}

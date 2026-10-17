@@ -344,7 +344,10 @@ tr+tr>.ib-cw{border-top:1px solid var(--border-sub)}
 .seg button:last-child{border-right:0}
 .seg button.on{background:var(--progressive);color:var(--on-progressive);font-weight:bold}
 .me-groups{display:grid;gap:4px}
-.me-g{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:6px;align-items:center;border:1px solid var(--border-sub);background:var(--bg-sub);padding:5px 6px;border-radius:2px}
+.me-g{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px;align-items:center;border:1px solid var(--border-sub);background:var(--bg-sub);padding:5px 6px;border-radius:2px;cursor:pointer}
+.me-g-btns{display:flex;gap:1px}
+.me-tools{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin-bottom:6px}
+.me-active{font-size:13px;color:var(--subtle);display:inline-flex;align-items:center;gap:6px}
 .me-g.on{border-color:var(--progressive);box-shadow:inset 3px 0 0 var(--progressive)}
 .me-g-txt{display:grid;gap:2px;min-width:0}
 .me-g-txt input{min-height:28px;padding:3px 6px}
