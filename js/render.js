@@ -32,14 +32,17 @@ function linkHTML(tEsc,textEsc,red){
   return p?`<a${cls} href="#/wiki/${slug(p.title)}" title="${esc(p.title)}">${label}</a>`
           :`<a${cls} href="#/new/${slug(t)}" title="${esc(t)} (статья ещё не написана — нажмите, чтобы создать)">${label}</a>`;
 }
-function flagIcon(nEsc){const n=unesc(nEsc||'').trim();const s=mediaSrc(n)||mediaSrc('Флаг '+n);return s?`<img class="flagicon" src="${s}" alt="">`:'';}
+/* флажок; серая рамка отключается параметром «без рамки» или галочкой у картинки в медиатеке */
+function flagIcon(nEsc,nob){const n=unesc(nEsc||'').trim();const m=P.media.find(x=>x.name===n)||P.media.find(x=>x.name==='Флаг '+n);const s=m&&m.src;return s?`<img class="flagicon${nob||m.noborder?' nob':''}" src="${s}" alt="">`:'';}
+const NOB_RE=/^(без рамки|без обводки|рамка\s*=\s*(нет|0|no)|noborder|border\s*=\s*(no|0))$/i;
 function tplInline(inner){
-  const a=inner.split('|').map(x=>x.trim());const n=a[0].toLowerCase();
+  let a=inner.split('|').map(x=>x.trim());const n=a[0].toLowerCase();
+  let nob=false;if(/^(флаг-?|флагик|flag|flagicon|флагификация|флагссылка|flaglink)$/.test(n)){nob=a.some(x=>NOB_RE.test(x));a=a.filter(x=>!NOB_RE.test(x));}
   switch(n){
-    case 'флаг':case 'flag':case 'флагификация':return flagIcon(a[1])+'&nbsp;'+linkHTML(a[2]||a[1]||'',a[3]);
-    case 'флагик':case 'flagicon':if(!a[2])return flagIcon(a[1]);
+    case 'флаг':case 'flag':case 'флагификация':return flagIcon(a[1],nob)+'&nbsp;'+linkHTML(a[2]||a[1]||'',a[3]);
+    case 'флагик':case 'flagicon':if(!a[2])return flagIcon(a[1],nob);
     /* флаг-ссылка без названия: {{флаг-|Сибирь|Сибирская Республика}} */
-    case 'флаг-':case 'флагссылка':case 'flaglink':{const t=a[2]||a[1]||'';const ic=flagIcon(a[1]);if(!ic)return linkHTML(t,a[3]);const raw=unesc(t).split('#')[0].trim();const p=pageFind(raw);return `<a class="flaglink" href="${p?'#/wiki/'+slug(p.title):'#/new/'+slug(raw)}" title="${esc(p?p.title:raw)}">${ic}</a>`;}
+    case 'флаг-':case 'флагссылка':case 'flaglink':{const t=a[2]||a[1]||'';const ic=flagIcon(a[1],nob);if(!ic)return linkHTML(t,a[3]);const raw=unesc(t).split('#')[0].trim();const p=pageFind(raw);return `<a class="flaglink" href="${p?'#/wiki/'+slug(p.title):'#/new/'+slug(raw)}" title="${esc(p?p.title:raw)}">${ic}</a>`;}
     case 'красная ссылка':case 'красная':case 'redlink':return linkHTML(a[1]||'',a[2],true);
     case 'цвет':case 'color':return `<span class="legend-color" style="background:${safeColor(unesc(a[1]))}"></span>`+(a[2]?' '+a[2]:'');
     case 'рост':case 'up':case 'увеличение':return trend('up','good')+(a[1]?' '+a[1]:'');

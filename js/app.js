@@ -193,7 +193,7 @@ function viewMedia(){
   $('#main').classList.remove('is-main');
   const content=`<p>Флаги, гербы, портреты, карты. Картинки хранятся внутри проекта и уменьшаются до 900 пикселей по большей стороне. В тексте их зовут по имени: <code>{{флаг|Имя}}</code>, <code>[[Файл:Имя|Подпись]]</code>. Если переименовать картинку, ссылки на неё обновятся во всех статьях.</p>
   <p><label class="btn pri">Загрузить картинки<input type="file" accept="image/*" multiple data-upmedia="1" hidden></label> <a class="btn" href="#/map/">Нарисовать карту</a></p>
-  <div class="mgrid">${P.media.map((m,i)=>`<div class="mitem"><div class="mthumb">${m.src?`<img src="${m.src}" alt="">`:'<span class="cnt">карта рисуется…</span>'}</div><input id="m-name-${i}" value="${esc(m.name)}" data-mrename="${i}" aria-label="Имя картинки"><div class="r">${m.map?`<a class="btn sm" href="#/map/${slug(m.name)}">Изменить карту</a>`:`<button class="btn sm" data-act="mcopy" data-i="${i}">Код флага</button>`}<button class="btn sm danger" data-act="mdel" data-i="${i}">Удалить</button></div></div>`).join('')||'<p>Пока пусто.</p>'}</div>
+  <div class="mgrid">${P.media.map((m,i)=>`<div class="mitem"><div class="mthumb">${m.src?`<img src="${m.src}" alt="">`:'<span class="cnt">карта рисуется…</span>'}</div><input id="m-name-${i}" value="${esc(m.name)}" data-mrename="${i}" aria-label="Имя картинки"><div class="r">${m.map?`<a class="btn sm" href="#/map/${slug(m.name)}">Изменить карту</a>`:`<button class="btn sm" data-act="mcopy" data-i="${i}">Код флага</button>`}<button class="btn sm danger" data-act="mdel" data-i="${i}">Удалить</button></div>${m.map?'':`<label class="inl mnob"><input type="checkbox" data-mnob="${i}"${m.noborder?' checked':''}> флажок в тексте без серой рамки</label>`}</div>`).join('')||'<p>Пока пусто.</p>'}</div>
   <h2>Конструктор флагов</h2>
   <div class="fb"><div class="ctl">
     <label class="fld"><span>Схема</span><select id="fb-layout"><option value="h3">Три горизонтальные полосы</option><option value="h2">Две горизонтальные полосы</option><option value="v3">Три вертикальные полосы</option><option value="v2">Две вертикальные полосы</option><option value="nordic">Скандинавский крест</option><option value="canton">Крыж и поле</option><option value="tri">Треугольник у древка</option><option value="diag">По диагонали</option><option value="h1">Одноцветный</option></select></label>
@@ -324,6 +324,7 @@ function editorForm(pg){
       <tr><td><code>&lt;ref&gt;Источник&lt;/ref&gt;</code></td><td>сноска; повтор: <code>&lt;ref name="a"&gt;…&lt;/ref&gt;</code> и <code>&lt;ref name="a"/&gt;</code>; место списка — <code>{{примечания}}</code></td></tr>
       <tr><td><code>{{флаг|Сибирь|Сибирская Республика}}</code></td><td>флаг из медиатеки и ссылка</td></tr>
       <tr><td><code>{{флагик|Сибирь}}</code></td><td>только флажок</td></tr>
+      <tr><td><code>{{флаг|Сибирь|без рамки}}</code></td><td>флажок без серой рамки (работает во всех флаговых шаблонах; для всех статей сразу — галочка у картинки в медиатеке)</td></tr>
       <tr><td><code>{{флаг-|Сибирь|Сибирская Республика}}</code></td><td>флажок-ссылка без названия: ведёт на статью, название видно при наведении</td></tr>
       <tr><td><code>{{цвет|#1d7a3e}}</code></td><td>цветной квадрат партии</td></tr>
       <tr><td><code>{{рост|5 %}}</code> <code>{{падение|3 %}}</code> <code>{{неизм}}</code></td><td>стрелки, как в статистике Википедии: ↗ зелёная, ↘ красная, → серая</td></tr>
@@ -451,6 +452,7 @@ document.addEventListener('change',async e=>{
   const el=e.target;
   if(el.dataset.up){const names=await addFiles([...el.files]);if(names[0]&&edPage){setPath(edPage,el.dataset.up,names[0]);rerenderForm();changed(edPage);}return;}
   if(el.dataset.upmedia){const n=await addFiles([...el.files]);save();viewMedia();if(n.length)toast('Добавлено картинок: '+n.length);return;}
+  if(el.dataset.mnob!=null){const m=P.media[+el.dataset.mnob];if(el.checked)m.noborder=true;else delete m.noborder;save();toast(el.checked?'Флажок «'+m.name+'» теперь без рамки во всех статьях':'Рамка у флажка «'+m.name+'» вернулась');return;}
   if(el.dataset.mrename!=null){if(renameMedia(+el.dataset.mrename,el.value)){save();viewMedia();toast('Переименовано, ссылки в статьях обновлены');}else el.value=P.media[+el.dataset.mrename].name;return;}
   if(el.id==='imp-file'&&el.files[0]){const f=el.files[0];importText=await f.text();$('#imp-name').textContent=f.name+' — выберите, добавить или заменить';return;}
   if(el.dataset.p&&edPage&&/\.(cands\.\d+\.name|parties\.\d+\.seats)$/.test(el.dataset.p))rerenderForm();
