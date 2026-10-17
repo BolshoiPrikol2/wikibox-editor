@@ -5,11 +5,11 @@ const GEO={countries:null,prov:{},names:null};
 const geoJobs={};
 function fetchJSON(url){return geoJobs[url]=geoJobs[url]||fetch(url).then(r=>{if(!r.ok)throw new Error('нет файла '+url);return r.json();});}
 async function loadGeo(splitCodes){
-  if(!GEO.countries)GEO.countries=await fetchJSON('data/geo/countries.json?v=10');
+  if(!GEO.countries)GEO.countries=await fetchJSON('data/geo/countries.json?v=11');
   const codes=(splitCodes||[]).filter(c=>!GEO.prov[c]);
   if(codes.length||((splitCodes||[]).length&&!GEO.names)){
-    if(!GEO.names)GEO.names=await fetchJSON('data/geo/prov/index.json?v=10');
-    await Promise.all(codes.filter(c=>GEO.names.c[c]).map(async c=>{GEO.prov[c]=await fetchJSON('data/geo/prov/'+c+'.json?v=10');}));
+    if(!GEO.names)GEO.names=await fetchJSON('data/geo/prov/index.json?v=11');
+    await Promise.all(codes.filter(c=>GEO.names.c[c]).map(async c=>{GEO.prov[c]=await fetchJSON('data/geo/prov/'+c+'.json?v=11');}));
   }
   return GEO;
 }
@@ -133,8 +133,10 @@ function drawDraft(){
   svg.insertAdjacentHTML('beforeend',`<path id="me-draft" d="M${xy.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join('L')}${lasso?'Z':''}" fill="${lasso?'rgba(215,51,51,.15)':'none'}" stroke="#d33" stroke-width="2" stroke-dasharray="6 4" pointer-events="none"/>`);
 }
 function clientToGeo(e){
-  const svg=$('#me-svg svg');if(!svg)return null;const r=svg.getBoundingClientRect();const k=svg.viewBox.baseVal.width/r.width;
-  const {p}=MapDraw.projection(ME.spec);const g=p.invert([(e.clientX-r.left)*k,(e.clientY-r.top)*k]);
+  const svg=$('#me-svg svg');if(!svg)return null;
+  // учитываем, что картинка может быть вписана в рамку со сдвигом
+  const m=svg.getScreenCTM();if(!m)return null;const pt=new DOMPoint(e.clientX,e.clientY).matrixTransform(m.inverse());
+  const {p}=MapDraw.projection(ME.spec);const g=p.invert([pt.x,pt.y]);
   return g&&isFinite(g[0])&&isFinite(g[1])?[+g[0].toFixed(5),+g[1].toFixed(5)]:null;
 }
 function drawMeSoon(){if(ME.raf)return;ME.raf=requestAnimationFrame(()=>{ME.raf=0;drawMe();});}
@@ -377,7 +379,7 @@ document.addEventListener('pointerdown',e=>{
     ME.draft=null;drawDraft();
     if(ME.stroke){const st=ME.stroke;ME.stroke=null;if(st.changed){ME.spec.groups.forEach(compact);renderMePanel();}}
     ME.drag=null;const st=pinchState();
-    ME.pinch={...st,zoom:ME.spec.zoom,lon:ME.spec.lon,lat:ME.spec.lat,k:svg.viewBox.baseVal.width/svg.getBoundingClientRect().width};return;
+    ME.pinch={...st,zoom:ME.spec.zoom,lon:ME.spec.lon,lat:ME.spec.lat,k:1/((svg.getScreenCTM()||{a:1}).a||1)};return;
   }
   if(PTRS.size>2)return;
   const paint=['prov','region','erase'].includes(ME.tool)&&e.button===0&&!ME.space;
@@ -394,7 +396,7 @@ document.addEventListener('pointerdown',e=>{
     ME.stroke={mode,all:ME.tool==='erase',done:new Set(),changed:false};
     applyStroke(t);return;
   }
-  ME.drag={x:e.clientX,y:e.clientY,lon:ME.spec.lon,lat:ME.spec.lat,moved:false,target:t,k:svg.viewBox.baseVal.width/svg.getBoundingClientRect().width,click:e.button===0&&!ME.space};
+  ME.drag={x:e.clientX,y:e.clientY,lon:ME.spec.lon,lat:ME.spec.lat,moved:false,target:t,k:1/((svg.getScreenCTM()||{a:1}).a||1),click:e.button===0&&!ME.space};
 });
 document.addEventListener('pointermove',e=>{
   if(PTRS.has(e.pointerId))PTRS.set(e.pointerId,{x:e.clientX,y:e.clientY});
