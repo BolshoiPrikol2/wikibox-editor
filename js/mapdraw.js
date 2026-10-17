@@ -46,14 +46,29 @@ function makeMapDraw(d3,topojson){
     }
     for(const cid in geo.prov||{}){
       if(geo._p[cid])continue;
-      const t=geo.prov[cid],obj=t.objects[Object.keys(t.objects)[0]];
-      const P={topo:t,obj,feats:topojson.feature(t,obj).features,byId:{},geom:{},byRegion:{},regions:[]};
-      obj.geometries.forEach(g=>P.geom[g.properties.id]=g);
-      P.feats.forEach(f=>{const {id,r}=f.properties;P.byId[id]=f;(P.byRegion[r]=P.byRegion[r]||(P.regions.push(r),[])).push(id);});
-      P.rmesh=topojson.mesh(t,obj,(a,b)=>a.properties.r!==b.properties.r);
-      geo._p[cid]=P;
+      const t=geo.prov[cid];geo._p[cid]=buildP(t,t.objects[Object.keys(t.objects)[0]]);
     }
     return geo;
+  }
+  function buildP(t,obj){
+    const P={topo:t,obj,feats:topojson.feature(t,obj).features,byId:{},geom:{},byRegion:{},regions:[]};
+    obj.geometries.forEach(g=>P.geom[g.properties.id]=g);
+    P.feats.forEach(f=>{const {id,r}=f.properties;P.byId[id]=f;(P.byRegion[r]=P.byRegion[r]||(P.regions.push(r),[])).push(id);});
+    P.rmesh=topojson.mesh(t,obj,(a,b)=>a.properties.r!==b.properties.r);
+    return P;
+  }
+  /* Провинции страны с учётом правок границ на этой карте (spec.pedit) */
+  function provFor(geo,cid,spec){
+    prepare(geo);const base=geo._p[cid];if(!base)return null;
+    const e=spec&&spec.pedit&&spec.pedit[cid];
+    if(!e||(!(e.del||[]).length&&!(e.add||[]).length))return base;
+    const key=cid+':'+(e.v||0)+':'+(e.del||[]).length+':'+(e.add||[]).length;
+    geo._pe=geo._pe||{};if(geo._pe[cid]&&geo._pe[cid].key===key)return geo._pe[cid].P;
+    const del=new Set(e.del||[]);
+    const feats=base.feats.filter(f=>!del.has(f.properties.id)).map(f=>({type:'Feature',properties:f.properties,geometry:f.geometry}));
+    for(const a of e.add||[])feats.push({type:'Feature',properties:{id:a.id,r:a.r,c:cid},geometry:{type:'MultiPolygon',coordinates:a.g}});
+    const t=topojson.topology({p:{type:'FeatureCollection',features:feats}},1e6);
+    const P=buildP(t,t.objects.p);geo._pe[cid]={key,P};return P;
   }
   const has=(a,v)=>!!a&&a.includes(v);
   function owns(g,cid,rid,pid){return has(g.countries,cid)||(rid&&has(g.regions,rid))||(pid&&has(g.prov,pid));}
@@ -83,7 +98,7 @@ function makeMapDraw(d3,topojson){
       if(ia){
         let pv='',mesh='',outl='';
         for(const cid of split){
-          const P=geo._p[cid];
+          const P=provFor(geo,cid,spec);
           for(const f of P.feats){const d=path(f);if(!d)continue;const {id,r}=f.properties;
             pv+=`<path d="${d}" fill="${colorOf(spec,cid,r,id)||spec.land}" data-p="${id}" data-r="${r}" data-c="${cid}"/>`;}
           const dm=path(P.rmesh);if(dm)mesh+=`<path d="${dm}"/>`;
@@ -100,7 +115,7 @@ function makeMapDraw(d3,topojson){
         // в готовой карте: поверх страны — слитые области каждой группы
         let reg='';
         for(const cid of split){
-          const P=geo._p[cid];
+          const P=provFor(geo,cid,spec);
           for(const g of spec.groups||[]){
             if(has(g.countries,cid))continue;
             const gs=P.feats.filter(f=>owns(g,cid,f.properties.r,f.properties.id)).map(f=>P.geom[f.properties.id]);
@@ -119,12 +134,12 @@ function makeMapDraw(d3,topojson){
   function groupCentroid(spec,gi,geo){
     prepare(geo);const g=spec.groups[gi];if(!g)return null;
     const feats=(g.countries||[]).map(id=>geo._cById[id]).filter(Boolean);
-    for(const cid in geo._p){const P=geo._p[cid];if(has(g.countries,cid))continue;for(const f of P.feats)if(owns(g,cid,f.properties.r,f.properties.id))feats.push(f);}
+    for(const cid of spec.split||[]){const P=provFor(geo,cid,spec);if(!P)continue;if(has(g.countries,cid))continue;for(const f of P.feats)if(owns(g,cid,f.properties.r,f.properties.id))feats.push(f);}
     if(!feats.length)return null;
     const c=d3.geoCentroid({type:'FeatureCollection',features:feats});
     return isFinite(c[0])?c:null;
   }
-  return {PROJ,defaults,projection,prepare,drawMap,groupCentroid,owns,colorOf};
+  return {PROJ,defaults,projection,prepare,provFor,drawMap,groupCentroid,owns,colorOf};
 }
 if(typeof module!=='undefined'&&module.exports)module.exports=makeMapDraw;
 else root.MapDraw=makeMapDraw(root.d3,root.topojson);
