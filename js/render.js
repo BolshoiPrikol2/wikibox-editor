@@ -189,25 +189,26 @@ function renderBody(src,ctx,pid){
 }
 
 /* ---------- parliament diagram ---------- */
+/* Полукруг парламента — раскладка как у генератора диаграмм, которым пользуется Википедия (parliamentdiagram, «arch»):
+   число рядов по таблице вместимости, ряды на равном шаге, места сортируются по углу слева направо */
+const PARL_TOTALS=[3,15,33,61,95,138,189,247,313,388,469,559,657,762,876,997,1126,1263,1408,1560,1722,1889,2066,2250,2442,2641,2850,3064];
 function parlSVG(parties){
   const list=parties.map(p=>({...p,seats:Math.max(0,Math.floor(+p.seats||0))})).filter(p=>p.seats>0);
   const N=list.reduce((a,p)=>a+p.seats,0);if(!N)return '';
   if(N>3000)return '<div class="missing">Больше 3000 мест — диаграмма не строится</div>';
-  const r0=.36;let best=1,bd=1e9;
-  for(let k=1;k<=40;k++){const sr=k===1?.82:k*(r0+1)/2;const rad=k===1?.64:(1-r0)/(k-1);const d=Math.abs(rad-Math.PI*sr/N);if(d<bd){bd=d;best=k;}}
-  const radii=[];for(let k=0;k<best;k++)radii.push(best===1?.82:r0+(1-r0)*k/(best-1));
-  const sr=radii.reduce((a,b)=>a+b,0);
-  const counts=radii.map(r=>Math.floor(N*r/sr));let rest=N-counts.reduce((a,b)=>a+b,0);
-  for(let k=best-1;rest>0;k=(k-1+best)%best){counts[k]++;rest--;}
-  let minSp=best===1?.6:(1-r0)/(best-1);
-  const seats=[];
-  radii.forEach((r,k)=>{const n=counts[k];if(n>1)minSp=Math.min(minSp,Math.PI*r/(n-1));for(let j=0;j<n;j++)seats.push({a:n===1?Math.PI/2:Math.PI*(1-j/(n-1)),r});});
-  seats.sort((p,q)=>q.a-p.a||q.r-p.r);
-  const dot=Math.min(.09,minSp*.43)*100;
-  let k=0,used=0,c='';
-  for(const s of seats){while(used>=list[k].seats){k++;used=0;}used++;
-    c+=`<circle cx="${(110+100*s.r*Math.cos(s.a)).toFixed(2)}" cy="${(105-100*s.r*Math.sin(s.a)).toFixed(2)}" r="${dot.toFixed(2)}" fill="${safeColor(list[k].color)}"/>`;}
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 113" role="img" aria-label="Распределение ${N} мест">${c}<text x="110" y="104" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" font-weight="bold" fill="currentColor">${N}</text></svg>`;
+  let rows=PARL_TOTALS.findIndex(t=>t>=N)+1;
+  const rad=0.4/rows;const pos=[];
+  const row=(R,J)=>{if(J<=0)return;if(J===1){pos.push([Math.PI/2,R]);return;}
+    const a0=Math.asin(Math.min(1,rad/R));for(let k=0;k<J;k++)pos.push([k*(Math.PI-2*a0)/(J-1)+a0,R]);};
+  for(let r=1;r<rows;r++){const R=(3*rows+4*r-2)/(4*rows);row(R,Math.floor(N/PARL_TOTALS[rows-1]*Math.PI/(2*Math.asin(2/(3*rows+4*r-2)))));}
+  row((7*rows-2)/(4*rows),N-pos.length);
+  pos.sort((p,q)=>q[0]-p[0]||q[1]-p[1]);
+  const pad=5,W=350+2*pad;let k=0,used=0,c='',maxY=0;
+  for(const [a,R] of pos){while(used>=list[k].seats){k++;used=0;}used++;
+    const x=pad+100*(1.75+R*Math.cos(a)),y=pad+100*(1.75-R*Math.sin(a));maxY=Math.max(maxY,y+rad*100);
+    c+=`<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${(rad*100*0.98).toFixed(2)}" fill="${safeColor(list[k].color)}"/>`;}
+  const H=Math.ceil(Math.max(maxY,pad+175)+pad);const fs=N>=1000?30:36;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Распределение ${N} мест">${c}<text x="${pad+175}" y="${pad+172}" text-anchor="middle" font-family="Arial,sans-serif" font-size="${fs}" font-weight="bold" fill="currentColor">${N}</text></svg>`;
 }
 
 /* ---------- infobox (как «Государственный деятель» в русской Википедии) ---------- */
