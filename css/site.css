@@ -467,3 +467,16 @@ textarea.one{resize:none;min-height:32px;overflow:hidden}
 .fp-dur{position:relative;margin-right:4px;background:rgba(0,0,0,.8);color:#fff;font-size:11.5px;font-weight:bold;line-height:1;padding:5px 6px;border-radius:3.5px;font-variant-numeric:tabular-nums}
 .fplayer:hover{background:rgba(0,0,0,.58)}
 .infobox .ib-anthem{text-align:center}
+
+/* правка прямо на странице */
+#main .mw-content [data-l]:not(.ie):hover,#main .infobox tr[data-ib]:hover>*,#main .hatnote[data-ib]:hover{background-color:var(--bg-hover,rgba(51,102,204,.05))}
+.ie{margin:.5em 0 1em;padding:8px;border:1px solid var(--link);border-radius:2px;background:var(--bg);box-shadow:0 2px 8px var(--shadow);font-size:14px;line-height:1.5;text-align:left;font-weight:normal;font-style:normal}
+.ie-ta{display:block;width:100%;box-sizing:border-box;min-height:3em;font-family:var(--mono);font-size:13.5px;line-height:1.55;padding:6px 8px;border:1px solid var(--border);border-radius:2px;background:var(--bg);color:var(--text);resize:vertical}
+.ie-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.ie-bar .cnt{font-size:12px;color:var(--subtle)}
+.infobox .ie{margin:2px 0;padding:6px;min-width:12em}
+.infobox .ie-bar .cnt{flex-basis:100%}
+.mw-content [hidden]{display:none!important}
+.tools-list{margin-bottom:8px}
+.tools-list .linkbtn{text-align:left;font-size:14px}
+.tools-hint{font-size:12.5px;color:var(--subtle);margin:0 0 16px;line-height:1.45}

@@ -52,7 +52,7 @@ function appearanceHTML(px){
   const grp=(key,title,opts)=>`<fieldset class="ap-grp"><legend>${title}</legend>${opts.map(([v,l])=>`<label><input type="radio" name="${px}-${key}" data-ap="${key}" value="${v}"${APP[key]===v?' checked':''}> ${l}</label>`).join('')}</fieldset>`;
   return grp('size','Текст',[['0','Мелкий'],['1','Стандартный'],['2','Крупный']])+grp('width','Ширина',[['std','Стандартная'],['wide','Широкая']])+grp('theme','Цвета (бета)',[['auto','Автоматически'],['light','Светлая'],['dark','Тёмная']]);
 }
-function renderTools(){$('#tools').innerHTML=`<div class="side-h">Внешний вид <button class="pill" data-act="ap-toggle">${state.apHidden?'показать':'скрыть'}</button></div><div class="ap-body"${state.apHidden?' hidden':''}>${appearanceHTML('t')}</div>`;}
+function renderTools(){const rd=P&&parseHash().k==='wiki'&&cur();$('#tools').innerHTML=`${rd?`<div class="side-h">Инструменты</div><ul class="menu-list tools-list"><li><button class="linkbtn" data-act="snap" data-w="all">Скачать статью картинкой</button></li><li><button class="linkbtn" data-act="snap" data-w="lead">Скачать главное картинкой</button></li><li><button class="linkbtn" data-act="snap" data-w="ib">Скачать карточку картинкой</button></li></ul><p class="tools-hint">Двойной щелчок по абзацу, заголовку или строке карточки — быстрая правка прямо на странице.</p>`:''}<div class="side-h">Внешний вид <button class="pill" data-act="ap-toggle">${state.apHidden?'показать':'скрыть'}</button></div><div class="ap-body"${state.apHidden?' hidden':''}>${appearanceHTML('t')}</div>`;}
 
 /* ---------- каркас страниц ---------- */
 function applyBrand(){$('#logo-name').textContent=P.wiki.name;$('#logo-motto').textContent=P.wiki.motto||'';$('#logo-motto').hidden=!P.wiki.motto;$('#q').placeholder='Искать в '+P.wiki.name.replace(/ия$/,'ии');}
@@ -70,7 +70,7 @@ function tabsHTML(mode,pg){
   <div><a${mode==='read'?' class="sel"':''} href="${read}">Читать</a><a${mode==='edit'?' class="sel"':''} href="${edit}">Править</a><a href="${edit}/code">Править код</a><span class="off" title="История правок не ведётся">История</span>
   <span class="dd"><button class="tab-btn tab-more" data-act="dd" aria-expanded="false" aria-label="Инструменты" title="Инструменты">⋮</button><div class="dd-menu" hidden>
     <div class="dd-h">Действия</div>
-    <button data-act="snap" data-w="ib">Скачать карточку (PNG)</button><button data-act="snap" data-w="all">Скачать статью (PNG)</button><button data-act="dl-html">Скачать статью (HTML)</button>
+    <div class="dd-h">Скачать картинкой (PNG)</div><button data-act="snap" data-w="all">Вся статья</button><button data-act="snap" data-w="lead">Главное: начало статьи и карточка</button><button data-act="snap" data-w="ib">Только карточка</button><div class="dd-h">Другое</div><button data-act="dl-html">Скачать статью (HTML)</button>
     <div class="dd-h">Страница</div>
     ${pg.source?`<a class="dd-link" href="${esc(pg.source.url)}" target="_blank" rel="noopener">Исходная статья в Википедии</a>`:''}<button data-act="feature">${P.featured===pg.id?'Это избранная статья':'Сделать избранной статьёй'}</button><button data-act="dup-page">Создать копию</button><button data-act="del-page" class="danger">Удалить страницу</button>
   </div></span></div></div>`;
@@ -82,12 +82,12 @@ function footerHTML(pg){
 function shell({title,mode,pg,content,sub=true,foot=true,cls=''}){
   return `<div class="snap-area ${cls}"><div class="titlebar"><h1 class="fh" id="top">${title}</h1></div>${tabsHTML(mode,pg)}${sub?`<div class="sitesub"><span>${esc(P.wiki.tag)}</span>${pg&&mode==='read'?`<span class="sitesub-r">[<a href="#/edit/${pg.id}/code">править код</a>]</span>`:''}</div>`:''}<div class="mw-content">${content}</div></div>${foot?footerHTML(pg):''}`;
 }
-function setView(side,main,title){$('#side').innerHTML=side;$('#main').innerHTML=main;document.title=title?title+' — '+P.wiki.name:P.wiki.name;}
+function setView(side,main,title){$('#side').innerHTML=side;$('#main').innerHTML=main;document.title=title?title+' — '+P.wiki.name:P.wiki.name;renderTools();}
 
 /* ---------- маршруты ---------- */
 function parseHash(){const h=location.hash.replace(/^#\/?/,'');const i=h.indexOf('/');const k=i<0?h:h.slice(0,i);let arg=i<0?'':h.slice(i+1);try{arg=decodeURIComponent(arg);}catch(e){}return {k,arg:arg.replace(/_/g,' ')};}
 function route(){
-  const {k,arg}=parseHash();closeMenus();
+  const {k,arg}=parseHash();closeMenus();closeIE();
   if(typeof ME!=='undefined'&&(k!=='map'||(arg&&arg!=='new')))ME.target=null;
   document.body.classList.toggle('mode-edit',k==='edit'||(k==='map'&&!!arg));
   if(k==='random'){const p=P.pages[Math.floor(Math.random()*P.pages.length)];if(p){location.replace('#/wiki/'+slug(p.title));return;}}
@@ -127,6 +127,7 @@ function tocList(heads){
   return `<ul><li><a href="#" data-jump="top" class="active">Начало</a></li>${top.map(t=>`<li class="lv2${t.kids.length?' has-kids':''}">${t.kids.length?'<button class="toc-tg" data-act="toc-tg" aria-label="Развернуть" aria-expanded="false">›</button>':''}<a href="#" data-jump="${t.h.id}">${t.h.text}</a>${t.kids.length?`<ul hidden>${t.kids.map(k=>`<li class="lv3"><a href="#" data-jump="${k.id}">${k.text}</a></li>`).join('')}</ul>`:''}</li>`).join('')}</ul>`;
 }
 function viewArticle(pg){
+  closeIE(true);
   $('#main').classList.remove('is-main');
   const {content,heads}=articleParts(pg,{editLinks:true});
   const side=heads.length?`<div class="vtoc${state.tocHidden?' collapsed':''}"><div class="side-h">Содержание <button class="pill" data-act="toc-toggle">${state.tocHidden?'показать':'скрыть'}</button></div>${tocList(heads)}</div>`:mainMenuHTML();
@@ -384,12 +385,15 @@ async function snap(which){
   const area=$('#main .snap-area');const target=which==='ib'?$('#main .infobox'):area;
   if(!target){toast('У этой страницы нет карточки',true);return;}
   toast('Готовлю картинку…');
-  const ed=$$('.mw-editsection,.toc-mobile,.tabs',area);ed.forEach(e=>e.style.visibility='hidden');
+  const ed=$$('.mw-editsection,.toc-mobile,.sitesub-r',area);ed.forEach(e=>e.style.visibility='hidden');
+  /* «главное»: всё, что выше первого раздела, — заголовок, вступление и карточка */
+  const cut=[];$$('.tabs',area).forEach(el=>{cut.push([el,el.style.display]);el.style.display='none';});if(which==='lead'){const mc=$('.mw-content',area);let past=false;for(const el of [...mc.children]){if(/^H[2-4]$/.test(el.tagName))past=true;if((past&&!el.classList.contains('clear'))||el.matches('.toc-mobile,.reflist,.catlinks')){cut.push([el,el.style.display]);el.style.display='none';}}}
+  closeIE();
   try{
     const cv=await html2canvas(target,{backgroundColor:getComputedStyle(document.body).backgroundColor,scale:2,logging:false});
-    cv.toBlob(b=>download(((cur()?.title)||'статья')+(which==='ib'?' — карточка':'')+'.png',b));
+    cv.toBlob(b=>download(((cur()?.title)||'статья')+(which==='ib'?' — карточка':which==='lead'?' — главное':'')+'.png',b));
   }catch(e){toast('Не получилось сделать снимок: '+(e.message||e),true);}
-  finally{ed.forEach(e=>e.style.visibility='');}
+  finally{ed.forEach(e=>e.style.visibility='');cut.forEach(([el,d])=>el.style.display=d);}
 }
 function cur(){const {k,arg}=parseHash();if(k==='edit')return edPage;if(k==='wiki')return pageFind(arg);return null;}
 async function dlHTML(pg){
@@ -453,7 +457,62 @@ function fpToggle(pl){
   tick();pl._t=setInterval(tick,250);
 }
 document.addEventListener('keydown',e=>{const pl=e.target.closest&&e.target.closest('.fplayer');if(pl&&(e.key==='Enter'||e.key===' ')){e.preventDefault();fpToggle(pl);}});
+/* ---------- правка прямо на странице (двойной щелчок) ---------- */
+let IE=null;
+function closeIE(silent){if(!IE)return;IE.box.remove();if(IE.hidden)IE.hidden.hidden=false;if(IE.cell)IE.cell.innerHTML=IE.html;IE=null;}
+function ieBox(val,hint){
+  const box=document.createElement('div');box.className='ie';
+  box.innerHTML=`<textarea class="ie-ta" spellcheck="true" aria-label="Текст для правки"></textarea><div class="ie-bar"><button class="btn pri sm" data-ie="ok">Сохранить</button><button class="btn sm" data-ie="no">Отмена</button><span class="cnt">${hint||'Ctrl+Enter — сохранить, Esc — отмена'}</span></div>`;
+  const ta=box.querySelector('textarea');ta.value=val;
+  const fit=()=>{ta.style.height='auto';ta.style.height=Math.min(window.innerHeight*.7,ta.scrollHeight+4)+'px';};ta.addEventListener('input',fit);setTimeout(()=>{fit();ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);},0);
+  return box;
+}
+/* что править в строке карточки: [объект, поле] или null — тогда только в редакторе */
+function ieTarget(pg,key,cell){
+  if(key==='title'||key==='above')return [pg.ib,key];
+  if(key==='hatnote')return [pg,'hatnote'];
+  const r=pg.ib.rows[+key];if(!r)return null;
+  switch(r.t){
+    case 'field':return [r,cell&&cell.tagName==='TH'||cell&&cell.classList.contains('ib-sub')?'label':'value'];
+    case 'header':return [r,'text'];
+    case 'text':case 'below':return [r,'value'];
+    case 'anthem':return [r,'value'];
+    case 'image':return [r,'caption'];
+    case 'seats':return cell&&cell.tagName==='TH'?[r,'label']:null;
+    default:return null;
+  }
+}
+function ieOpen(e){
+  if(parseHash().k!=='wiki')return;const pg=cur();if(!pg)return;
+  const t=e.target;if(!t.closest('#main .mw-content')||t.closest('.ie,a,button,input,textarea,select,.fplayer,.mw-editsection,.toc-mobile,.reflist'))return;
+  if(IE){IE.box.querySelector('textarea').focus();return;}
+  const ib=t.closest('[data-ib]');
+  if(ib){
+    const key=ib.dataset.ib;const cell=t.closest('td,th')||ib;const tg=ieTarget(pg,key,cell);
+    if(!tg){toast('Эту строку карточки можно изменить только в редакторе');return;}
+    const [o,f]=tg;e.preventDefault();window.getSelection()?.removeAllRanges();
+    const box=ieBox(String(o[f]??''),'Ctrl+Enter — сохранить, Esc — отмена');
+    if(key==='hatnote'){ib.hidden=true;ib.after(box);IE={box,pg,hidden:ib,apply:v=>{o[f]=v;}};}
+    else{const html=cell.innerHTML;cell.innerHTML='';cell.appendChild(box);IE={box,pg,cell,html,apply:v=>{o[f]=v;}};}
+    return;
+  }
+  const bl=t.closest('[data-l]');if(!bl||!bl.closest('#main .mw-content'))return;
+  const [a,b]=bl.dataset.l.split('-').map(Number);
+  const lines=String(pg.body||'').replace(/\r/g,'').split('\n');
+  e.preventDefault();window.getSelection()?.removeAllRanges();
+  const box=ieBox(lines.slice(a,b+1).join('\n'),'Ctrl+Enter — сохранить, Esc — отмена. Разметка та же, что в редакторе; пустая строка начинает новый абзац');
+  bl.hidden=true;bl.after(box);
+  IE={box,pg,hidden:bl,apply:v=>{const L=String(pg.body||'').replace(/\r/g,'').split('\n');L.splice(a,b-a+1,...(v.trim()?v.replace(/\r/g,'').split('\n'):[]));pg.body=L.join('\n').replace(/\n{3,}/g,'\n\n');}};
+}
+function ieSave(){
+  if(!IE)return;const {pg,apply,box}=IE;const v=box.querySelector('textarea').value;
+  apply(v);pg.updated=Date.now();save();
+  const y=window.scrollY;IE=null;viewArticle(pg);window.scrollTo(0,y);toast('Сохранено');
+}
+document.addEventListener('dblclick',ieOpen);
+document.addEventListener('keydown',e=>{if(!IE||!e.target.closest('.ie'))return;if(e.key==='Escape'){e.preventDefault();closeIE();}else if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();ieSave();}});
 document.addEventListener('click',e=>{
+  const ieb=e.target.closest('[data-ie]');if(ieb){e.preventDefault();ieb.dataset.ie==='ok'?ieSave():closeIE();return;}
   const fp=e.target.closest('.fplayer');if(fp){e.preventDefault();fpToggle(fp);return;}
   const tb=e.target.closest('[data-tb]');if(tb){e.preventDefault();insertTB(+tb.dataset.tb);return;}
   const j=e.target.closest('[data-jump],[data-cite],[data-back]');

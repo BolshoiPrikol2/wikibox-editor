@@ -155,8 +155,11 @@ function renderThumb(spec,ctx){
 }
 function renderBody(src,ctx,pid){
   const lines=String(src||'').replace(/\r/g,'').split('\n');
-  const out=[],heads=[];let para=[];let i=0,m;
-  const flush=()=>{if(para.length){out.push('<p>'+inline(para.join('\n'),ctx)+'</p>');para=[];}};
+  const out=[],heads=[];let para=[];let i=0,m,ps=0;
+  /* в режиме чтения каждый блок помнит свои строки исходника (data-l) — по ним работает правка двойным щелчком */
+  const at=(h,a,b)=>pid&&h?h.replace(/^<([a-z0-9]+)/i,`<$1 data-l="${a}-${b}"`):h;
+  const push=(h,a,b)=>out.push(at(h,a,b));
+  const flush=()=>{if(para.length){push('<p>'+inline(para.join('\n'),ctx)+'</p>',ps,ps+para.length-1);para=[];}};
   while(i<lines.length){
     const t=lines[i].trim();
     if(!t){flush();i++;continue;}
@@ -164,15 +167,15 @@ function renderBody(src,ctx,pid){
       flush();const lv=m[1].length,id='sec-'+heads.length;
       const text=inline(m[2],newCtx());heads.push({lv,id,text:text.replace(/<[^>]+>/g,'')});
       const ed=pid&&lv===2?`<span class="mw-editsection"><span class="br">[</span><a href="#/edit/${pid}">править</a><span class="sep">|</span><a href="#/edit/${pid}/code">править код</a><span class="br">]</span></span>`:'';
-      out.push(`<h${lv} id="${id}">${inline(m[2],ctx)}${ed}</h${lv}>`);i++;continue;}
-    if(/^\{\|/.test(t)){flush();const tl=[];i++;while(i<lines.length&&!/^\|\}/.test(lines[i].trim())){tl.push(lines[i]);i++;}i++;out.push(renderTable(tl,ctx));continue;}
-    if(/^[*#]/.test(t)){flush();const ll=[];while(i<lines.length&&/^[*#]/.test(lines[i].trim())){ll.push(lines[i].trim());i++;}out.push(renderList(ll,ctx));continue;}
-    if(m=t.match(/^\[\[(?:Файл|File|Изображение|Image):(.+)\]\]$/i)){flush();out.push(renderThumb(m[1],ctx));i++;continue;}
-    if(m=t.match(/^\{\{\s*(основная статья|основные статьи|main|см\. также|see also)\s*\|(.+)\}\}$/i)){flush();const it=m[2].split('|').map(x=>x.trim()).filter(Boolean);const main=!/также|also/i.test(m[1]);out.push(`<div class="hatnote">${main?(it.length>1?'Основные статьи':'Основная статья'):'См. также'}: ${inline(it.map(x=>'[['+x+']]').join(', '),ctx)}</div>`);i++;continue;}
+      push(`<h${lv} id="${id}">${inline(m[2],ctx)}${ed}</h${lv}>`,i,i);i++;continue;}
+    if(/^\{\|/.test(t)){flush();const s0=i;const tl=[];i++;while(i<lines.length&&!/^\|\}/.test(lines[i].trim())){tl.push(lines[i]);i++;}i++;push(renderTable(tl,ctx),s0,Math.min(i,lines.length)-1);continue;}
+    if(/^[*#]/.test(t)){flush();const s0=i;const ll=[];while(i<lines.length&&/^[*#]/.test(lines[i].trim())){ll.push(lines[i].trim());i++;}push(renderList(ll,ctx),s0,i-1);continue;}
+    if(m=t.match(/^\[\[(?:Файл|File|Изображение|Image):(.+)\]\]$/i)){flush();push(renderThumb(m[1],ctx),i,i);i++;continue;}
+    if(m=t.match(/^\{\{\s*(основная статья|основные статьи|main|см\. также|see also)\s*\|(.+)\}\}$/i)){flush();const it=m[2].split('|').map(x=>x.trim()).filter(Boolean);const main=!/также|also/i.test(m[1]);push(`<div class="hatnote">${main?(it.length>1?'Основные статьи':'Основная статья'):'См. также'}: ${inline(it.map(x=>'[['+x+']]').join(', '),ctx)}</div>`,i,i);i++;continue;}
     if(/^(\{\{\s*(примечания|reflist|references)\s*\}\}|<references\s*\/?>)$/i.test(t)){flush();out.push('\u0003REFS\u0003');i++;continue;}
-    if(t==='----'){flush();out.push('<hr>');i++;continue;}
-    if(t[0]===':'){flush();out.push(`<dl><dd>${inline(t.replace(/^:+/,''),ctx)}</dd></dl>`);i++;continue;}
-    para.push(t);i++;
+    if(t==='----'){flush();push('<hr>',i,i);i++;continue;}
+    if(t[0]===':'){flush();push(`<dl><dd>${inline(t.replace(/^:+/,''),ctx)}</dd></dl>`,i,i);i++;continue;}
+    if(!para.length)ps=i;para.push(t);i++;
   }
   flush();
   return {out,heads};
@@ -232,25 +235,25 @@ const RENDER={
     }
     return h;},
 };
-function renderInfobox(ib,ctx){
+function renderInfobox(ib,ctx,mark){
   const th=ib.custom?safeColor(ib.theme):'';const fg=th?textOn(th):'';
   const hs={st:th?` style="background:${th};color:${fg}"`:'',st2:th?` style="background:${th};color:${fg}"`:'',dk:fg==='#ffffff'?' dk':''};
-  let h='';for(const r of ib.rows||[])h+=(RENDER[r.t]?RENDER[r.t](r,ctx,hs):'');
+  let h='';(ib.rows||[]).forEach((r,i)=>{let x=RENDER[r.t]?RENDER[r.t](r,ctx,hs):'';if(mark)x=x.replace(/<tr(?=[ >])/g,`<tr data-ib="${i}"`);h+=x;});
   if(!h&&!ib.title&&!ib.above)return '';
   const w=Math.min(40,Math.max(14,+ib.w||23));
-  return `<table class="infobox" style="width:${w}em"><tbody>${ib.above?`<tr><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
+  return `<table class="infobox" style="width:${w}em"><tbody>${ib.above?`<tr${mark?' data-ib="above"':''}><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr${mark?' data-ib="title"':''}><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
 }
 
 /* ---------- article ---------- */
 function articleParts(pg,opts={}){
   const ctx=newCtx();
-  const ibh=renderInfobox(pg.ib,ctx);
+  const ibh=renderInfobox(pg.ib,ctx,opts.editLinks);
   const b=renderBody(pg.body,ctx,opts.editLinks?pg.id:null);
   let html=b.out.join('\n');
   const refs=ctx.refs.length?`<div class="reflist"><ol class="references">${ctx.refs.map((r,i)=>`<li id="cite_note-${i+1}"><span class="mw-cite-backlink"><a href="#" data-back="${i+1}" title="Вернуться к тексту">↑</a></span> ${r}</li>`).join('')}</ol></div>`:'';
   if(html.includes('\u0003REFS\u0003'))html=html.replace('\u0003REFS\u0003',refs).replace(/\u0003REFS\u0003/g,'');
   else if(refs){const id='sec-'+b.heads.length;b.heads.push({lv:2,id,text:'Примечания'});html+=`<h2 id="${id}">Примечания</h2>`+refs;}
-  const content=`${pg.hatnote?`<div class="hatnote">${inline(pg.hatnote,ctx)}</div>`:''}${ibh}${html}<div class="clear"></div>`;
+  const content=`${pg.hatnote?`<div class="hatnote"${opts.editLinks?' data-ib="hatnote"':''}>${inline(pg.hatnote,ctx)}</div>`:''}${ibh}${html}<div class="clear"></div>`;
   return {content,heads:b.heads};
 }
 function catsOf(pg){return String(pg.cats||'').split(/[,\n]/).map(s=>s.trim()).filter(Boolean);}
