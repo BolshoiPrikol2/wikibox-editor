@@ -40,8 +40,10 @@ const IDBS={p:null,
   async set(k,v){const db=await this.open();if(!db)return false;return new Promise(res=>{try{const t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=()=>res(true);t.onerror=t.onabort=()=>res(false);}catch(e){res(false);}});},
   async del(k){const db=await this.open();if(!db)return;return new Promise(res=>{try{const t=db.transaction('kv','readwrite');t.objectStore('kv').delete(k);t.oncomplete=t.onerror=t.onabort=()=>res();}catch(e){res();}});}
 };
-let saveSeq=0;
+let saveSeq=0,persistAsked=false;
+function askPersist(){if(persistAsked)return;persistAsked=true;try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist();}catch(e){}}
 function save(){
+  askPersist();
   const s=serializeProject(),t=Date.now(),seq=++saveSeq;state.source='local';
   let lsOk=false;
   try{localStorage.setItem(LS,s);localStorage.setItem(LS+'-t',String(t));lsOk=true;}
@@ -247,6 +249,7 @@ function viewFile(){
   const kb=Math.round(JSON.stringify(P).length/1024);
   const src={local:'ваша копия в этом браузере (вы что-то меняли)',published:'опубликованная версия с сайта — вы её ещё не меняли',sample:'встроенный пример'}[state.source]||'';
   const content=`<div class="notice"><p><b>Сейчас открыта:</b> ${src}. Размер проекта ≈ ${kb} КБ.</p>
+  <p id="st-info" class="cnt">Считаю, сколько места доступно…</p>
   <p>Правки сохраняются только в этом браузере. Чтобы их увидели все посетители сайта, скачайте <code>wiki.json</code> и замените им файл <code>data/wiki.json</code> на сервере.</p></div>
   <h2>Сохранить</h2>
   <p><button class="btn pri" data-act="dl-json" data-n="wiki.json">Скачать wiki.json для публикации</button> <button class="btn" data-act="dl-json" data-n="">Скачать резервную копию</button></p>
@@ -266,8 +269,29 @@ function viewFile(){
   </div>
   <h2>Внешний вид</h2><div class="ap-inline">${appearanceHTML('f')}</div>
   <h2>Начать заново</h2>
+  <p><button class="btn danger" data-act="reset-all">Сбросить всё к изначальному виду</button></p>
+  <p class="cnt">Удаляет все ваши статьи, карты и картинки медиатеки и настройки вики — сайт станет таким, каким его видит новый посетитель. Перед сбросом можно скачать резервную копию выше. Внешний вид (размер текста, тема) не меняется.</p>
   <p><button class="btn danger" data-act="reset-sample">Загрузить пример про Сибирь</button> <button class="btn danger" data-act="reset-empty">Удалить все статьи</button></p>`;
   setView(mainMenuHTML(),shell({title:'Файл проекта',content}),'Файл проекта');
+  storageInfo();
+}
+/* сколько места браузер даёт проекту (IndexedDB — обычно гигабайты) */
+async function storageInfo(){
+  const el=$('#st-info');if(!el)return;
+  try{const e=navigator.storage&&navigator.storage.estimate?await navigator.storage.estimate():null;const pr=navigator.storage&&navigator.storage.persisted?await navigator.storage.persisted():false;
+    const mb=x=>x>=1073741824?(x/1073741824).toFixed(1).replace('.',',')+' ГБ':Math.max(.1,x/1048576).toFixed(1).replace('.',',')+' МБ';
+    if(e&&e.quota)el.textContent=`Место для проекта в браузере: занято ${mb(e.usage||0)} из ${mb(e.quota)}${pr?' (браузер хранит проект надёжно и не сотрёт его при нехватке места на диске)':''}.`;
+    else el.textContent='Браузер не сообщает, сколько места доступно.';
+  }catch(x){el.textContent='';}
+}
+/* полный сброс: статьи, карты, медиатека и настройки вики — как у нового посетителя */
+async function resetAll(){
+  try{localStorage.removeItem(LS);localStorage.removeItem(LS+'-t');}catch(e){}
+  await IDBS.del(LS);
+  let d=null;try{const r=await fetch('data/wiki.json',{cache:'no-cache'});if(r.ok)d=await r.json();}catch(e){}
+  P=d?normalize(d):sampleProject();state.source=d?'published':'sample';edPage=null;
+  applyBrand();location.hash='#/';route();const ok=await renderStoredMaps();if(ok)route();
+  toast('Всё сброшено к изначальному виду');
 }
 let importText='';
 function doImport(mode){
@@ -589,6 +613,7 @@ document.addEventListener('click',e=>{
     case 'imp-merge':doImport('merge');break;
     case 'imp-replace':if(armed(btn,'Заменить? Текущие статьи пропадут'))doImport('replace');break;
     case 'load-published':if(armed(btn,'Ваши правки в этом браузере пропадут. Точно?'))fetch('data/wiki.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error('файл не найден');return r.json();}).then(d=>{P=normalize(d);try{localStorage.removeItem(LS);IDBS.del(LS);}catch(x){}state.source='published';applyBrand();toast('Загружена опубликованная версия');location.hash='#/';route();renderStoredMaps().then(ok=>{if(ok)route();});}).catch(err=>toast('Не получилось загрузить data/wiki.json: '+err.message,true));break;
+    case 'reset-all':if(armed(btn,'Точно сбросить? Все статьи, карты и картинки пропадут')){resetAll();}break;
     case 'reset-sample':if(armed(btn,'Точно? Текущие статьи пропадут')){P=sampleProject();save();applyBrand();location.hash='#/';route();renderStoredMaps().then(ok=>{if(ok)route();});}break;
     case 'reset-empty':if(armed(btn,'Точно? Всё будет удалено')){P=normalize({v:2,wiki:P.wiki,media:[],pages:[]});save();location.hash='#/';route();}break;
   }
