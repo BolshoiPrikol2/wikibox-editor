@@ -558,3 +558,37 @@ html[data-wmode="wiki"] .selbar{display:none}
 
 .selbar .sb.sw{width:22px;height:22px;padding:0;margin:0 1px;border:1px solid var(--border);border-radius:3px;font-size:11px;line-height:20px;text-align:center;color:var(--subtle)}
 .selbar .sb.sw:hover{outline:2px solid var(--link);outline-offset:1px}
+
+/* ---------- редактор таблиц ---------- */
+.te-ovl{position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.42);display:flex;align-items:flex-start;justify-content:center;padding:4vh 16px;overflow:auto}
+.te-dlg{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;box-shadow:0 8px 32px rgba(0,0,0,.3);width:min(1100px,100%);display:flex;flex-direction:column;max-height:92vh}
+.te-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border-muted)}
+.te-head h2{margin:0;font-family:var(--serif);font-weight:normal;font-size:1.35em}
+.te-bar{display:flex;flex-wrap:wrap;gap:6px 14px;padding:8px 14px;border-bottom:1px solid var(--border-muted);background:var(--bg-sub)}
+.te-bar.off{opacity:.4;pointer-events:none}
+.te-grp{display:flex;align-items:center;gap:2px;flex-wrap:wrap}
+.te-l{font-size:12px;color:var(--subtle);margin-right:4px}
+.te-b{font:inherit;font-size:13px;padding:4px 8px;border:1px solid var(--border-sub);background:var(--bg);color:var(--text);border-radius:2px;cursor:pointer;white-space:nowrap}
+.te-b:hover{background:var(--bg-hover,var(--bg-sub))}
+.te-b.on{background:var(--link);color:#fff;border-color:var(--link)}
+.te-seg{display:inline-flex;margin-right:4px}.te-seg .te-b{border-radius:0}.te-seg .te-b:first-child{border-radius:2px 0 0 2px}.te-seg .te-b:last-child{border-radius:0 2px 2px 0}
+.te-sw{width:22px;height:22px;padding:0;margin:0 1px;border:1px solid var(--border);border-radius:3px;background:var(--bg);color:var(--subtle);font-size:11px;cursor:pointer}
+.te-sw:hover{outline:2px solid var(--link);outline-offset:1px}
+.te-cap{display:flex;align-items:center;gap:8px;padding:8px 14px 0;font-size:13px;color:var(--subtle)}
+.te-cap input{flex:1;font:inherit;font-size:14px;padding:4px 8px;border:1px solid var(--border);border-radius:2px;background:var(--bg);color:var(--text)}
+.te-body{padding:12px 14px;overflow:auto;flex:1;min-height:120px}
+.te-grid{margin:0;font-size:14px;min-width:240px}
+.te-grid td,.te-grid th{padding:0!important;vertical-align:top;min-width:70px}
+.te-cell{padding:.25em .5em;min-height:1.6em;outline:none;cursor:text}
+.te-td.cur{box-shadow:inset 0 0 0 2px var(--link)}
+#te-code{width:100%;min-height:320px;box-sizing:border-box;font-size:13px;padding:8px;border:1px solid var(--border);border-radius:2px;background:var(--bg);color:var(--text)}
+.te-foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--border-muted)}
+.te-foot .cnt{font-size:12px;color:var(--subtle);flex:1 1 260px}
+body.te-open{overflow:hidden}
+.selbar{z-index:70}
+/* кнопка на таблице в режиме чтения */
+.table-wrap{position:relative}
+.tbl-edit{position:absolute;right:0;top:0;z-index:2;font:inherit;font-size:12px;padding:2px 8px;border:1px solid var(--border-sub);border-radius:2px;background:var(--bg);color:var(--link);cursor:pointer;opacity:0;transition:opacity .15s}
+.table-wrap:hover .tbl-edit,.tbl-edit:focus-visible{opacity:1}
+html[data-wmode="wiki"] .tbl-edit{display:none}
+@media (hover:none){.tbl-edit{opacity:1;position:static;margin-bottom:4px}}

@@ -13,7 +13,7 @@ function richHTML(src){
   s=esc(s);
   const links=[];
   s=s.replace(LINK_RE,(m,r,t,x,tr)=>'\u0003'+(links.push({r,t,x:(x||t)+(tr||'')})-1)+'\u0004');
-  s=s.replace(/\r?\n/g,'<br>');
+  s=s.replace(/\r?\n/g,'<br>').replace(/&lt;br\s*\/?&gt;/gi,'<br>');
   s=fmt(s);
   s=s.replace(/\u0003(\d+)\u0004/g,(m,i)=>{const l=links[+i];return `<a class="wk-link${l.r?' new':''}" data-t="${l.t}" href="#">${fmt(l.x)}</a>`;});
   return s.replace(/\u0001(\d+)\u0002/g,(m,i)=>atomHTML(atoms[+i],ctx));
@@ -132,7 +132,9 @@ function ieToCode(){
 function ieAction(k){if(k==='ok')ieSave();else if(k==='code')ieToCode();else closeIE();}
 
 /* ---------- меню над выделенным текстом ---------- */
-let SB=null,sbRange=null,sbMode='';
+let SB=null,sbRange=null,sbMode='',RR=null;
+/* где сейчас правится текст: абзац на странице или ячейка редактора таблиц */
+const rr=()=>(RR&&RR.isConnected?RR:null)||(IE&&IE.rich)||null;
 const SB_TOOLS=[['b','<b>Ж</b>','Жирный (Ctrl+B)'],['i','<i>К</i>','Курсив (Ctrl+I)'],['link','Ссылка','Ссылка на статью (Ctrl+K)'],['red','Красная ссылка','Красная ссылка'],['unlink','Убрать ссылку','Убрать ссылку'],['ref','Сноска','Добавить сноску после выделенного'],['clear','Очистить','Убрать оформление']];
 function selbar(){
   if(SB)return SB;
@@ -149,7 +151,8 @@ function selRange(){const s=getSelection();return s&&s.rangeCount&&!s.isCollapse
 function selCtx(){
   const r=selRange();if(!r)return null;
   const a=r.startContainer,b=r.endContainer;const el=n=>n.nodeType===1?n:n.parentElement;
-  if(IE&&IE.rich&&IE.rich.contains(a)&&IE.rich.contains(b))return {edit:true,r};
+  {const tc=el(a).closest&&el(a).closest('.te-cell');if(tc&&tc.contains(b))return {edit:true,r,root:tc};}
+  if(IE&&IE.rich&&IE.rich.contains(a)&&IE.rich.contains(b))return {edit:true,r,root:IE.rich};
   if(parseHash().k!=='wiki'||wikiMode()||IE)return null;
   {const ca=el(a).closest('#main .mw-content [data-tc]'),cb=el(b).closest('#main .mw-content [data-tc]');
    if(ca||cb){if(ca!==cb)return null;const tbl=ca.closest('[data-l]');if(!tbl)return null;return {table:true,r,cell:ca,row:ca.closest('tr'),tbl};}}
@@ -164,9 +167,10 @@ function selbarShow(force){
   if(sbMode&&!force)return;
   if(c.table){
     const sw=k=>TABLE_COLORS.map(([col,n])=>`<button type="button" class="sb sw" data-sb="${k}:${col}" title="${n}" aria-label="${k==='cell'?'Ячейка':'Строка'}: ${n}" style="${col?`background:${col}`:''}">${col?'':'✕'}</button>`).join('');
-    bar.innerHTML=`<span class="sb-l">Ячейка</span>${sw('cell')}<span class="sb-sep"></span><span class="sb-l">Строка</span>${sw('row')}<span class="sb-sep"></span><button type="button" class="sb" data-sb="tcode" title="Править таблицу разметкой">✎ Разметка</button>`;
+    bar.innerHTML=`<span class="sb-l">Ячейка</span>${sw('cell')}<span class="sb-sep"></span><span class="sb-l">Строка</span>${sw('row')}<span class="sb-sep"></span><button type="button" class="sb" data-sb="tedit" title="Открыть редактор таблицы">✎ Редактор таблицы</button>`;
     bar.hidden=false;sbPlace(c.r);return;
   }
+  if(c.edit)RR=c.root;
   const tools=SB_TOOLS.map(([k,l,t])=>`<button type="button" class="sb" data-sb="${k}" title="${t}" aria-label="${t}">${l}</button>`).join('');
   bar.innerHTML=tools+(c.edit?'':`<span class="sb-sep"></span><button type="button" class="sb" data-sb="edit" title="Править этот абзац">✎ Править</button>`);
   bar.hidden=false;sbPlace(c.r);
@@ -208,10 +212,10 @@ function sbInput(kind,val){
   const inp=SB.querySelector('input');setTimeout(()=>{inp.focus();inp.select();},0);if(sbRange)sbPlace(sbRange);
 }
 function sbDo(k){
-  if(k==='cancel'){sbMode='';SB.hidden=true;if(sbRange&&IE&&IE.rich){const s=getSelection();s.removeAllRanges();s.addRange(sbRange);IE.rich.focus();}return;}
+  if(k==='cancel'){sbMode='';SB.hidden=true;if(sbRange&&rr()){const s=getSelection();s.removeAllRanges();s.addRange(sbRange);rr().focus();}return;}
   if(k==='ok'){
     const kind=sbMode;const v=SB.querySelector('input').value.trim();sbMode='';SB.hidden=true;
-    if(!IE||!IE.rich||!sbRange)return;IE.rich.focus();const s=getSelection();s.removeAllRanges();s.addRange(sbRange);
+    if(!rr()||!sbRange)return;rr().focus();const s=getSelection();s.removeAllRanges();s.addRange(sbRange);
     if(!v)return;
     if(kind==='ref'){const r=sbRange.cloneRange();r.collapse(false);const span=document.createElement('span');span.className='wk-atom';span.contentEditable='false';span.dataset.wk=`<ref>${v}</ref>`;span.title=v;span.innerHTML='<sup class="reference">[*]</sup>';r.insertNode(span);r.setStartAfter(span);r.collapse(true);s.removeAllRanges();s.addRange(r);}
     else{const a=document.createElement('a');a.className='wk-link'+(kind==='red'?' new':'');a.dataset.t=v;a.href='#';wrapRange(sbRange,a);}
@@ -222,27 +226,33 @@ function sbDo(k){
   if(!c.edit){
     // режим чтения: открываем правку этого блока и переносим выделение
     const [s,e]=rangeOffsets(c.blk,c.r);
-    if(!ieOpenAt(c.blk,'rich')||!IE.rich)return;
+    if(!ieOpenAt(c.blk,'rich')||!IE.rich)return;RR=IE.rich;
     const nr=rangeAt(IE.rich,s,e);IE.rich.focus();const sel=getSelection();sel.removeAllRanges();if(nr)sel.addRange(nr);
     if(k==='edit'){selbarShow(true);return;}
   }
-  const r=selRange();if(!r||!IE||!IE.rich)return;
+  const r=selRange();if(!r||!rr())return;
   switch(k){
     case 'b':document.execCommand('bold');break;
     case 'i':document.execCommand('italic');break;
     case 'link':sbInput('link',r.toString().trim());return;
     case 'red':sbInput('red',r.toString().trim());return;
     case 'ref':sbInput('ref','');return;
-    case 'unlink':{for(const a of [...IE.rich.querySelectorAll('a.wk-link')])if(r.intersectsNode(a)){a.replaceWith(...a.childNodes);}break;}
+    case 'unlink':{for(const a of [...rr().querySelectorAll('a.wk-link')])if(r.intersectsNode(a)){a.replaceWith(...a.childNodes);}break;}
     case 'clear':{const t=r.toString();r.deleteContents();const tn=document.createTextNode(t);r.insertNode(tn);const nr=document.createRange();nr.selectNodeContents(tn);const s=getSelection();s.removeAllRanges();s.addRange(nr);break;}
   }
   selbarShow(true);
+}
+/* визуальный редактор для таблицы статьи: tblEl — блок таблицы с data-l */
+function openPageTable(pg,tblEl){
+  const [a,b]=tblEl.dataset.l.split('-').map(Number);const L=String(pg.body||'').replace(/\r/g,'').split('\n');
+  openTableEditor(L.slice(a,b+1).join('\n'),md=>{const L2=String(pg.body||'').replace(/\r/g,'').split('\n');L2.splice(a,b-a+1,...(md?md.split('\n'):[]));pg.body=L2.join('\n').replace(/\n{3,}/g,'\n\n');pg.updated=Date.now();save();const y=window.scrollY;viewArticle(pg);window.scrollTo(0,y);toast(md?'Таблица сохранена':'Таблица удалена');});
 }
 /* цвета таблиц, как в Википедии (и. о. в списке президентов — #d1edf2) */
 const TABLE_COLORS=[['#d1edf2','голубой'],['#cedff2','синий'],['#d4f4d4','зелёный'],['#fff3b0','жёлтый'],['#ffe4c4','оранжевый'],['#ffd6d6','красный'],['#eaecf0','серый'],['','без цвета']];
 function tableAction(c,k){
   const pg=cur();if(!pg)return;
   if(k==='tcode'){selbarHide();ieOpenAt(c.tbl,'code');return;}
+  if(k==='tedit'){selbarHide();getSelection().removeAllRanges();openPageTable(pg,c.tbl);return;}
   const m=k.match(/^(cell|row):(.*)$/);if(!m)return;const color=m[2];
   const s0=+c.tbl.dataset.l.split('-')[0];const L=String(pg.body||'').replace(/\r/g,'').split('\n');const at=k2=>s0+1+k2;
   if(m[1]==='row'){
@@ -265,6 +275,7 @@ document.addEventListener('selectionchange',()=>{if(sbMode)return;cancelAnimatio
 window.addEventListener('resize',()=>{if(SB&&!SB.hidden&&!sbMode)selbarShow(true);});
 
 /* ---------- события ---------- */
+document.addEventListener('click',e=>{const b=e.target.closest('.tbl-edit');if(!b)return;e.preventDefault();const pg=cur();const t=b.closest('[data-l]');if(pg&&t)openPageTable(pg,t);});
 document.addEventListener('dblclick',e=>{
   const t=e.target;if(t.closest('a,button,input,textarea,select,.fplayer,.ie,#main .mw-content .table-wrap [data-tc]'))return;
   if(ieOpenAt(t,'rich')){e.preventDefault();}
@@ -282,5 +293,5 @@ document.addEventListener('paste',e=>{
   if(!IE||!IE.rich||!IE.rich.contains(e.target))return;
   e.preventDefault();const t=(e.clipboardData||window.clipboardData).getData('text/plain');document.execCommand('insertText',false,t);
 });
-document.addEventListener('click',e=>{if(e.target.closest('.ie-rich a, .ie-rich .wk-atom')){e.preventDefault();e.stopPropagation();}},true);
+document.addEventListener('click',e=>{if(e.target.closest('.ie-rich a, .ie-rich .wk-atom, .te-cell a, .te-cell .wk-atom')){e.preventDefault();e.stopPropagation();}},true);
 document.addEventListener('mousedown',e=>{if(SB&&!SB.hidden&&!e.target.closest('.selbar')&&sbMode){sbMode='';SB.hidden=true;}});

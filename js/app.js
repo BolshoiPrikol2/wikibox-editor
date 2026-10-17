@@ -267,7 +267,7 @@ const TB=[
   ['Ж',"'''","'''",'жирный'],['К',"''","''",'курсив'],['[[ссылка]]','[[',']]','Статья'],['Красная ссылка','[[!',']]','Статья'],['Раздел','\n== ',' ==\n','Раздел'],
   ['Сноска','<ref>','</ref>','Источник'],['Список','\n* ','','пункт'],['Флаг','{{флаг|','}}','Сибирь'],['Флаг без названия','{{флаг-|','}}','Сибирь|Сибирская Республика'],['Цвет','{{цвет|','}}','#3366cc'],
   ['Картинка','\n[[Файл:','|200px|Подпись]]\n','__MEDIA__'],['Таблица','\n{| class="wikitable"\n! Заголовок 1 !! Заголовок 2\n|-\n| ',' || ячейка\n|}\n','ячейка'],
-  ['Осн. статья','{{основная статья|','}}','Статья'],['↗ рост','{{рост|','}}','5'],['↘ падение','{{падение|','}}','5'],['▶ плеер','{{плеер|','}}','1:13'],['Цвет строки таблицы','\n|- style="background:','"','#d1edf2'],['Цвет ячейки','style="background:','" | ','#d1edf2'],['и. о.','{{и. о.','}}',''],
+  ['Осн. статья','{{основная статья|','}}','Статья'],['↗ рост','{{рост|','}}','5'],['↘ падение','{{падение|','}}','5'],['▶ плеер','{{плеер|','}}','1:13'],['▦ Таблица','__TABLE__','',''],['Цвет строки таблицы','\n|- style="background:','"','#d1edf2'],['Цвет ячейки','style="background:','" | ','#d1edf2'],['и. о.','{{и. о.','}}',''],
 ];
 const inp=(path,val,ph='')=>`<input id="${fid(path)}" data-p="${path}" value="${esc(val)}" placeholder="${esc(ph)}">`;
 const ta=(path,val,ph='',rows)=>`<textarea id="${fid(path)}" data-p="${path}" rows="${rows||Math.min(6,Math.max(1,String(val||'').split('\n').length))}" placeholder="${esc(ph)}">${esc(val)}</textarea>`;
@@ -376,13 +376,21 @@ function renderEdPreview(){
   el.innerHTML=`<h1 class="fh">${fmt(esc(pg.title))}</h1><div class="sitesub">${esc(siteTag())}</div><div class="mw-content">${content}${catlinksHTML(pg)}</div>`;
 }
 function insertTB(k){
-  const b=TB[k];let el=document.getElementById(fid(state.lastP));if(!el||el.type==='color'||!$('#edform')?.contains(el))el=$('#f-body');if(!el)return;
+  const b=TB[k];
+  if(b[1]==='__TABLE__'){tableFromEditor();return;}let el=document.getElementById(fid(state.lastP));if(!el||el.type==='color'||!$('#edform')?.contains(el))el=$('#f-body');if(!el)return;
   let ph=b[3];if(ph==='__MEDIA__')ph=P.media[0]?.name||'Имя';
   const s=el.selectionStart??el.value.length,e2=el.selectionEnd??s;const sel=el.value.slice(s,e2)||ph;
   el.focus();el.setRangeText(b[1]+sel+b[2],s,e2,'end');el.selectionStart=s+b[1].length;el.selectionEnd=s+b[1].length+sel.length;
   el.dispatchEvent(new Event('input',{bubbles:true}));
 }
 
+/* Таблица в редакторе статьи: курсор внутри {| … |} — правим её, иначе вставляем новую */
+function tableFromEditor(){
+  const el=$('#f-body');if(!el)return;const v=el.value;const pos=el.selectionStart??v.length;
+  const a=v.lastIndexOf('{|',pos);const end=a>=0?v.indexOf('|}',a):-1;
+  if(a>=0&&end>=0&&pos<=end+2){const b=end+2;openTableEditor(v.slice(a,b),md=>{el.focus();el.setRangeText(md,a,b,'end');el.dispatchEvent(new Event('input',{bubbles:true}));});return;}
+  openTableEditor('',md=>{if(!md)return;el.focus();const s=el.selectionStart??el.value.length;const pre=s&&el.value[s-1]!=='\n'?'\n\n':'';el.setRangeText(pre+md+'\n',s,el.selectionEnd??s,'end');el.dispatchEvent(new Event('input',{bubbles:true}));});
+}
 /* ---------- картинки ---------- */
 function readImage(file){
   return new Promise((res,rej)=>{const fr=new FileReader();fr.onerror=()=>rej(fr.error);fr.onload=()=>{
@@ -424,7 +432,7 @@ async function snap(which){
   const area=$('#main .snap-area');const target=which==='ib'?$('#main .infobox'):area;
   if(!target){toast('У этой страницы нет карточки',true);return;}
   toast('Готовлю картинку…');
-  const ed=$$('.mw-editsection,.toc-mobile,.sitesub-r',area);ed.forEach(e=>e.style.visibility='hidden');
+  const ed=$$('.mw-editsection,.toc-mobile,.sitesub-r,.tbl-edit',area);ed.forEach(e=>e.style.visibility='hidden');
   /* «главное»: всё, что выше первого раздела, — заголовок, вступление и карточка */
   const cut=[];$$('.tabs',area).forEach(el=>{cut.push([el,el.style.display]);el.style.display='none';});if(which==='lead'){const mc=$('.mw-content',area);let past=false;for(const el of [...mc.children]){if(/^H[2-4]$/.test(el.tagName))past=true;if((past&&!el.classList.contains('clear'))||el.matches('.toc-mobile,.reflist,.catlinks')){cut.push([el,el.style.display]);el.style.display='none';}}}
   closeIE();

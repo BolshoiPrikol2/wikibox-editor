@@ -158,7 +158,7 @@ function renderTable(tl,ctx,mark){
       });
     }else if(row&&row.cells.length){row.cells[row.cells.length-1].c+=' '+l;}
   });
-  return `<div class="table-wrap"><table class="wikitable">${cap?`<caption>${inline(cap,ctx)}</caption>`:''}<tbody>${rows.map(r=>`<tr${r.a}${mark?` data-tr="${r.rl}:${r.fl}"`:''}>`+r.cells.map(c=>`<${c.h?'th':'td'}${c.a}${mark?` data-tc="${c.li}:${c.pi}"`:''}>${inline(c.c.trim(),ctx)}</${c.h?'th':'td'}>`).join('')+'</tr>').join('')}</tbody></table></div>`;
+  return `<div class="table-wrap">${mark?'<button type="button" class="tbl-edit" title="Открыть редактор таблицы">✎ править таблицу</button>':''}<table class="wikitable">${cap?`<caption>${inline(cap,ctx)}</caption>`:''}<tbody>${rows.map(r=>`<tr${r.a}${mark?` data-tr="${r.rl}:${r.fl}"`:''}>`+r.cells.map(c=>`<${c.h?'th':'td'}${c.a}${mark?` data-tc="${c.li}:${c.pi}"`:''}>${inline(c.c.trim(),ctx)}</${c.h?'th':'td'}>`).join('')+'</tr>').join('')}</tbody></table></div>`;
 }
 /* цвет фона в атрибутах строки или ячейки таблицы: '' — убрать */
 function setBgAttr(attrs,color){
