@@ -5,11 +5,11 @@ const GEO={countries:null,prov:{},names:null};
 const geoJobs={};
 function fetchJSON(url){return geoJobs[url]=geoJobs[url]||fetch(url).then(r=>{if(!r.ok)throw new Error('нет файла '+url);return r.json();});}
 async function loadGeo(splitCodes){
-  if(!GEO.countries)GEO.countries=await fetchJSON('data/geo/countries.json');
+  if(!GEO.countries)GEO.countries=await fetchJSON('data/geo/countries.json?v=5');
   const codes=(splitCodes||[]).filter(c=>!GEO.prov[c]);
   if(codes.length||((splitCodes||[]).length&&!GEO.names)){
-    if(!GEO.names)GEO.names=await fetchJSON('data/geo/prov/index.json');
-    await Promise.all(codes.filter(c=>GEO.names.c[c]).map(async c=>{GEO.prov[c]=await fetchJSON('data/geo/prov/'+c+'.json');}));
+    if(!GEO.names)GEO.names=await fetchJSON('data/geo/prov/index.json?v=5');
+    await Promise.all(codes.filter(c=>GEO.names.c[c]).map(async c=>{GEO.prov[c]=await fetchJSON('data/geo/prov/'+c+'.json?v=5');}));
   }
   return GEO;
 }
@@ -79,8 +79,9 @@ const cname=id=>{const f=GEO.countries&&MapDraw.prepare(GEO)._cById[id];return f
 function renderMeTools(){
   const t=$('#me-tools');if(!t)return;
   t.innerHTML=`<div class="seg">${Object.entries(MAP_TOOLS).map(([k,v])=>`<button class="${ME.tool===k?'on':''}" data-act="me-tool" data-k="${k}">${v[0]}</button>`).join('')}</div>
+    <div class="seg"><button data-act="me-zoom" data-z="1.5" aria-label="Приблизить" title="Приблизить">+</button><button data-act="me-zoom" data-z="0.667" aria-label="Отдалить" title="Отдалить">−</button></div>
     <span class="me-active">Цвет кисти: ${ME.spec.groups[ME.active]?`<span class="legend-color" style="background:${esc(ME.spec.groups[ME.active].color)}"></span> ${esc(ME.spec.groups[ME.active].name)}`:'нет групп'}</span>`;
-  const h=$('#me-help');if(h)h.textContent=MAP_TOOLS[ME.tool][1]+(ME.tool!=='pan'?' Двигать карту: правой кнопкой мыши или с зажатым пробелом.':'');
+  const h=$('#me-help');if(h)h.textContent=MAP_TOOLS[ME.tool][1]+(ME.tool!=='pan'?' Двигать и приближать карту: правой кнопкой мыши, с зажатым пробелом или двумя пальцами.':'');
 }
 function renderMePanel(){
   const s=ME.spec;const pr=MapDraw.PROJ;
@@ -216,6 +217,7 @@ document.addEventListener('click',e=>{
     case 'me-gup':{e.stopPropagation();const i=+b.dataset.i;if(i>0){[s.groups[i-1],s.groups[i]]=[s.groups[i],s.groups[i-1]];if(ME.active===i)ME.active--;else if(ME.active===i-1)ME.active++;renderMePanel();drawMe();}break;}
     case 'me-gdel':e.stopPropagation();if(armed(b,'?')){s.groups.splice(+b.dataset.i,1);ME.active=Math.max(0,Math.min(ME.active,s.groups.length-1));renderMePanel();drawMe();}break;
     case 'me-tool':ME.tool=b.dataset.k;renderMeTools();break;
+    case 'me-zoom':setZoom(s.zoom*+b.dataset.z);break;
     case 'me-unsplit':meUnsplit(b.dataset.k);break;
     case 'me-center':{const c=MapDraw.groupCentroid(s,ME.active,GEO);if(!c){toast('В выбранной группе пока ничего нет',true);break;}s.lon=Math.round(c[0]);if(s.proj==='ortho')s.lat=Math.round(Math.max(-60,Math.min(60,c[1])));syncSliders();drawMe();break;}
   }
@@ -236,10 +238,22 @@ document.addEventListener('keydown',e=>{if(e.code==='Space'&&$('#me-svg')&&!/INP
 document.addEventListener('keyup',e=>{if(e.code==='Space')ME.space=false;});
 document.addEventListener('contextmenu',e=>{if(e.target.closest('#me-svg'))e.preventDefault();});
 /* перетаскивание, кисть и колесо на карте */
+/* два пальца: масштаб щипком и сдвиг */
+const PTRS=new Map();
+function pinchState(){const [a,b]=[...PTRS.values()];return {d:Math.hypot(a.x-b.x,a.y-b.y),mx:(a.x+b.x)/2,my:(a.y+b.y)/2};}
+function setZoom(z){const s=ME.spec;s.zoom=Math.max(1,Math.min(12,+z.toFixed(2)));if(s.proj!=='ortho'&&s.zoom>1&&!$('#me-lat'))renderMePanel();syncSliders();drawMeSoon();}
 document.addEventListener('pointerdown',e=>{
   const box=e.target.closest('#me-svg');if(!box||!ME.spec||!GEO.countries)return;
   const svg=box.querySelector('svg');if(!svg)return;
   e.preventDefault();box.setPointerCapture(e.pointerId);
+  PTRS.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(PTRS.size===2){
+    // второй палец отменяет мазок и включает щипок
+    if(ME.stroke){const st=ME.stroke;ME.stroke=null;if(st.changed){ME.spec.groups.forEach(compact);renderMePanel();}}
+    ME.drag=null;const st=pinchState();
+    ME.pinch={...st,zoom:ME.spec.zoom,lon:ME.spec.lon,lat:ME.spec.lat,k:svg.viewBox.baseVal.width/svg.getBoundingClientRect().width};return;
+  }
+  if(PTRS.size>2)return;
   const paint=['prov','region','erase'].includes(ME.tool)&&e.button===0&&!ME.space;
   const t=e.target;
   if(paint&&t.dataset.p){
@@ -254,6 +268,16 @@ document.addEventListener('pointerdown',e=>{
   ME.drag={x:e.clientX,y:e.clientY,lon:ME.spec.lon,lat:ME.spec.lat,moved:false,target:t,k:svg.viewBox.baseVal.width/svg.getBoundingClientRect().width,click:e.button===0&&!ME.space};
 });
 document.addEventListener('pointermove',e=>{
+  if(PTRS.has(e.pointerId))PTRS.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(ME.pinch&&PTRS.size>=2){
+    const q=ME.pinch,st=pinchState(),s=ME.spec;
+    s.zoom=Math.max(1,Math.min(12,+(q.zoom*st.d/Math.max(10,q.d)).toFixed(2)));
+    const {p}=MapDraw.projection(s);const deg=180/Math.PI/p.scale()*q.k;
+    s.lon=((q.lon-(st.mx-q.mx)*deg+540)%360)-180;
+    if(s.proj==='ortho'||s.zoom>1)s.lat=Math.max(-90,Math.min(90,q.lat+(st.my-q.my)*deg));
+    if(s.proj!=='ortho'&&s.zoom>1&&!$('#me-lat'))renderMePanel();
+    syncSliders();drawMeSoon();return;
+  }
   if(ME.stroke){const el=document.elementFromPoint(e.clientX,e.clientY);if(el&&el.closest('#me-svg'))applyStroke(el);const h=$('#me-hover');if(h)h.textContent=featName(el)||' ';return;}
   if(ME.drag){
     const d=ME.drag,dx=e.clientX-d.x,dy=e.clientY-d.y;
@@ -265,7 +289,10 @@ document.addEventListener('pointermove',e=>{
   }
   if(e.target.closest&&e.target.closest('#me-svg')&&GEO.countries){const h=$('#me-hover');if(h)h.textContent=featName(e.target)||' ';}
 });
+document.addEventListener('pointercancel',e=>{PTRS.delete(e.pointerId);if(PTRS.size<2)ME.pinch=null;});
 document.addEventListener('pointerup',async e=>{
+  PTRS.delete(e.pointerId);
+  if(ME.pinch){if(PTRS.size<2)ME.pinch=null;return;}
   if(ME.stroke){const st=ME.stroke;ME.stroke=null;if(st.changed){ME.spec.groups.forEach(compact);renderMePanel();drawMe();}return;}
   const d=ME.drag;if(!d)return;ME.drag=null;
   if(d.moved||!d.click)return;

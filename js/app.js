@@ -486,6 +486,10 @@ window.addEventListener('hashchange',route);
   try{const s=localStorage.getItem(LS);if(s){P=normalize(JSON.parse(s));state.source='local';}}catch(e){P=null;}
   if(!P){try{const r=await fetch('data/wiki.json',{cache:'no-cache'});if(r.ok){P=normalize(await r.json());state.source='published';}}catch(e){}}
   if(!P){P=sampleProject();state.source='sample';}
+  // проект из браузера мог быть сохранён до появления карт: добавляем недостающие картинки и карты из опубликованной версии
+  if(state.source==='local'){
+    try{const r=await fetch('data/wiki.json',{cache:'no-cache'});if(r.ok){const pub=await r.json();const add=(pub.media||[]).filter(m=>m&&m.name&&!P.media.some(x=>x.name===m.name));if(add.length){P.media.push(...add);save();}}}catch(e){}
+  }
   applyBrand();
   await renderStoredMaps();
   route();
