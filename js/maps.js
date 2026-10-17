@@ -3,7 +3,7 @@
    провинции, передача провинций между государствами, разрез и объединение провинций */
 
 const GEO={countries:null,prov:{},tpl:{},names:null,tplIndex:null};
-const GV='?v=33';
+const GV='?v=34';
 const geoJobs={};
 function fetchJSON(url){return geoJobs[url]=geoJobs[url]||fetch(url).then(r=>{if(!r.ok)throw new Error('нет файла '+url);return r.json();});}
 async function loadTplIndex(){if(!GEO.tplIndex){try{GEO.tplIndex=await fetchJSON('data/geo/tpl/index.json'+GV);}catch(e){GEO.tplIndex={years:[]};}}return GEO.tplIndex;}
@@ -79,7 +79,7 @@ function applyView(name){
 const MAP_COLORS=['#346733','#66cc66','#1f93c0','#c0392b','#e67e22','#8e44ad','#f1c40f','#16a085','#7f8c8d','#2c3e50'];
 const MAP_TOOLS={
   pan:['Двигать','Перетаскивайте карту, колесо мыши меняет масштаб.'],
-  country:['Страны','Щелчок добавляет государство целиком в отмеченную группу или убирает его. Так удобно собирать союзы вроде ЕС.'],
+  country:['Страны','Щелчок добавляет государство целиком в отмеченную группу или убирает его. Так удобно собирать союзы вроде ЕС. В режиме «Только одна страна» щелчок выделяет её одну, а всё остальное снимается.'],
   prov:['Кисть','Щёлкните по государству, чтобы разбить его на провинции, потом закрашивайте их цветом группы, проводя мышью. Провинция принадлежит только одной группе. Если повести кистью по уже закрашенной провинции, она станет прежней.'],
   region:['Регион целиком','Щелчок закрашивает целую область, штат или провинцию первого уровня.'],
   erase:['Ластик','Проведите мышью, чтобы освободить провинции от любых групп.'],
@@ -90,7 +90,7 @@ const MAP_TOOLS={
   merge:['Объединить','Щёлкайте по провинциям одной страны, потом нажмите «Объединить выбранные».',1],
 };
 
-const ME={spec:null,name:'',orig:null,active:0,tool:'prov',drag:null,raf:0,stroke:null,space:false,draft:null,sel:new Map(),ownT:'',ownMode:'pick',ownScope:'prov',regT:'',regMode:'pick',hist:[],fut:[],pend:null};
+const ME={spec:null,name:'',orig:null,active:0,tool:'prov',drag:null,raf:0,stroke:null,space:false,draft:null,sel:new Map(),ownT:'',ownMode:'pick',ownScope:'prov',single:false,regT:'',regMode:'pick',hist:[],fut:[],pend:null};
 const S=()=>ME.spec;
 function normSpec(s){
   for(const g of s.groups){g.countries=g.countries||[];g.regions=g.regions||[];g.prov=g.prov||[];}
@@ -152,6 +152,7 @@ function renderMeTools(){
   const t=$('#me-tools');if(!t)return;const s=S();
   const tb=list=>list.map(([k,v])=>`<button class="${ME.tool===k?'on':''}" data-act="me-tool" data-k="${k}">${v[0]}</button>`).join('');
   let extra='';
+  if(ME.tool==='country')extra=`<div class="seg" role="group" aria-label="Сколько стран выделять"><button class="${ME.single?'':'on'}" data-act="me-single" data-k="0">Несколько стран</button><button class="${ME.single?'on':''}" data-act="me-single" data-k="1">Только одна страна</button></div>`;
   if(ME.tool==='merge')extra=`<button class="btn sm pri" data-act="me-merge"${ME.sel.size<2?' disabled':''}>Объединить выбранные (${ME.sel.size})</button>${ME.sel.size?'<button class="btn sm" data-act="me-unsel">Снять выбор</button>':''}`;
   if(ME.tool==='regions'){
     const rm_=(k,l)=>`<button class="${ME.regMode===k?'on':''}" data-act="me-regmode" data-k="${k}">${l}</button>`;
@@ -588,6 +589,7 @@ document.addEventListener('click',e=>{
     case 'me-regreset':if(armed(b,'Точно вернуть?')){s.preg={};renderMeTools();drawMe();toast('Регионы — как были');}break;
     case 'me-ownmode':ME.ownMode=b.dataset.k;ME.draft=null;renderMeTools();break;
     case 'me-ownscope':ME.ownScope=b.dataset.k;renderMeTools();break;
+    case 'me-single':ME.single=b.dataset.k==='1';renderMeTools();break;
     case 'me-pickstate':ME.ownT=b.dataset.k;ME.ownMode='paint';renderMeTools();drawMe();break;
     case 'me-delstate':if(armed(b,'?')){const id=b.dataset.k;delete s.states[id];for(const p in s.owner)if(s.owner[p]===id)delete s.owner[p];s.split=s.split.filter(x=>x!==id);for(const g of s.groups)rm(g.countries,id);if(ME.ownT===id)ME.ownT='';s.ownerV=(s.ownerV||0)+1;renderMePanel();drawMe();}break;
     case 'me-ownreset':if(armed(b,'Точно вернуть?')){s.owner={};s.ownerV=(s.ownerV||0)+1;renderMeTools();drawMe();toast('Государственные границы — как в основе карты');}break;
@@ -728,7 +730,12 @@ document.addEventListener('pointerup',async e=>{
   if(ME.tool==='country'){
     if(g)meSnap();
     if(!g){toast('Сначала добавьте государство или союз',true);return;}
-    const u=t.dataset.u;if(g.countries.includes(u))rm(g.countries,u);else g.countries.push(u);
+    const u=t.dataset.u;
+    if(ME.single){
+      const only=g.countries.length===1&&g.countries[0]===u&&!(g.regions||[]).length&&!(g.prov||[]).length&&s.groups.every(o=>o===g||(!o.countries.length&&!(o.regions||[]).length&&!(o.prov||[]).length));
+      const prev=g.countries[0];for(const o of s.groups){o.countries=[];o.regions=[];o.prov=[];}
+      if(!only){g.countries=[u];if(/^(Члены союза|Государство|Новое государство)$/.test(g.name)||(prev&&g.name===uname(prev))){g.name=uname(u);}}
+    }else if(g.countries.includes(u))rm(g.countries,u);else g.countries.push(u);
     renderMePanel();drawMe();return;
   }
   if(ME.tool==='merge'){
