@@ -3,7 +3,7 @@
    провинции, передача провинций между государствами, разрез и объединение провинций */
 
 const GEO={countries:null,prov:{},tpl:{},names:null,tplIndex:null};
-const GV='?v=30';
+const GV='?v=31';
 const geoJobs={};
 function fetchJSON(url){return geoJobs[url]=geoJobs[url]||fetch(url).then(r=>{if(!r.ok)throw new Error('нет файла '+url);return r.json();});}
 async function loadTplIndex(){if(!GEO.tplIndex){try{GEO.tplIndex=await fetchJSON('data/geo/tpl/index.json'+GV);}catch(e){GEO.tplIndex={years:[]};}}return GEO.tplIndex;}
@@ -90,7 +90,7 @@ const MAP_TOOLS={
   merge:['Объединить','Щёлкайте по провинциям одной страны, потом нажмите «Объединить выбранные».',1],
 };
 
-const ME={spec:null,name:'',orig:null,active:0,tool:'prov',drag:null,raf:0,stroke:null,space:false,draft:null,sel:new Map(),ownT:'',ownMode:'pick',regT:'',regMode:'pick',hist:[],fut:[],pend:null};
+const ME={spec:null,name:'',orig:null,active:0,tool:'prov',drag:null,raf:0,stroke:null,space:false,draft:null,sel:new Map(),ownT:'',ownMode:'pick',ownScope:'prov',regT:'',regMode:'pick',hist:[],fut:[],pend:null};
 const S=()=>ME.spec;
 function normSpec(s){
   for(const g of s.groups){g.countries=g.countries||[];g.regions=g.regions||[];g.prov=g.prov||[];}
@@ -169,6 +169,7 @@ function renderMeTools(){
     const st=Object.entries(s.states);
     extra=`<div class="me-own">
       <div class="seg">${om('pick','1. Выбрать на карте')}${om('paint','2. Передавать земли')}${om('lasso','Обвести новую страну')}</div>
+      ${ME.ownMode==='paint'?`<div class="seg me-scope" role="group" aria-label="Что передаётся за раз"><span class="cnt">Кисть:</span>${[['prov','Провинция'],['region','Регион целиком'],['country','Страна целиком']].map(([k,l])=>`<button class="${ME.ownScope===k?'on':''}" data-act="me-ownscope" data-k="${k}">${l}</button>`).join('')}</div>`:''}
       <span class="me-target">${ME.ownT?`Земли отходят: <b>${esc(uname(ME.ownT))}</b>`:'Государство не выбрано'}</span>
       <label class="inl">или из списка: <select id="me-own"><option value="">—</option>${unitOptions().map(([id,n])=>`<option value="${esc(id)}"${id===ME.ownT?' selected':''}>${esc(n)}</option>`).join('')}</select></label>
       <button class="btn sm" data-act="me-addstate">+ Новая страна</button>
@@ -182,7 +183,7 @@ function renderMeTools(){
     <div class="seg"><button data-act="me-zoom" data-z="1.5" aria-label="Приблизить" title="Приблизить">+</button><button data-act="me-zoom" data-z="0.667" aria-label="Отдалить" title="Отдалить">−</button></div>
     ${ME.tool==='owner'?'':`<span class="me-active">Цвет кисти: ${s.groups[ME.active]?`<span class="legend-color" style="background:${esc(s.groups[ME.active].color)}"></span> ${esc(s.groups[ME.active].name)}`:'нет групп'}</span>`}
     ${extra}`;
-  const help=ME.tool==='regions'?{pick:'Щёлкните по провинции: её регион станет текущим, и в него можно добавлять соседние провинции. Или создайте новый регион.',paint:'Проводите мышью по провинциям: они перейдут в выбранный регион, граница региона перерисуется. Регионы можно потом закрашивать инструментом «Регион целиком».',lasso:'Обведите мышью область: все провинции внутри станут новым регионом. Название поменяйте в списке «Свои регионы».'}[ME.regMode]:ME.tool==='owner'?{pick:'Щёлкните по государству, которому хотите отдать земли. Потом режим сам переключится на передачу.',paint:'Проводите мышью по провинциям: они отойдут выбранному государству, граница перерисуется. С Shift — целый регион. Чтобы выбрать другое государство, нажмите «1. Выбрать на карте» или щёлкните по нему с Alt.',lasso:'Обведите мышью область: все провинции внутри станут новой страной. Название потом можно поменять в списке «Новые страны».'}[ME.ownMode]:MAP_TOOLS[ME.tool][1];
+  const help=ME.tool==='regions'?{pick:'Щёлкните по провинции: её регион станет текущим, и в него можно добавлять соседние провинции. Или создайте новый регион.',paint:'Проводите мышью по провинциям: они перейдут в выбранный регион, граница региона перерисуется. Регионы можно потом закрашивать инструментом «Регион целиком».',lasso:'Обведите мышью область: все провинции внутри станут новым регионом. Название поменяйте в списке «Свои регионы».'}[ME.regMode]:ME.tool==='owner'?{pick:'Щёлкните по государству, которому хотите отдать земли. Потом режим сам переключится на передачу.',paint:(ME.ownScope==='country'?'Щёлкните по стране (или проведите по нескольким): она целиком отойдёт выбранному государству.':ME.ownScope==='region'?'Проводите мышью по регионам: каждый целиком отойдёт выбранному государству.':'Проводите мышью по провинциям: они отойдут выбранному государству, граница перерисуется. С Shift — целый регион.')+' Чтобы выбрать другое государство, нажмите «1. Выбрать на карте» или щёлкните по нему с Alt.',lasso:'Обведите мышью область: все провинции внутри станут новой страной. Название потом можно поменять в списке «Новые страны».'}[ME.ownMode]:MAP_TOOLS[ME.tool][1];
   const h=$('#me-help');if(h)h.textContent=help+(ME.tool!=='pan'?' Двигать и приближать карту: правой кнопкой мыши, с зажатым пробелом или двумя пальцами.':'');
 }
 function renderMePanel(){
@@ -321,6 +322,20 @@ function setOwner(pid,target){
   if(target===base)delete s.owner[pid];else s.owner[pid]=target;
   s.ownerV=(s.ownerV||0)+1;return true;
 }
+/* все провинции, которыми сейчас владеет u, отходят target */
+function ownCountry(u,target){
+  const s=S();const D=SD();if(!D)return false;let n=0;
+  for(const f of D.feats){const id=f.properties.id;if((s.owner[id]||f.properties.u)===u&&setOwner(id,target))n++;}
+  return n>0;
+}
+/* щелчок по стране, ещё не разбитой на провинции: разбиваем и отдаём целиком */
+async function transferCountry(u){
+  const s=S();if(!u||!ME.ownT||u===ME.ownT)return;
+  meSnap();const ok=await splitUnit(u,true);
+  if(!ok){ME.hist.pop();toast('У «'+uname(u)+'» нет деления на провинции — передать её целиком не получится',true);return;}
+  if(!ownCountry(u,ME.ownT)){ME.hist.pop();return;}
+  renderMePanel();drawMe();toast('«'+uname(u)+'» целиком отходит: '+uname(ME.ownT));
+}
 function applyStroke(el){
   const st=ME.stroke;if(!st||!el||!el.dataset.p)return;
   const s=S(),g=s.groups[ME.active];const {c,r,p,u}=el.dataset;
@@ -330,6 +345,12 @@ function applyStroke(el){
     return;
   }
   if(st.owner){
+    if(st.country){
+      if(!u||u===ME.ownT||st.done.has(u))return;st.done.add(u);
+      const els=$$(`#me-svg path[data-p][data-u="${CSS.escape(u)}"]`);
+      if(ownCountry(u,ME.ownT))st.changed=true;
+      for(const x of els){x.dataset.u=ME.ownT;x.classList.add('tgt');}recolor(els);return;
+    }
     const key=st.region?r:p;if(st.done.has(key))return;st.done.add(key);
     const els=st.region?$$(`#me-svg path[data-r="${CSS.escape(r)}"]`):[el];
     for(const x of els)if(setOwner(x.dataset.p,ME.ownT)){x.dataset.u=ME.ownT;x.classList.add('tgt');st.changed=true;}
@@ -566,6 +587,7 @@ document.addEventListener('click',e=>{
     case 'me-delregion':if(armed(b,'?')){const id=b.dataset.k;delete s.regions[id];for(const p in s.preg)if(s.preg[p]===id)delete s.preg[p];for(const g of s.groups)rm(g.regions,id);if(ME.regT===id)ME.regT='';renderMePanel();drawMe();}break;
     case 'me-regreset':if(armed(b,'Точно вернуть?')){s.preg={};renderMeTools();drawMe();toast('Регионы — как были');}break;
     case 'me-ownmode':ME.ownMode=b.dataset.k;ME.draft=null;renderMeTools();break;
+    case 'me-ownscope':ME.ownScope=b.dataset.k;renderMeTools();break;
     case 'me-pickstate':ME.ownT=b.dataset.k;ME.ownMode='paint';renderMeTools();drawMe();break;
     case 'me-delstate':if(armed(b,'?')){const id=b.dataset.k;delete s.states[id];for(const p in s.owner)if(s.owner[p]===id)delete s.owner[p];s.split=s.split.filter(x=>x!==id);for(const g of s.groups)rm(g.countries,id);if(ME.ownT===id)ME.ownT='';s.ownerV=(s.ownerV||0)+1;renderMePanel();drawMe();}break;
     case 'me-ownreset':if(armed(b,'Точно вернуть?')){s.owner={};s.ownerV=(s.ownerV||0)+1;renderMeTools();drawMe();toast('Государственные границы — как в основе карты');}break;
@@ -642,7 +664,11 @@ document.addEventListener('pointerdown',e=>{
   if(ME.tool==='owner'&&left&&ME.ownMode==='lasso'){const g0=clientToGeo(e);ME.draft={pts:g0?[g0]:[],x:e.clientX,y:e.clientY,moved:false,target:t,newState:true};return;}
   if(ME.tool==='owner'&&left&&t.dataset.p){
     if(!ME.ownT){toast('Сначала выберите, кому отходят земли',true);return;}
-    meSnap();ME.stroke={owner:true,region:e.shiftKey,done:new Set(),changed:false};applyStroke(t);return;
+    meSnap();ME.stroke={owner:true,region:e.shiftKey||ME.ownScope==='region',country:ME.ownScope==='country'&&!e.shiftKey,done:new Set(),changed:false};applyStroke(t);return;
+  }
+  if(ME.tool==='owner'&&left&&ME.ownMode==='paint'&&ME.ownScope==='country'&&t.dataset&&t.dataset.u&&!t.dataset.p){
+    if(!ME.ownT){toast('Сначала выберите, кому отходят земли',true);return;}
+    transferCountry(t.dataset.u);return;
   }
   if(['prov','region','erase'].includes(ME.tool)&&left&&t.dataset.p){
     const g=S().groups[ME.active];

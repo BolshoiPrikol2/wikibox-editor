@@ -517,3 +517,6 @@ html[data-wmode="wiki"] #main .mw-content [data-l]:hover,html[data-wmode="wiki"]
 .ib-cands-w img{width:auto;max-width:none;height:180px;aspect-ratio:auto;object-fit:contain}
 .ib-cands-w .cbar{height:6px;margin:.25em 0 0;max-width:none;width:100%}
 @media (max-width:720px){.ib-cands-w img{height:auto;max-width:100%}}
+
+.me-scope{align-items:center}
+.me-scope .cnt{margin-right:4px}
