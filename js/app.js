@@ -13,7 +13,7 @@ const APP={size:'1',width:'std',theme:'auto'};
 function normalize(p){
   if(!p||!Array.isArray(p.pages))throw new Error('в тексте нет списка страниц (pages)');
   p.wiki=Object.assign({name:'Апокрифопедия',motto:'Энциклопедия несбывшейся истории',tag:'Материал из Апокрифопедии — свободной энциклопедии',welcome:'энциклопедия несбывшейся истории, которую может редактировать каждый'},p.wiki||{});
-  p.media=Array.isArray(p.media)?p.media.filter(m=>m&&m.name&&m.src):[];
+  p.media=Array.isArray(p.media)?p.media.filter(m=>m&&m.name&&(m.src||m.map)):[];
   p.pages=p.pages.map(pg=>{
     const ib=Object.assign({title:'',custom:false,theme:'#3366cc',w:23,rows:[]},pg.ib||{});
     if(p.v!==2){ib.custom=false;ib.w=23;}
@@ -25,7 +25,7 @@ function normalize(p){
 }
 let svT,pvT;
 function save(){
-  try{localStorage.setItem(LS,JSON.stringify(P));state.source='local';setEdStatus('Сохранено в этом браузере в '+new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}));}
+  try{localStorage.setItem(LS,serializeProject());state.source='local';setEdStatus('Сохранено в этом браузере в '+new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}));}
   catch(e){toast('Не удалось сохранить: в браузере закончилось место. Скачайте проект на странице «Файл проекта».',true);}
 }
 function changed(pg){if(pg)pg.updated=Date.now();clearTimeout(pvT);pvT=setTimeout(renderEdPreview,120);clearTimeout(svT);svT=setTimeout(save,500);}
@@ -84,7 +84,7 @@ function setView(side,main,title){$('#side').innerHTML=side;$('#main').innerHTML
 function parseHash(){const h=location.hash.replace(/^#\/?/,'');const i=h.indexOf('/');const k=i<0?h:h.slice(0,i);let arg=i<0?'':h.slice(i+1);try{arg=decodeURIComponent(arg);}catch(e){}return {k,arg:arg.replace(/_/g,' ')};}
 function route(){
   const {k,arg}=parseHash();closeMenus();
-  document.body.classList.toggle('mode-edit',k==='edit');
+  document.body.classList.toggle('mode-edit',k==='edit'||(k==='map'&&!!arg));
   if(k==='random'){const p=P.pages[Math.floor(Math.random()*P.pages.length)];if(p){location.replace('#/wiki/'+slug(p.title));return;}}
   if(k==='wiki'){const pg=pageFind(arg);pg?viewArticle(pg):viewMissing(arg);}
   else if(k==='edit'){const pg=P.pages.find(p=>p.id===arg.replace(/ /g,'_'))||P.pages.find(p=>p.id===arg)||pageFind(arg);pg?viewEdit(pg):viewMissing(arg);}
@@ -93,6 +93,7 @@ function route(){
   else if(k==='all')viewAll(arg);
   else if(k==='search')viewSearch(arg);
   else if(k==='media')viewMedia();
+  else if(k==='map'){if(arg==='new')viewMapEditor(null);else if(arg)viewMapEditor(arg);else viewMapNew();}
   else if(k==='file')viewFile();
   else viewMain();
   window.scrollTo(0,0);
@@ -180,8 +181,8 @@ function fbParams(){return {layout:$('#fb-layout').value,c1:$('#fb-c1').value,c2
 function viewMedia(){
   $('#main').classList.remove('is-main');
   const content=`<p>Флаги, гербы, портреты, карты. Картинки хранятся внутри проекта и уменьшаются до 900 пикселей по большей стороне. В тексте их зовут по имени: <code>{{флаг|Имя}}</code>, <code>[[Файл:Имя|Подпись]]</code>. Если переименовать картинку, ссылки на неё обновятся во всех статьях.</p>
-  <p><label class="btn pri">Загрузить картинки<input type="file" accept="image/*" multiple data-upmedia="1" hidden></label></p>
-  <div class="mgrid">${P.media.map((m,i)=>`<div class="mitem"><div class="mthumb"><img src="${m.src}" alt=""></div><input id="m-name-${i}" value="${esc(m.name)}" data-mrename="${i}" aria-label="Имя картинки"><div class="r"><button class="btn sm" data-act="mcopy" data-i="${i}">Код флага</button><button class="btn sm danger" data-act="mdel" data-i="${i}">Удалить</button></div></div>`).join('')||'<p>Пока пусто.</p>'}</div>
+  <p><label class="btn pri">Загрузить картинки<input type="file" accept="image/*" multiple data-upmedia="1" hidden></label> <a class="btn" href="#/map/">Нарисовать карту</a></p>
+  <div class="mgrid">${P.media.map((m,i)=>`<div class="mitem"><div class="mthumb">${m.src?`<img src="${m.src}" alt="">`:'<span class="cnt">карта рисуется…</span>'}</div><input id="m-name-${i}" value="${esc(m.name)}" data-mrename="${i}" aria-label="Имя картинки"><div class="r">${m.map?`<a class="btn sm" href="#/map/${slug(m.name)}">Изменить карту</a>`:`<button class="btn sm" data-act="mcopy" data-i="${i}">Код флага</button>`}<button class="btn sm danger" data-act="mdel" data-i="${i}">Удалить</button></div></div>`).join('')||'<p>Пока пусто.</p>'}</div>
   <h2>Конструктор флагов</h2>
   <div class="fb"><div class="ctl">
     <label class="fld"><span>Схема</span><select id="fb-layout"><option value="h3">Три горизонтальные полосы</option><option value="h2">Две горизонтальные полосы</option><option value="v3">Три вертикальные полосы</option><option value="v2">Две вертикальные полосы</option><option value="nordic">Скандинавский крест</option><option value="canton">Крыж и поле</option><option value="tri">Треугольник у древка</option><option value="diag">По диагонали</option><option value="h1">Одноцветный</option></select></label>
@@ -227,11 +228,13 @@ function doImport(mode){
   if(mode==='replace')P=d;
   else{
     const ren=[];
-    for(const m of d.media){let n=m.name;if(P.media.some(x=>x.name===n&&x.src!==m.src)){n=uniqueName(n);ren.push(m.name+' → '+n);}if(!P.media.some(x=>x.name===n))P.media.push({name:n,src:m.src});}
+    const same=(x,m)=>m.map?JSON.stringify(x.map)===JSON.stringify(m.map):x.src===m.src;
+    for(const m of d.media){let n=m.name;if(P.media.some(x=>x.name===n&&!same(x,m))){n=uniqueName(n);ren.push(m.name+' → '+n);}if(!P.media.some(x=>x.name===n))P.media.push(Object.assign({},m,{name:n}));}
     for(const p of d.pages){p.id=uid();P.pages.push(p);}
     if(ren.length)toast('Часть картинок переименована: '+ren.join(', '));
   }
   save();applyBrand();toast(mode==='replace'?'Проект заменён':'Статьи добавлены');location.hash='#/';route();
+  renderStoredMaps().then(ok=>{if(ok)route();});
 }
 
 /* ---------- редактор ---------- */
@@ -259,7 +262,7 @@ function rowEditor(r,i){
   switch(r.t){
     case 'text':x=ta(p+'.value',r.value,r.ph||'Текст по центру карточки');break;
     case 'below':x=ta(p+'.value',r.value,'Текст нижней строки');break;
-    case 'image':x=`${picker(p+'.src',r.src)}<div class="line">${inp(p+'.caption',r.caption,'Подпись под картинкой')}<label class="inl">Ширина, px ${num(p+'.w',r.w,40,400)}</label></div>`;break;
+    case 'image':x=`${picker(p+'.src',r.src)}<div class="line"><button class="btn sm" data-act="map-for" data-path="${p}.src">Нарисовать карту</button>${P.media.some(m=>m.map&&m.name===r.src)?`<a class="btn sm" href="#/map/${slug(r.src)}">Изменить эту карту</a>`:''}</div><div class="line">${inp(p+'.caption',r.caption,'Подпись под картинкой')}<label class="inl">Ширина, px ${num(p+'.w',r.w,40,400)}</label></div>`;break;
     case 'images2':x=`<div class="two"><div class="fld">${picker(p+'.src1',r.src1)}${inp(p+'.cap1',r.cap1,'Подпись')}</div><div class="fld">${picker(p+'.src2',r.src2)}${inp(p+'.cap2',r.cap2,'Подпись')}</div></div>`;break;
     case 'cols':x=`${inp(p+'.label',r.label,'Заголовок над колонками')}<div class="cells">${r.cells.map((c,j)=>`<div class="cell">${ta(p+'.cells.'+j,c,'Сторона '+(j+1))}${r.cells.length>1?`<button class="ic x" data-act="cell-del" data-i="${i}" data-j="${j}" aria-label="Убрать колонку">✕</button>`:''}</div>`).join('')}</div><div><button class="btn sm" data-act="cell-add" data-i="${i}">+ колонка</button></div>`;break;
     case 'succ':x=`<div class="two">${inp(p+'.prev',r.prev,'← Предшественник')}${inp(p+'.next',r.next,'Преемник →')}</div>${inp(p+'.label',r.label,'Подпись посередине (необязательно)')}`;break;
@@ -463,11 +466,11 @@ document.addEventListener('click',e=>{
     case 'mcopy':{const t='{{флаг|'+P.media[i].name+'}}';navigator.clipboard?.writeText(t).then(()=>toast('Скопировано: '+t),()=>toast(t));break;}
     case 'mdel':if(armed(btn,'Точно?')){P.media.splice(i,1);save();viewMedia();}break;
     case 'fb-add':{const name=uniqueName($('#fb-name').value.trim()||'Флаг');P.media.push({name,src:flagSVG(fbParams())});save();viewMedia();toast('Флаг «'+name+'» добавлен');break;}
-    case 'dl-json':download(btn.dataset.n||(P.wiki.name+' '+new Date().toISOString().slice(0,10)+'.json'),JSON.stringify(P,null,1),'application/json');break;
+    case 'dl-json':download(btn.dataset.n||(P.wiki.name+' '+new Date().toISOString().slice(0,10)+'.json'),serializeProject(true),'application/json');break;
     case 'imp-merge':doImport('merge');break;
     case 'imp-replace':if(armed(btn,'Заменить? Текущие статьи пропадут'))doImport('replace');break;
-    case 'load-published':if(armed(btn,'Ваши правки в этом браузере пропадут. Точно?'))fetch('data/wiki.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error('файл не найден');return r.json();}).then(d=>{P=normalize(d);try{localStorage.removeItem(LS);}catch(x){}state.source='published';applyBrand();toast('Загружена опубликованная версия');location.hash='#/';route();}).catch(err=>toast('Не получилось загрузить data/wiki.json: '+err.message,true));break;
-    case 'reset-sample':if(armed(btn,'Точно? Текущие статьи пропадут')){P=sampleProject();save();applyBrand();location.hash='#/';route();}break;
+    case 'load-published':if(armed(btn,'Ваши правки в этом браузере пропадут. Точно?'))fetch('data/wiki.json',{cache:'no-cache'}).then(r=>{if(!r.ok)throw new Error('файл не найден');return r.json();}).then(d=>{P=normalize(d);try{localStorage.removeItem(LS);}catch(x){}state.source='published';applyBrand();toast('Загружена опубликованная версия');location.hash='#/';route();renderStoredMaps().then(ok=>{if(ok)route();});}).catch(err=>toast('Не получилось загрузить data/wiki.json: '+err.message,true));break;
+    case 'reset-sample':if(armed(btn,'Точно? Текущие статьи пропадут')){P=sampleProject();save();applyBrand();location.hash='#/';route();renderStoredMaps().then(ok=>{if(ok)route();});}break;
     case 'reset-empty':if(armed(btn,'Точно? Всё будет удалено')){P=normalize({v:2,wiki:P.wiki,media:[],pages:[]});save();location.hash='#/';route();}break;
   }
 });
@@ -483,5 +486,7 @@ window.addEventListener('hashchange',route);
   try{const s=localStorage.getItem(LS);if(s){P=normalize(JSON.parse(s));state.source='local';}}catch(e){P=null;}
   if(!P){try{const r=await fetch('data/wiki.json',{cache:'no-cache'});if(r.ok){P=normalize(await r.json());state.source='published';}}catch(e){}}
   if(!P){P=sampleProject();state.source='sample';}
-  applyBrand();route();
+  applyBrand();
+  await renderStoredMaps();
+  route();
 })();
