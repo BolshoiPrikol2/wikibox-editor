@@ -25,11 +25,12 @@ function refHTML(name,content,ctx){
   ctx.uses[n]=(ctx.uses[n]||0)+1;
   return `<sup class="reference" id="cite_ref-${n}-${ctx.uses[n]}"><a href="#" data-cite="${n}">[${n}]</a></sup>`;
 }
-function linkHTML(tEsc,textEsc){
+/* Ссылки всегда синие; красная — только если её так отметили: [[!Статья]] или {{красная ссылка|Статья}} */
+function linkHTML(tEsc,textEsc,red){
   const raw=unesc(tEsc).trim();const [t]=raw.split('#');const p=pageFind(t);
-  const label=textEsc!==undefined?fmt(textEsc):tEsc;
-  return p?`<a href="#/wiki/${slug(p.title)}" title="${esc(p.title)}">${label}</a>`
-          :`<a class="new" href="#/new/${slug(t)}" title="${esc(t)} (страница не существует)">${label}</a>`;
+  const label=textEsc!==undefined?fmt(textEsc):tEsc;const cls=red?' class="new"':'';
+  return p?`<a${cls} href="#/wiki/${slug(p.title)}" title="${esc(p.title)}">${label}</a>`
+          :`<a${cls} href="#/new/${slug(t)}" title="${esc(t)} (статья ещё не написана — нажмите, чтобы создать)">${label}</a>`;
 }
 function flagIcon(nEsc){const n=unesc(nEsc||'').trim();const s=mediaSrc(n)||mediaSrc('Флаг '+n);return s?`<img class="flagicon" src="${s}" alt="">`:'';}
 function tplInline(inner){
@@ -37,6 +38,7 @@ function tplInline(inner){
   switch(n){
     case 'флаг':case 'flag':case 'флагификация':return flagIcon(a[1])+'&nbsp;'+linkHTML(a[2]||a[1]||'',a[3]);
     case 'флагик':case 'flagicon':return flagIcon(a[1]);
+    case 'красная ссылка':case 'красная':case 'redlink':return linkHTML(a[1]||'',a[2],true);
     case 'цвет':case 'color':return `<span class="legend-color" style="background:${safeColor(unesc(a[1]))}"></span>`+(a[2]?' '+a[2]:'');
     case 'рост':case 'up':return '<span class="up">▲</span>'+(a[1]?' '+a[1]:'');
     case 'падение':case 'down':return '<span class="dn">▼</span>'+(a[1]?' '+a[1]:'');
@@ -55,7 +57,7 @@ function inline(src,ctx){
   s=s.replace(/\r?\n/g,'<br>').replace(/&lt;br\s*\/?&gt;/gi,'<br>').replace(/&lt;(\/?)(small|big|s|u|sup|sub|code)&gt;/gi,'<$1$2>');
   s=s.replace(/\{\{([^{}]+)\}\}/g,(m,inner)=>keep(tplInline(inner)));
   s=s.replace(/\[\[(?:Файл|File|Изображение|Image):([^\]]+)\]\]/gi,(m,spec)=>{const a=spec.split('|');const src=mediaSrc(unesc(a[0].trim()));const px=a.find(x=>/^\d+px$/.test(x.trim()));return keep(src?`<img src="${src}" alt="" style="height:${px?parseInt(px):20}px;width:auto;vertical-align:middle">`:'');});
-  s=s.replace(/\[\[([^\[\]|]+)(?:\|([^\[\]]*))?\]\]/g,(m,t,x)=>keep(linkHTML(t,x||undefined)));
+  s=s.replace(/\[\[(!?)([^\[\]|]+)(?:\|([^\[\]]*))?\]\]/g,(m,r,t,x)=>keep(linkHTML(t,x||undefined,!!r)));
   s=s.replace(/\[(https?:\/\/[^\s\]]+)(?:\s+([^\]]+))?\]/g,(m,u,t)=>keep(`<a class="external" href="${u}" target="_blank" rel="noopener">${t?fmt(t):u}</a>`));
   s=fmt(s);
   return s.replace(/\u0001(\d+)\u0002/g,(m,i)=>tok[+i]);
