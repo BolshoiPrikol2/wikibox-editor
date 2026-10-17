@@ -522,3 +522,36 @@ html[data-wmode="wiki"] #main .mw-content [data-l]:hover,html[data-wmode="wiki"]
 
 .me-scope{align-items:center}
 .me-scope .cnt{margin-right:4px}
+
+/* ---------- оформление английской Википедии (en.wikipedia, «Donald Trump») ---------- */
+:root{--ib-en-hd:#e6e6fa}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ib-en-hd:#2e2e4a}}
+:root[data-theme="dark"]{--ib-en-hd:#2e2e4a}
+.wl-en .infobox{font-size:88%;border-spacing:3px;padding:.2em;line-height:1.5em}
+.wl-en .infobox-above{background:none!important;font-size:125%;padding:.2em!important;color:var(--text)}
+.wl-en .infobox-header{background:var(--ib-en-hd);padding:.2em!important}
+.wl-en .infobox th,.wl-en .infobox td{padding:1px}
+.wl-en .infobox-image .media-caption{text-align:center}
+.wl-en .mw-editsection .sep{display:none}
+
+/* визуальная правка на странице: текст выглядит как в статье */
+.ie.ie-r{padding:0;border:0;box-shadow:none;background:none;margin:0 0 1em;display:flow-root}
+.ie-rich{display:flow-root}
+.ie-rich{outline:2px solid var(--link);outline-offset:4px;border-radius:1px;min-height:1.6em;cursor:text;caret-color:var(--link)}
+.ie-rich:focus{outline-color:var(--link)}
+.ie.ie-r .ie-bar{margin-top:10px}
+.ie-rich a.wk-link{cursor:text}
+.ie-rich .wk-atom{border-radius:2px;background:var(--bg-sub);box-shadow:0 0 0 1px var(--border-muted);cursor:default;user-select:all}
+.infobox .ie.ie-r{margin:4px 2px}
+.infobox .ie-rich{outline-offset:2px}
+.infobox .ie.ie-r .ie-bar .cnt{flex-basis:100%}
+/* меню над выделенным текстом */
+.selbar{position:absolute;z-index:60;display:flex;align-items:center;gap:1px;flex-wrap:wrap;max-width:min(560px,calc(100vw - 16px));padding:3px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;box-shadow:0 4px 14px var(--shadow);font:13px/1.2 var(--sans)}
+.selbar .sb{font:inherit;border:0;background:none;color:var(--text);padding:5px 8px;border-radius:3px;cursor:pointer;white-space:nowrap}
+.selbar .sb:hover,.selbar .sb:focus-visible{background:var(--bg-hover,var(--bg-sub))}
+.selbar .sb b,.selbar .sb i{font-size:14px}
+.selbar .sb-sep{width:1px;align-self:stretch;margin:2px 3px;background:var(--border-muted)}
+.selbar .sb-l{padding:0 6px;color:var(--subtle);white-space:nowrap}
+.selbar .sb-in{font:inherit;min-width:200px;padding:4px 6px;border:1px solid var(--border);border-radius:2px;background:var(--bg);color:var(--text)}
+.selbar .sb-ok{font-weight:bold;color:var(--link)}
+html[data-wmode="wiki"] .selbar{display:none}

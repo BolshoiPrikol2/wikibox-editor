@@ -72,7 +72,7 @@ function makeConverter(lang,opts){
   function inl(node,ctx={}){
     let out='';
     for(const n of node.childNodes){
-      if(n.nodeType===3){out+=n.nodeValue.replace(/[ \t\n\r\f\v]+/g,' ');continue;}
+      if(n.nodeType===3){out+=n.nodeValue.replace(/[\u200b\u200c\u2060\ufeff]/g,'').replace(/[ \t\n\r\f\v]+/g,' ');continue;}
       if(n.nodeType!==1)continue;
       const el=n,tag=el.tagName.toLowerCase();
       if(el.matches(SKIP))continue;
@@ -105,6 +105,7 @@ function makeConverter(lang,opts){
       if(['small','sup','sub','s','u'].includes(tag)){out+=wrapLines(inl(el,ctx),`<${tag}>`,`</${tag}>`);continue;}
       if(tag==='ul'||tag==='ol'){
         const items=[...el.children].filter(li=>li.tagName==='LI').map(li=>inl(li,ctx).trim()).filter(Boolean);
+        if(el.closest('.hlist')){out+=items.join('\u00a0· ');continue;}
         out+=ctx.lines?'\n'+items.map(x=>'* '+x).join('\n')+'\n':items.join(', ');continue;
       }
       if(tag==='li'||tag==='p'||tag==='div'||tag==='dd'||tag==='dt'){const t=inl(el,ctx);out+=ctx.lines?(t.trim()?'\n'+t+'\n':''):t+' ';continue;}
@@ -325,6 +326,7 @@ async function wikiImport(q,lang,opts){
   let pageTitle=disp,k=2;while(pageFind(pageTitle))pageTitle=`${disp} (${k++})`;
   const cats=(parse.categories||[]).filter(c=>!c.hidden).map(c=>c.category.replace(/_/g,' '));
   const pg=newPage(type,pageTitle);
+  if(L==='en')pg.lang='en';else if(L==='ru'&&(P.wiki.lang||'ru')!=='ru')pg.lang='ru';
   Object.assign(pg,{hatnote:opts.body?hatnote:'',body:body||`'''${pageTitle}''' — …`,cats:cats.join(', '),
     source:{lang:L,title:parse.title,url:`https://${L}.wikipedia.org/wiki/${encodeURIComponent(parse.title.replace(/ /g,'_'))}`}});
   pg.ib={title:ib.title||pageTitle,custom:false,theme:'#3366cc',w:23,rows:ib.rows.length?ib.rows:pg.ib.rows};

@@ -3,6 +3,11 @@
 
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const unesc=s=>String(s??'').replace(/&quot;/g,'"').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+/* Оформление статьи: русская или английская Википедия. RL — язык, в котором сейчас рисуется страница */
+let RL='ru';
+const I18N_EN={'Содержание':'Contents','скрыть':'hide','показать':'show','Начало':'(Top)','Статья':'Article','Обсуждение':'Talk','Читать':'Read','Править':'Edit','Править код':'Edit source','История':'View history','Инструменты':'Tools','Внешний вид':'Appearance','Текст':'Text','Мелкий':'Small','Стандартный':'Standard','Крупный':'Large','Ширина':'Width','Стандартная':'Standard','Широкая':'Wide','Цвета (бета)':'Color (beta)','Автоматически':'Automatic','Светлая':'Light','Тёмная':'Dark','Режим':'Mode','Редактор':'Editor','Википедия (без правки)':'Wikipedia (read only)','Скачать статью картинкой':'Download article as image','Скачать главное картинкой':'Download lead as image','Скачать карточку картинкой':'Download infobox as image','Режим Википедии':'Wikipedia mode','Выключить режим Википедии':'Turn off Wikipedia mode','Двойной щелчок по абзацу, заголовку или строке карточки — быстрая правка прямо на странице. Выделите текст — появится меню оформления.':'Double-click a paragraph, heading or infobox row to edit it right on the page. Select text to get a formatting menu.','Примечания':'References','Категории':'Categories','Основная статья':'Main article','Основные статьи':'Main articles','См. также':'See also','править':'edit','править код':'edit source','Вернуться к тексту':'Jump up','из':'of','Развернуть':'Expand','Служебная страница':'Special page','Заглавная страница':'Main Page','Обсуждений пока нет':'No discussion yet','История правок не ведётся':'Page history is not kept','Воспроизвести аудио':'Play audio','Без изменений':'Steady','Увеличение':'Increase','Уменьшение':'Decrease','Негативное увеличение':'Negative increase','Позитивное уменьшение':'Positive decrease','Рост':'Increase','Падение':'Decrease'};
+const tr=s=>RL==='en'&&I18N_EN[s]||s;
+const pgLang=pg=>(pg&&pg.lang)||(typeof P!=='undefined'&&P&&P.wiki&&P.wiki.lang)||'ru';
 const norm=s=>String(s||'').trim().toLowerCase().replace(/ё/g,'е').replace(/_/g,' ').replace(/\s+/g,' ');
 const slug=t=>encodeURIComponent(String(t||'').trim().replace(/ /g,'_'));
 const mediaSrc=n=>{if(!n)return '';const m=P.media.find(x=>x.name===n);return m?m.src:'';};
@@ -68,13 +73,13 @@ function trend(dir,mood){
   const g=dir==='up'?'↗':dir==='down'?'↘':'→';
   const cl=mood==='good'?'ts-g':mood==='bad'?'ts-r':'ts-n';
   const t=dir==='flat'?'Без изменений':(dir==='up'?(mood==='bad'?'Негативное увеличение':'Увеличение'):(mood==='good'?'Позитивное уменьшение':'Уменьшение'));
-  return `<span class="ts ${cl}" title="${t}">${g}</span>`;
+  return `<span class="ts ${cl}" title="${tr(t)}">${g}</span>`;
 }
 /* Треугольники, как {{Рост}} и {{Падение}} */
 function tri(dir,mood){
   const g=dir==='up'?'▲':dir==='down'?'▼':'▬';
   const cl=mood==='good'?'ts-g':mood==='bad'?'ts-r':'ts-n';
-  return `<span class="ts ${cl}" title="${dir==='up'?'Рост':dir==='down'?'Падение':'Без изменений'}">${g}</span>`;
+  return `<span class="ts ${cl}" title="${tr(dir==='up'?'Рост':dir==='down'?'Падение':'Без изменений')}">${g}</span>`;
 }
 /* Фейковый аудиоплеер, как у гимна в карточке «Чехии»: звука нет, но кнопка и время работают */
 function durSec(d){const m=String(d||'').trim().match(/^(?:(\d+):)?(\d{1,2}):(\d{2})$/);if(m)return (+m[1]||0)*3600+(+m[2])*60+(+m[3]);const n=parseInt(d,10);return n>0?n:0;}
@@ -173,12 +178,12 @@ function renderBody(src,ctx,pid){
     if(m=t.match(/^(={2,4})\s*(.+?)\s*\1$/)){
       flush();const lv=m[1].length,id='sec-'+heads.length;
       const text=inline(m[2],newCtx());heads.push({lv,id,text:text.replace(/<[^>]+>/g,'')});
-      const ed=pid&&lv===2?`<span class="mw-editsection"><span class="br">[</span><a href="#/edit/${pid}">править</a><span class="sep">|</span><a href="#/edit/${pid}/code">править код</a><span class="br">]</span></span>`:'';
+      const ed=pid&&lv===2?`<span class="mw-editsection"><span class="br">[</span>${RL==='en'?`<a href="#/edit/${pid}">edit</a>`:`<a href="#/edit/${pid}">править</a><span class="sep">|</span><a href="#/edit/${pid}/code">править код</a>`}<span class="br">]</span></span>`:'';
       push(`<h${lv} id="${id}">${inline(m[2],ctx)}${ed}</h${lv}>`,i,i);i++;continue;}
     if(/^\{\|/.test(t)){flush();const s0=i;const tl=[];i++;while(i<lines.length&&!/^\|\}/.test(lines[i].trim())){tl.push(lines[i]);i++;}i++;push(renderTable(tl,ctx),s0,Math.min(i,lines.length)-1);continue;}
     if(/^[*#]/.test(t)){flush();const s0=i;const ll=[];while(i<lines.length&&/^[*#]/.test(lines[i].trim())){ll.push(lines[i].trim());i++;}push(renderList(ll,ctx),s0,i-1);continue;}
     if(m=t.match(/^\[\[(?:Файл|File|Изображение|Image):(.+)\]\]$/i)){flush();push(renderThumb(m[1],ctx),i,i);i++;continue;}
-    if(m=t.match(/^\{\{\s*(основная статья|основные статьи|main|см\. также|see also)\s*\|(.+)\}\}$/i)){flush();const it=m[2].split('|').map(x=>x.trim()).filter(Boolean);const main=!/также|also/i.test(m[1]);push(`<div class="hatnote">${main?(it.length>1?'Основные статьи':'Основная статья'):'См. также'}: ${inline(it.map(x=>'[['+x+']]').join(', '),ctx)}</div>`,i,i);i++;continue;}
+    if(m=t.match(/^\{\{\s*(основная статья|основные статьи|main|см\. также|see also)\s*\|(.+)\}\}$/i)){flush();const it=m[2].split('|').map(x=>x.trim()).filter(Boolean);const main=!/также|also/i.test(m[1]);push(`<div class="hatnote">${main?(it.length>1?tr('Основные статьи'):tr('Основная статья')):tr('См. также')}: ${inline(it.map(x=>'[['+x+']]').join(', '),ctx)}</div>`,i,i);i++;continue;}
     if(/^(\{\{\s*(примечания|reflist|references)\s*\}\}|<references\s*\/?>)$/i.test(t)){flush();out.push('\u0003REFS\u0003');i++;continue;}
     if(t==='----'){flush();push('<hr>',i,i);i++;continue;}
     if(t[0]===':'){flush();push(`<dl><dd>${inline(t.replace(/^:+/,''),ctx)}</dd></dl>`,i,i);i++;continue;}
@@ -213,7 +218,7 @@ function parlSVG(parties){
 
 /* ---------- infobox (как «Государственный деятель» в русской Википедии) ---------- */
 /* Кнопка «показать/скрыть», как в карточке «НАТО»: у строки сворачивается значение, у заголовка — строки до следующего заголовка */
-function foldBtn(open,id){return `<button type="button" class="fold-tg" aria-expanded="${open}"${id?` data-fold="${id}"`:''}>${open?'скрыть':'показать'}</button>`;}
+function foldBtn(open,id){return `<button type="button" class="fold-tg" aria-expanded="${open}"${id?` data-fold="${id}"`:''}>${open?tr('скрыть'):tr('показать')}</button>`;}
 function foldBox(r,html,c){if(!r.fold)return html;const open=!!r.foldOpen;return `<div class="ib-fold">${foldBtn(open)}${String(r.foldSum||'').trim()?`<div class="fold-sum">${inline(r.foldSum,c)}</div>`:''}<div class="fold-body"${open?'':' hidden'}>${html}</div></div>`;}
 function hdr(content,c,hs){return `<tr><th colspan="2" scope="colgroup" class="infobox-header${hs.dk}"${hs.st}>${content}</th></tr>`;}
 const RENDER={
@@ -233,7 +238,7 @@ const RENDER={
     return `<tr><td colspan="2" class="infobox-image"><table class="ib-flags"><tbody><tr>${im.map(([s,k])=>`<td><img class="${k}" src="${s}" alt=""></td>`).join('')}</tr>${im.some(x=>String(x[2]||'').trim())?`<tr>${im.map(x=>`<td>${inline(x[2]||'',c)}</td>`).join('')}</tr>`:''}</tbody></table></td></tr>`;},
   cols:(r,c,hs)=>{const cells=r.cells||[];if(!r.label&&cells.every(x=>!String(x).trim()))return '';const n=cells.length||1;return (r.label?hdr(inline(r.label,c),c,hs):'')+`<tr><td colspan="2" class="ib-nest"><table class="ib-in ib-cols"><tbody><tr>${cells.map(x=>`<td style="width:${(100/n).toFixed(2)}%">${ibVal(x,c)}</td>`).join('')}</tr></tbody></table></td></tr>`;},
   succ:(r,c)=>{if(!r.prev&&!r.next&&!r.label)return '';return `<tr><td colspan="2" class="ib-nest"><table class="ib-in ib-succ"><tbody><tr><td class="l">${r.prev?'← '+inline(r.prev,c):''}</td><td class="m">${inline(r.label,c)}</td><td class="r">${r.next?inline(r.next,c)+' →':''}</td></tr></tbody></table></td></tr>`;},
-  seats:(r,c,hs)=>{const have=+r.have||0,tot=Math.max(1,+r.total||1);const pct=Math.min(100,have/tot*100).toFixed(2);return `<tr><th scope="row" class="plainlist">${inline(r.label,c)}</th><td class="plainlist">${have} из ${tot}<span class="seatbar"><span style="width:${pct}%;background:${safeColor(r.color)}"></span></span></td></tr>`;},
+  seats:(r,c,hs)=>{const have=+r.have||0,tot=Math.max(1,+r.total||1);const pct=Math.min(100,have/tot*100).toFixed(2);return `<tr><th scope="row" class="plainlist">${inline(r.label,c)}</th><td class="plainlist">${have} ${tr('из')} ${tot}<span class="seatbar"><span style="width:${pct}%;background:${safeColor(r.color)}"></span></span></td></tr>`;},
   parl:(r,c,hs)=>{const svg=parlSVG(r.parties||[]);if(!svg)return '';return (r.label?hdr(inline(r.label,c),c,hs):'')+`<tr><td colspan="2" class="parl">${svg}${r.legend?`<ul class="parl-legend">${r.parties.filter(p=>+p.seats>0).map(p=>`<li><span class="legend-color" style="background:${safeColor(p.color)}"></span><span>${inline(p.name,c)}: <b>${+p.seats}</b></span></li>`).join('')}</ul>`:''}</td></tr>`;},
   cands:(r,c)=>{
     const cs=r.cands||[];if(!cs.length)return '';const per=Math.max(1,Math.min(5,+r.per||3));let h='';
@@ -263,24 +268,25 @@ function renderInfobox(ib,ctx,mark){
     if(fold&&r.t!=='header')x=x.replace(/<tr(?=[ >])/g,`<tr data-fold="${fold.id}"${fold.open?'':' hidden'}`);
     h+=x;});
   if(!h&&!ib.title&&!ib.above)return '';
-  const w=Math.min(40,Math.max(14,+ib.w||23));
-  return `<table class="infobox" style="width:${w+.4}em"><tbody>${ib.above?`<tr${mark?' data-ib="above"':''}><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr${mark?' data-ib="title"':''}><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
+  const w=Math.min(40,Math.max(14,+ib.w||23))+(RL==='en'?-1:.4);
+  return `<table class="infobox" style="width:${w}em"><tbody>${ib.above?`<tr${mark?' data-ib="above"':''}><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr${mark?' data-ib="title"':''}><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
 }
 
 /* ---------- article ---------- */
 function articleParts(pg,opts={}){
+  RL=pgLang(pg);
   const ctx=newCtx();
   const ibh=renderInfobox(pg.ib,ctx,opts.editLinks);
   const b=renderBody(pg.body,ctx,opts.editLinks?pg.id:null);
   let html=b.out.join('\n');
-  const refs=ctx.refs.length?`<div class="reflist"><ol class="references">${ctx.refs.map((r,i)=>`<li id="cite_note-${i+1}"><span class="mw-cite-backlink"><a href="#" data-back="${i+1}" title="Вернуться к тексту">↑</a></span> ${r}</li>`).join('')}</ol></div>`:'';
+  const refs=ctx.refs.length?`<div class="reflist"><ol class="references">${ctx.refs.map((r,i)=>`<li id="cite_note-${i+1}"><span class="mw-cite-backlink"><a href="#" data-back="${i+1}" title="${tr('Вернуться к тексту')}">${RL==='en'?'^':'↑'}</a></span> ${r}</li>`).join('')}</ol></div>`:'';
   if(html.includes('\u0003REFS\u0003'))html=html.replace('\u0003REFS\u0003',refs).replace(/\u0003REFS\u0003/g,'');
-  else if(refs){const id='sec-'+b.heads.length;b.heads.push({lv:2,id,text:'Примечания'});html+=`<h2 id="${id}">Примечания</h2>`+refs;}
+  else if(refs){const id='sec-'+b.heads.length;b.heads.push({lv:2,id,text:tr('Примечания')});html+=`<h2 id="${id}">${tr('Примечания')}</h2>`+refs;}
   const content=`${pg.hatnote?`<div class="hatnote"${opts.editLinks?' data-ib="hatnote"':''}>${inline(pg.hatnote,ctx)}</div>`:''}${ibh}${html}<div class="clear"></div>`;
   return {content,heads:b.heads};
 }
 function catsOf(pg){return String(pg.cats||'').split(/[,\n]/).map(s=>s.trim()).filter(Boolean);}
-function catlinksHTML(pg){const c=catsOf(pg);return c.length?`<div class="catlinks"><a href="#/all">Категории</a>: <ul>${c.map(x=>`<li><a href="#/cat/${slug(x)}">${esc(x)}</a></li>`).join('')}</ul></div>`:'';}
+function catlinksHTML(pg){const c=catsOf(pg);return c.length?`<div class="catlinks"><a href="#/all">${tr('Категории')}</a>: <ul>${c.map(x=>`<li><a href="#/cat/${slug(x)}">${esc(x)}</a></li>`).join('')}</ul></div>`:'';}
 /* Первый абзац без сносок — для заглавной и поиска */
 function leadText(pg,max=420){
   const p=String(pg.body||'').split(/\n\s*\n/).map(x=>x.trim()).find(x=>x&&!/^(==|\{\||\[\[(Файл|File)|\{\{|[*#:])/i.test(x))||'';
