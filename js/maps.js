@@ -3,7 +3,7 @@
    провинции, передача провинций между государствами, разрез и объединение провинций */
 
 const GEO={countries:null,prov:{},tpl:{},names:null,tplIndex:null};
-const GV='?v=38';
+const GV='?v=47';
 const geoJobs={};
 function fetchJSON(url){return geoJobs[url]=geoJobs[url]||fetch(url).then(r=>{if(!r.ok)throw new Error('нет файла '+url);return r.json();});}
 async function loadTplIndex(){if(!GEO.tplIndex){try{GEO.tplIndex=await fetchJSON('data/geo/tpl/index.json'+GV);}catch(e){GEO.tplIndex={years:[]};}}return GEO.tplIndex;}
@@ -103,7 +103,25 @@ function viewMapNew(){
   const card=(k,t,d,img)=>`<button class="tcard mcard" data-act="map-start" data-k="${k}"><span class="mcard-img">${img}</span><b>${t}</b><span>${d}</span></button>`;
   const globe=`<svg viewBox="0 0 60 60" width="60" height="60"><circle cx="30" cy="30" r="27" fill="#fff" stroke="#999"/><path d="M14 22c6-6 14-8 20-4s10 2 12 8c-4 6-10 4-14 10s-12 4-14-2-8-6-4-12z" fill="#346733"/><path d="M3 30h54M30 3v54" stroke="#ccc" fill="none"/></svg>`;
   const flat=`<svg viewBox="0 0 90 46" width="90" height="46"><ellipse cx="45" cy="23" rx="43" ry="21" fill="#fff" stroke="#999"/><path d="M12 14h18v10H18zM40 10h10v8h-6v6h-6zM58 12h18v12H62zM24 28h8v10h-6zM46 26h8v10h-8zM66 30h8v6h-8z" fill="#c0c0c0"/><path d="M40 10h10v8h-6v6h-6zM66 30h8v6h-8z" fill="#1f93c0"/></svg>`;
-  setView(mainMenuHTML(),shell({title:'Новая карта',content:`<p>Выберите вид карты. Основу можно взять современную или из шаблона по году, а потом перекроить границы и раскрасить государства и союзы.</p><div class="tgrid">${card('globe','Глобус','Как в карточке статьи «Россия»: государство на глобусе, спорные земли светлее.',globe)}${card('flat','Плоская карта мира','Как у союзов и организаций: страны-участницы одним цветом.',flat)}</div>`}),'Новая карта');
+  setView(mainMenuHTML(),shell({title:'Новая карта',content:`<p>Выберите вид карты. Основу можно взять современную или из шаблона по году, а потом перекроить границы и раскрасить государства и союзы.</p><div class="tgrid">${card('globe','Глобус','Как в карточке статьи «Россия»: государство на глобусе, спорные земли светлее.',globe)}${card('flat','Плоская карта мира','Как у союзов и организаций: страны-участницы одним цветом.',flat)}</div>${tplSectionHTML()}`}),'Новая карта');
+  tplThumbs();
+}
+/* ---------- свои шаблоны карт ---------- */
+function tplSectionHTML(){
+  const T=P.mapTpl||[];
+  return `<h2>Ваши шаблоны</h2>${T.length?`<div class="tgrid">${T.map((t,i)=>`<div class="tcard mcard tpl-card"><button class="tpl-use" data-act="map-tpl" data-i="${i}" title="Создать карту по этому шаблону"><span class="mcard-img tpl-img" data-tpl="${i}"><span class="cnt">рисую…</span></span><b>${esc(t.name)}</b><span>${esc(tplDesc(t.map))}</span></button><span class="tpl-btns"><button class="btn sm pri" data-act="map-tpl" data-i="${i}">Создать карту</button><button class="btn sm danger" data-act="map-tpl-del" data-i="${i}">Удалить</button></span></div>`).join('')}</div>`:'<p class="cnt">Пока пусто. Откройте любую карту и нажмите «Сохранить как шаблон» — или кнопку «В шаблоны» у карты в медиатеке. Шаблон запоминает основу, проекцию, вид, обрезку, цвета групп, перекроенные границы и провинции.</p>'}`;
+}
+function tplDesc(s){const pr=MapDraw.PROJ[s.proj];const parts=[pr?pr.name:'',s.base?'границы '+(s.base==='1938'?'1936':s.base)+' года':'современные границы'];if(s.only)parts.push('одна страна');const n=(s.groups||[]).filter(g=>g.countries.length||g.regions.length||g.prov.length).length;if(n)parts.push(n+' '+plural(n,'группа','группы','групп'));return parts.filter(Boolean).join(', ');}
+async function tplThumbs(){
+  for(const el of $$('[data-tpl]')){const t=P.mapTpl[+el.dataset.tpl];if(!t)continue;
+    try{if(!t.src){await loadFor(t.map);t.src=svgURI(MapDraw.drawMap(t.map,GEO));}if(el.isConnected)el.innerHTML=`<img src="${t.src}" alt="">`;}catch(e){if(el.isConnected)el.innerHTML='<span class="cnt">нет превью</span>';}}
+}
+function addMapTpl(spec,name){
+  const nm=String(name||'').trim();if(!nm)return false;
+  const map=JSON.parse(JSON.stringify(spec));const ex=P.mapTpl.findIndex(t=>t.name===nm);
+  const t={id:'t'+Date.now().toString(36),name:nm,map,created:Date.now()};
+  if(ex>=0)P.mapTpl[ex]=t;else P.mapTpl.push(t);
+  save();toast(ex>=0?'Шаблон «'+nm+'» обновлён':'Шаблон «'+nm+'» сохранён — он появится в «Создать карту»');return true;
 }
 async function viewMapEditor(name){
   $('#main').classList.remove('is-main');
@@ -190,7 +208,7 @@ function renderMePanel(){
   const s=S();const pr=MapDraw.PROJ;const years=(GEO.tplIndex&&GEO.tplIndex.years)||[];
   const editedFiles=Object.entries(s.pedit||{}).filter(([c,e])=>e&&(e.del.length||e.add.length)).map(([c])=>c);
   $('#me-panel').innerHTML=`
-  <div class="ed-top"><button class="btn pri" data-act="map-save">Сохранить карту</button><a class="btn" href="${ME.target?'#/edit/'+ME.target.pageId:'#/media'}">Отмена</a></div>
+  <div class="ed-top"><button class="btn pri" data-act="map-save">Сохранить карту</button><button class="btn" data-act="map-save-tpl" title="Запомнить эту карту как основу для новых карт">Сохранить как шаблон</button><a class="btn" href="${ME.target?'#/edit/'+ME.target.pageId:'#/media'}">Отмена</a></div>
   <label class="fld"><span>Имя в медиатеке</span><input id="me-name" value="${esc(ME.name)}"></label>
   <fieldset class="grp"><legend>Основа карты</legend>
     <select id="me-base" aria-label="Основа карты"><option value="">Современные границы</option>${years.map(y=>`<option value="${y}"${String(y)===String(s.base)?' selected':''}>Границы ${y} года</option>`).join('')}</select>
@@ -574,6 +592,10 @@ document.addEventListener('click',e=>{
   if(e.target.closest('input')&&a==='me-active'&&e.target.type!=='color')return;
   switch(a){
     case 'map-start':ME.kind=b.dataset.k;ME.spec=null;ME.orig=null;location.hash='#/map/new';break;
+    case 'map-tpl':{const t=P.mapTpl[+b.dataset.i];if(!t)break;ME.spec=JSON.parse(JSON.stringify(t.map));ME.orig=null;ME.name=uniqueName(t.name);ME.hist=[];ME.fut=[];location.hash='#/map/new';break;}
+    case 'map-tpl-del':if(armed(b,'Точно удалить?')){const i=+b.dataset.i;const t=P.mapTpl[i];P.mapTpl.splice(i,1);save();toast('Шаблон «'+(t&&t.name)+'» удалён');route();}break;
+    case 'map-save-tpl':{const s=S();if(!s)break;const nm=prompt('Название шаблона',($('#me-name')&&$('#me-name').value.trim())||ME.name||'Шаблон');if(nm)addMapTpl(s,nm);break;}
+    case 'media-tpl':{const md=P.media[+b.dataset.i];if(md&&md.map){const nm=prompt('Название шаблона',md.name);if(nm)addMapTpl(md.map,nm);}break;}
     case 'map-for':{const pg=edPage;if(!pg)break;ME.target={pageId:pg.id,path:b.dataset.path};ME.spec=null;ME.orig=null;location.hash='#/map/';break;}
     case 'map-save':meSave();break;
     case 'me-proj':{const was=s.proj;s.proj=b.dataset.k;if(was==='ortho'&&s.proj!=='ortho'){s.lat=0;s.grat=false;s.shade=false;s.bw=.6;}if(was!=='ortho'&&s.proj==='ortho'){s.lat=40;s.grat=true;s.shade=true;s.bw=.5;}s.zoom=1;renderMePanel();drawMe();break;}
