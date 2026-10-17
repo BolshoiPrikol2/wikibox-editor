@@ -67,16 +67,21 @@ function makeConverter(lang,opts){
     for(const [re,t] of TIMG)if(re.test(f))return `{{${t}}}`;
     return '';
   }
+  const wrapLines=(t,a,b)=>t.split('\n').map(x=>x.trim()?a+x+b:x).join('\n');
   function inl(node,ctx={}){
     let out='';
     for(const n of node.childNodes){
-      if(n.nodeType===3){out+=n.nodeValue.replace(/\s+/g,' ');continue;}
+      if(n.nodeType===3){out+=n.nodeValue.replace(/[ \t\n\r\f\v]+/g,' ');continue;}
       if(n.nodeType!==1)continue;
       const el=n,tag=el.tagName.toLowerCase();
       if(el.matches(SKIP))continue;
       if(el.getAttribute('style')&&/display:\s*none/i.test(el.getAttribute('style')))continue;
       if(tag==='sup'&&el.classList.contains('reference')){out+=refMark(el);continue;}
       {const tr=trendOf(el);if(tr){out+=tr;continue;}}
+      if(el.classList.contains('mw-tmh-player')||tag==='audio'||tag==='video'){
+        const a=tag==='audio'||tag==='video'?el:el.querySelector('audio,video');const hint=+(a&&a.getAttribute('data-durationhint'))||0;
+        const lab=el.querySelector('.mw-tmh-duration [aria-hidden]');const d=(lab&&lab.textContent.trim())||(hint?Math.floor(hint/60)+':'+String(Math.round(hint%60)).padStart(2,'0'):'');
+        out+=(ctx.lines?'\n':' ')+`{{плеер${d?'|'+d:''}}}`+(ctx.lines?'\n':' ');continue;}
       if(tag==='br'){out+=ctx.lines?'\n':'<br>';continue;}
       if(tag==='img'){
         const w=+el.getAttribute('width')||0,h=+el.getAttribute('height')||0;
@@ -94,9 +99,9 @@ function makeConverter(lang,opts){
         if(t){out+=(t===text?`[[${t}]]`:(text.startsWith(t)&&/^[а-яёa-z]*$/i.test(text.slice(t.length))?`[[${t}]]${text.slice(t.length)}`:`[[${t}|${text}]]`));}else out+=text;
         continue;
       }
-      if(tag==='b'||tag==='strong'){const t=inl(el,ctx);out+=t.trim()?`'''${t}'''`:t;continue;}
-      if(tag==='i'||tag==='em'){const t=inl(el,ctx);out+=t.trim()?`''${t}''`:t;continue;}
-      if(['small','sup','sub','s','u'].includes(tag)){const t=inl(el,ctx);out+=t.trim()?`<${tag}>${t}</${tag}>`:t;continue;}
+      if(tag==='b'||tag==='strong'){out+=wrapLines(inl(el,ctx),"'''","'''");continue;}
+      if(tag==='i'||tag==='em'){out+=wrapLines(inl(el,ctx),"''","''");continue;}
+      if(['small','sup','sub','s','u'].includes(tag)){out+=wrapLines(inl(el,ctx),`<${tag}>`,`</${tag}>`);continue;}
       if(tag==='ul'||tag==='ol'){
         const items=[...el.children].filter(li=>li.tagName==='LI').map(li=>inl(li,ctx).trim()).filter(Boolean);
         out+=ctx.lines?'\n'+items.map(x=>'* '+x).join('\n')+'\n':items.join(', ');continue;
@@ -179,6 +184,8 @@ function wiInfobox(tbl,C){
         }
         continue;
       }
+      const st=one.getAttribute('style')||'';
+      if(/text-align:\s*left/i.test(st)&&/font-weight:\s*bold/i.test(st)){const v=C.inline(one,false);if(v)rows.push(R.f('='+v,''));continue;}
       const v=C.inline(one,true);if(v)rows.push(R.t(v));continue;
     }
     if(th.length===1&&td.length===1){const label=C.inline(th[0],false),v=C.inline(td[0],true);if(v)rows.push(R.f(label,v));continue;}

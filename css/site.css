@@ -166,7 +166,7 @@ abbr[title]{text-decoration:underline dotted;cursor:help}
 
 /* ---------- карточка ---------- */
 .infobox{border:1px solid var(--border);background:var(--bg-sub);color:var(--text);margin:0 0 .5em 1em;padding:.4em;float:right;clear:right;font-size:90%;width:23em;max-width:100%;vertical-align:middle;text-align:left;line-height:1.5em;border-collapse:separate;border-spacing:2px}
-.infobox td,.infobox th{vertical-align:top;text-align:left;padding:1px 3px}
+.infobox td,.infobox th{vertical-align:top;text-align:left;padding:1px}
 .infobox th{font-weight:bold}
 .infobox-above{background:var(--blue200);font-size:120%;text-align:center!important;line-height:1.3;padding:.25em .3em!important}
 .infobox-header{background:var(--blue150);text-align:center!important}
@@ -452,7 +452,7 @@ textarea.one{resize:none;min-height:32px;overflow:hidden}
 
 .seatbar{display:block;width:100%;max-width:130px;height:8px;margin:3px 0 2px;border:1px solid var(--border);background:var(--bg)}
 .seatbar>span{display:block;height:100%}
-.infobox th.ib-l2{font-weight:normal;padding-left:.6em!important}
+.infobox th.ib-l2{font-weight:normal}
 .infobox .ib-sub{font-weight:bold;text-align:left!important;padding-bottom:0!important}
 
 /* стрелки как в шаблонах Википедии */
@@ -480,3 +480,9 @@ textarea.one{resize:none;min-height:32px;overflow:hidden}
 .tools-list{margin-bottom:8px}
 .tools-list .linkbtn{text-align:left;font-size:14px}
 .tools-hint{font-size:12.5px;color:var(--subtle);margin:0 0 16px;line-height:1.45}
+
+/* флаг и герб, как в карточке «Государство» */
+.ib-flags{width:100%;border-collapse:separate;border-spacing:0;margin:0;background:none}
+.infobox .ib-flags td{text-align:center;vertical-align:middle;padding:1px}
+.infobox .ib-flags img.ib-flag{width:160px;max-width:100%;height:auto;max-height:160px;border:1px solid var(--border-muted,#eaecf0)}
+.infobox .ib-flags img.ib-coat{width:auto;height:auto;max-width:90px;max-height:108px}

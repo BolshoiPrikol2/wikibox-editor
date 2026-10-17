@@ -87,7 +87,8 @@ function inline(src,ctx){
   s=s.replace(/\r?\n/g,'<br>').replace(/&lt;br\s*\/?&gt;/gi,'<br>').replace(/&lt;(\/?)(small|big|s|u|sup|sub|code)&gt;/gi,'<$1$2>');
   s=s.replace(/\{\{([^{}]+)\}\}/g,(m,inner)=>keep(tplInline(inner)));
   s=s.replace(/\[\[(?:Файл|File|Изображение|Image):([^\]]+)\]\]/gi,(m,spec)=>{const a=spec.split('|');const src=mediaSrc(unesc(a[0].trim()));const px=a.find(x=>/^\d+px$/.test(x.trim()));return keep(src?`<img src="${src}" alt="" style="height:${px?parseInt(px):20}px;width:auto;vertical-align:middle">`:'');});
-  s=s.replace(/\[\[(!?)([^\[\]|]+)(?:\|([^\[\]]*))?\]\]/g,(m,r,t,x)=>keep(linkHTML(t,x||undefined,!!r)));
+  // буквы сразу после ссылки входят в неё, как в Википедии: [[1993 год]]а → «1993 года»
+  s=s.replace(/\[\[(!?)([^\[\]|]+)(?:\|([^\[\]]*))?\]\]([а-яёa-z]*)/g,(m,r,t,x,tr)=>keep(linkHTML(t,tr?(x||t)+tr:x||undefined,!!r)));
   s=s.replace(/\[(https?:\/\/[^\s\]]+)(?:\s+([^\]]+))?\]/g,(m,u,t)=>keep(`<a class="external" href="${u}" target="_blank" rel="noopener">${t?fmt(t):u}</a>`));
   s=fmt(s);
   return s.replace(/\u0001(\d+)\u0002/g,(m,i)=>tok[+i]);
@@ -211,13 +212,15 @@ const RENDER={
     const l=mediaSrc(r.l),rr=mediaSrc(r.r);
     if(!l&&!rr)return hdr(inline(r.text,c),c,hs);
     return hdr(`<div class="ib-office"><div class="ib-office-img">${l?`<img src="${l}" alt="">`:''}</div><div class="ib-office-label">${inline(r.text,c)}</div><div class="ib-office-img">${rr?`<img src="${rr}" alt="">`:''}</div></div>`,c,hs);},
-  field:(r,c)=>{const lb=String(r.label||'');if(/^=/.test(lb))return `<tr><td colspan="2" class="ib-sub">${inline(lb.replace(/^=\s*/,''),c)}${String(r.value||'').trim()?' '+ibVal(r.value,c):''}</td></tr>`;if(!String(r.value||'').trim())return '';return r.label?`<tr><th scope="row" class="plainlist${/^\s*•/.test(lb)?' ib-l2':''}">${inline(r.label,c)}</th><td class="plainlist">${ibVal(r.value,c)}</td></tr>`:`<tr><td colspan="2" class="plainlist">${ibVal(r.value,c)}</td></tr>`;},
+  field:(r,c)=>{const lb=String(r.label||'');if(/^=/.test(lb))return `<tr><td colspan="2" class="ib-sub">${inline(lb.replace(/^=\s*/,''),c)}${String(r.value||'').trim()?' '+ibVal(r.value,c):''}</td></tr>`;if(!String(r.value||'').trim())return '';return r.label?`<tr><th scope="row" class="plainlist${/^\s*•/.test(lb)?' ib-l2':''}">${inline(/^\s*•/.test(lb)?'\u00a0•\u00a0'+lb.replace(/^\s*•\s*/,''):r.label,c)}</th><td class="plainlist">${ibVal(r.value,c)}</td></tr>`:`<tr><td colspan="2" class="plainlist">${ibVal(r.value,c)}</td></tr>`;},
   text:(r,c)=>String(r.value||'').trim()?`<tr><td colspan="2" class="plainlist" style="text-align:center">${ibVal(r.value,c)}</td></tr>`:'',
   hr:()=>`<tr><td colspan="2" class="ib-hr"><hr></td></tr>`,
   anthem:(r,c)=>{const v=String(r.value||'').trim();if(!v&&!r.dur)return '';return `<tr><td colspan="2" class="plainlist ib-anthem">${r.label?inline(r.label,c)+': ':''}${v?ibVal(v,c):''}${r.dur?playerHTML(r.dur):''}</td></tr>`;},
   below:(r,c,hs)=>String(r.value||'').trim()?`<tr><td colspan="2" class="infobox-below${hs.dk}"${hs.st2}>${ibVal(r.value,c)}</td></tr>`:'',
   image:(r,c)=>{const s=mediaSrc(r.src);if(!s)return '';return `<tr><td colspan="2" class="infobox-image"><img src="${s}" alt="" style="width:${Math.max(40,+r.w||250)}px">${r.caption?`<span class="media-caption">${inline(r.caption,c)}</span>`:''}</td></tr>`;},
-  images2:(r,c)=>{const a=mediaSrc(r.src1),b=mediaSrc(r.src2);if(!a&&!b)return '';const one=(s,cap)=>s?`<div><img src="${s}" alt=""><span class="media-caption">${inline(cap,c)}</span></div>`:'';return `<tr><td colspan="2" class="infobox-image"><div class="ib-pair">${one(a,r.cap1)}${one(b,r.cap2)}</div></td></tr>`;},
+  images2:(r,c)=>{const a=mediaSrc(r.src1),b=mediaSrc(r.src2);if(!a&&!b)return '';
+    const im=[a&&[a,'ib-flag',r.cap1],b&&[b,'ib-coat',r.cap2]].filter(Boolean);
+    return `<tr><td colspan="2" class="infobox-image"><table class="ib-flags"><tbody><tr>${im.map(([s,k])=>`<td><img class="${k}" src="${s}" alt=""></td>`).join('')}</tr>${im.some(x=>String(x[2]||'').trim())?`<tr>${im.map(x=>`<td>${inline(x[2]||'',c)}</td>`).join('')}</tr>`:''}</tbody></table></td></tr>`;},
   cols:(r,c,hs)=>{const cells=r.cells||[];if(!r.label&&cells.every(x=>!String(x).trim()))return '';const n=cells.length||1;return (r.label?hdr(inline(r.label,c),c,hs):'')+`<tr><td colspan="2" class="ib-nest"><table class="ib-in ib-cols"><tbody><tr>${cells.map(x=>`<td style="width:${(100/n).toFixed(2)}%">${ibVal(x,c)}</td>`).join('')}</tr></tbody></table></td></tr>`;},
   succ:(r,c)=>{if(!r.prev&&!r.next&&!r.label)return '';return `<tr><td colspan="2" class="ib-nest"><table class="ib-in ib-succ"><tbody><tr><td class="l">${r.prev?'← '+inline(r.prev,c):''}</td><td class="m">${inline(r.label,c)}</td><td class="r">${r.next?inline(r.next,c)+' →':''}</td></tr></tbody></table></td></tr>`;},
   seats:(r,c,hs)=>{const have=+r.have||0,tot=Math.max(1,+r.total||1);const pct=Math.min(100,have/tot*100).toFixed(2);return `<tr><th scope="row" class="plainlist">${inline(r.label,c)}</th><td class="plainlist">${have} из ${tot}<span class="seatbar"><span style="width:${pct}%;background:${safeColor(r.color)}"></span></span></td></tr>`;},
@@ -241,7 +244,7 @@ function renderInfobox(ib,ctx,mark){
   let h='';(ib.rows||[]).forEach((r,i)=>{let x=RENDER[r.t]?RENDER[r.t](r,ctx,hs):'';if(mark)x=x.replace(/<tr(?=[ >])/g,`<tr data-ib="${i}"`);h+=x;});
   if(!h&&!ib.title&&!ib.above)return '';
   const w=Math.min(40,Math.max(14,+ib.w||23));
-  return `<table class="infobox" style="width:${w}em"><tbody>${ib.above?`<tr${mark?' data-ib="above"':''}><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr${mark?' data-ib="title"':''}><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
+  return `<table class="infobox" style="width:${w+.4}em"><tbody>${ib.above?`<tr${mark?' data-ib="above"':''}><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr${mark?' data-ib="title"':''}><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
 }
 
 /* ---------- article ---------- */
