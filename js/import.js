@@ -221,7 +221,13 @@ function wiInfobox(tbl,C){
       vals.forEach((v,k)=>st.values[b0+k]=v);continue;
     }
     {const last=rows[rows.length-1];if(last&&last._open)delete last._open;}
-    if(th.length===1&&td.length===1){const label=C.inline(th[0],false),v=C.inline(td[0],true);if(v)rows.push(R.f(label,v));continue;}
+    // счётчик мест «350 из 450» с полоской (ru.wiki «Партия», en.wiki composition bar) → строка «Полоса мест в парламенте»
+    if(th.length===1&&td.length===1){
+      const cell=td[0];const bar=[...cell.querySelectorAll('[style]')].find(e=>/width\s*:\s*[\d.]+%/i.test(e.getAttribute('style'))&&/background(?:-color)?\s*:/i.test(e.getAttribute('style')));
+      const cl=cell.cloneNode(true);cl.querySelectorAll('style,link,sup').forEach(e=>e.remove());const m=cl.textContent.replace(/[\u00a0\u202f\s]+/g,' ').match(/^\s*(\d[\d ]*)\s*(?:из|\/|of)\s*(\d[\d ]*)/i);
+      if(bar&&m){const col=(bar.getAttribute('style').match(/background(?:-color)?\s*:\s*(#[0-9a-f]{3,8}|rgb\([^)]*\)|[a-z]+)/i)||[])[1]||'#3366cc';
+        rows.push(R.seats(C.inline(th[0],false),+m[1].replace(/ /g,''),+m[2].replace(/ /g,''),col));continue;}
+      const label=C.inline(th[0],false),v=C.inline(td[0],true);if(v)rows.push(R.f(label,v));continue;}
     if(td.length>=2&&!th.length){
       const vals=td.map(c=>C.inline(c,true));
       const prev=rows[rows.length-1];
