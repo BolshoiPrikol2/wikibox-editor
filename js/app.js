@@ -7,7 +7,11 @@ const fid=p=>'f-'+p.replace(/\./g,'-');
 const LS='apokrif-v2',LSA='apokrif-appearance';
 let P=null;
 const state={source:'',lastP:'body',edTab:'form',tocHidden:false};
-const APP={size:'1',width:'std',theme:'auto'};
+const APP={size:'1',width:'std',theme:'auto',wmode:'off'};
+/* режим Википедии: подпись «Материал из Википедии…» и никакого интерфейса правки */
+const WIKI_TAG='Материал из Википедии — свободной энциклопедии';
+const wikiMode=()=>APP.wmode==='wiki';
+const siteTag=()=>wikiMode()?WIKI_TAG:P.wiki.tag;
 
 /* ---------- хранение ---------- */
 function normalize(p){
@@ -46,13 +50,18 @@ const fmtDate=ts=>new Date(ts||Date.now()).toLocaleString('ru-RU',{day:'numeric'
 const typeName=t=>(TPL[t]||TPL.blank).name;
 
 /* ---------- внешний вид ---------- */
+function setWikiMode(on){
+  APP.wmode=on?'wiki':'off';try{localStorage.setItem(LSA,JSON.stringify(APP));}catch(x){}
+  closeIE();applyAppearance();const y=window.scrollY;route();window.scrollTo(0,y);
+  toast(on?'Режим Википедии: правка скрыта. Выключить — в «Внешнем виде» справа или в меню ⋮':'Режим Википедии выключен');
+}
 function loadAppearance(){try{Object.assign(APP,JSON.parse(localStorage.getItem(LSA)||'{}'));}catch(e){}}
-function applyAppearance(){const d=document.documentElement;d.dataset.size=APP.size;d.dataset.width=APP.width;if(APP.theme==='auto')delete d.dataset.theme;else d.dataset.theme=APP.theme;}
+function applyAppearance(){const d=document.documentElement;d.dataset.wmode=APP.wmode;d.dataset.size=APP.size;d.dataset.width=APP.width;if(APP.theme==='auto')delete d.dataset.theme;else d.dataset.theme=APP.theme;}
 function appearanceHTML(px){
   const grp=(key,title,opts)=>`<fieldset class="ap-grp"><legend>${title}</legend>${opts.map(([v,l])=>`<label><input type="radio" name="${px}-${key}" data-ap="${key}" value="${v}"${APP[key]===v?' checked':''}> ${l}</label>`).join('')}</fieldset>`;
-  return grp('size','Текст',[['0','Мелкий'],['1','Стандартный'],['2','Крупный']])+grp('width','Ширина',[['std','Стандартная'],['wide','Широкая']])+grp('theme','Цвета (бета)',[['auto','Автоматически'],['light','Светлая'],['dark','Тёмная']]);
+  return grp('size','Текст',[['0','Мелкий'],['1','Стандартный'],['2','Крупный']])+grp('width','Ширина',[['std','Стандартная'],['wide','Широкая']])+grp('theme','Цвета (бета)',[['auto','Автоматически'],['light','Светлая'],['dark','Тёмная']])+grp('wmode','Режим',[['off','Редактор'],['wiki','Википедия (без правки)']]);
 }
-function renderTools(){const rd=P&&parseHash().k==='wiki'&&cur();$('#tools').innerHTML=`${rd?`<div class="side-h">Инструменты</div><ul class="menu-list tools-list"><li><button class="linkbtn" data-act="snap" data-w="all">Скачать статью картинкой</button></li><li><button class="linkbtn" data-act="snap" data-w="lead">Скачать главное картинкой</button></li><li><button class="linkbtn" data-act="snap" data-w="ib">Скачать карточку картинкой</button></li></ul><p class="tools-hint">Двойной щелчок по абзацу, заголовку или строке карточки — быстрая правка прямо на странице.</p>`:''}<div class="side-h">Внешний вид <button class="pill" data-act="ap-toggle">${state.apHidden?'показать':'скрыть'}</button></div><div class="ap-body"${state.apHidden?' hidden':''}>${appearanceHTML('t')}</div>`;}
+function renderTools(){const rd=P&&parseHash().k==='wiki'&&cur();$('#tools').innerHTML=`${rd?`<div class="side-h">Инструменты</div><ul class="menu-list tools-list"><li><button class="linkbtn" data-act="snap" data-w="all">Скачать статью картинкой</button></li><li><button class="linkbtn" data-act="snap" data-w="lead">Скачать главное картинкой</button></li><li><button class="linkbtn" data-act="snap" data-w="ib">Скачать карточку картинкой</button></li><li><button class="linkbtn" data-act="wmode">${wikiMode()?'Выключить режим Википедии':'Режим Википедии'}</button></li></ul><p class="tools-hint">Двойной щелчок по абзацу, заголовку или строке карточки — быстрая правка прямо на странице.</p>`:''}<div class="side-h">Внешний вид <button class="pill" data-act="ap-toggle">${state.apHidden?'показать':'скрыть'}</button></div><div class="ap-body"${state.apHidden?' hidden':''}>${appearanceHTML('t')}</div>`;}
 
 /* ---------- каркас страниц ---------- */
 function applyBrand(){$('#logo-name').textContent=P.wiki.name;$('#logo-motto').textContent=P.wiki.motto||'';$('#logo-motto').hidden=!P.wiki.motto;$('#q').placeholder='Искать в '+P.wiki.name.replace(/ия$/,'ии');}
@@ -67,9 +76,10 @@ function tabsHTML(mode,pg){
   if(!pg)return `<div class="tabs"><div><span class="sel">${mode==='main'?'Заглавная страница':'Служебная страница'}</span></div><div></div></div>`;
   const read='#/wiki/'+slug(pg.title),edit='#/edit/'+pg.id;
   return `<div class="tabs"><div><a class="sel" href="${read}">Статья</a><span class="off" title="Обсуждений пока нет">Обсуждение</span></div>
-  <div><a${mode==='read'?' class="sel"':''} href="${read}">Читать</a><a${mode==='edit'?' class="sel"':''} href="${edit}">Править</a><a href="${edit}/code">Править код</a><span class="off" title="История правок не ведётся">История</span>
+  <div><a${mode==='read'?' class="sel"':''} href="${read}">Читать</a><a${mode==='edit'?' class="sel"':''} href="${edit}" class="tab-ed">Править</a><a href="${edit}/code" class="tab-ed">Править код</a><span class="off" title="История правок не ведётся">История</span>
   <span class="dd"><button class="tab-btn tab-more" data-act="dd" aria-expanded="false" aria-label="Инструменты" title="Инструменты">⋮</button><div class="dd-menu" hidden>
-    <div class="dd-h">Действия</div>
+    <div class="dd-h">Вид</div><button data-act="wmode">${wikiMode()?'Выключить режим Википедии':'Режим Википедии (без правки)'}</button>
+    <div class="dd-h dd-ed">Действия</div>
     <div class="dd-h">Скачать картинкой (PNG)</div><button data-act="snap" data-w="all">Вся статья</button><button data-act="snap" data-w="lead">Главное: начало статьи и карточка</button><button data-act="snap" data-w="ib">Только карточка</button><div class="dd-h">Другое</div><button data-act="dl-html">Скачать статью (HTML)</button>
     <div class="dd-h">Страница</div>
     ${pg.source?`<a class="dd-link" href="${esc(pg.source.url)}" target="_blank" rel="noopener">Исходная статья в Википедии</a>`:''}<button data-act="feature">${P.featured===pg.id?'Это избранная статья':'Сделать избранной статьёй'}</button><button data-act="dup-page">Создать копию</button><button data-act="del-page" class="danger">Удалить страницу</button>
@@ -80,7 +90,7 @@ function footerHTML(pg){
   <ul><li><a href="#/">Заглавная страница</a></li><li><a href="#/all">Все статьи</a></li><li><a href="#/file">Файл проекта</a></li></ul></footer>`;
 }
 function shell({title,mode,pg,content,sub=true,foot=true,cls=''}){
-  return `<div class="snap-area ${cls}"><div class="titlebar"><h1 class="fh" id="top">${title}</h1></div>${tabsHTML(mode,pg)}${sub?`<div class="sitesub"><span>${esc(P.wiki.tag)}</span>${pg&&mode==='read'?`<span class="sitesub-r">[<a href="#/edit/${pg.id}/code">править код</a>]</span>`:''}</div>`:''}<div class="mw-content">${content}</div></div>${foot?footerHTML(pg):''}`;
+  return `<div class="snap-area ${cls}"><div class="titlebar"><h1 class="fh" id="top">${title}</h1></div>${tabsHTML(mode,pg)}${sub?`<div class="sitesub"><span>${esc(siteTag())}</span>${pg&&mode==='read'?`<span class="sitesub-r">[<a href="#/edit/${pg.id}/code">править код</a>]</span>`:''}</div>`:''}<div class="mw-content">${content}</div></div>${foot?footerHTML(pg):''}`;
 }
 function setView(side,main,title){$('#side').innerHTML=side;$('#main').innerHTML=main;document.title=title?title+' — '+P.wiki.name:P.wiki.name;renderTools();}
 
@@ -357,7 +367,7 @@ function rerenderForm(){
 function renderEdPreview(){
   const el=$('#edprev');if(!el||!edPage)return;const pg=edPage;
   const {content}=articleParts(pg);
-  el.innerHTML=`<h1 class="fh">${fmt(esc(pg.title))}</h1><div class="sitesub">${esc(P.wiki.tag)}</div><div class="mw-content">${content}${catlinksHTML(pg)}</div>`;
+  el.innerHTML=`<h1 class="fh">${fmt(esc(pg.title))}</h1><div class="sitesub">${esc(siteTag())}</div><div class="mw-content">${content}${catlinksHTML(pg)}</div>`;
 }
 function insertTB(k){
   const b=TB[k];let el=document.getElementById(fid(state.lastP));if(!el||el.type==='color'||!$('#edform')?.contains(el))el=$('#f-body');if(!el)return;
@@ -414,7 +424,7 @@ function cur(){const {k,arg}=parseHash();if(k==='edit')return edPage;if(k==='wik
 async function dlHTML(pg){
   let css='';try{css=await (await fetch('css/site.css')).text();}catch(e){}
   const {content}=articleParts(pg);
-  download(pg.title+'.html',`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(pg.title)} — ${esc(P.wiki.name)}</title><style>${css}body{padding:24px}.export{max-width:1100px;margin:0 auto}</style></head><body><main class="export"><h1 class="fh">${fmt(esc(pg.title))}</h1><div class="sitesub">${esc(P.wiki.tag)}</div><div class="mw-content">${content}${catlinksHTML(pg)}</div></main></body></html>`,'text/html');
+  download(pg.title+'.html',`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(pg.title)} — ${esc(P.wiki.name)}</title><style>${css}body{padding:24px}.export{max-width:1100px;margin:0 auto}</style></head><body><main class="export"><h1 class="fh">${fmt(esc(pg.title))}</h1><div class="sitesub">${esc(siteTag())}</div><div class="mw-content">${content}${catlinksHTML(pg)}</div></main></body></html>`,'text/html');
 }
 
 /* ---------- меню ---------- */
@@ -432,6 +442,7 @@ document.addEventListener('input',e=>{
   const el=e.target;
   if(el.id==='q'){suggest(el.value);return;}
   if(el.id&&el.id.startsWith('fb-')&&el.id!=='fb-name'){$('#fb-prev').src=flagSVG(fbParams());return;}
+  if(el.dataset.ap==='wmode'){setWikiMode(el.value==='wiki');return;}
   if(el.dataset.ap){APP[el.dataset.ap]=el.value;try{localStorage.setItem(LSA,JSON.stringify(APP));}catch(x){}applyAppearance();$$(`input[data-ap="${el.dataset.ap}"][value="${el.value}"]`).forEach(r=>r.checked=true);return;}
   const p=el.dataset.p;if(!p)return;
   if(el.dataset.scope==='proj'){setPath(P,p,el.value);applyBrand();clearTimeout(svT);svT=setTimeout(save,500);return;}
@@ -499,7 +510,7 @@ function ieTarget(pg,key,cell){
   }
 }
 function ieOpen(e){
-  if(parseHash().k!=='wiki')return;const pg=cur();if(!pg)return;
+  if(parseHash().k!=='wiki'||wikiMode())return;const pg=cur();if(!pg)return;
   const t=e.target;if(!t.closest('#main .mw-content')||t.closest('.ie,a,button,input,textarea,select,.fplayer,.mw-editsection,.toc-mobile,.reflist'))return;
   if(IE){IE.box.querySelector('textarea').focus();return;}
   const ib=t.closest('[data-ib]');
@@ -559,6 +570,7 @@ document.addEventListener('click',e=>{
     case 'del-page':if(pg&&armed(btn,'Удалить навсегда?')){P.pages.splice(P.pages.indexOf(pg),1);if(P.featured===pg.id)P.featured=P.pages[0]?.id;edPage=null;save();toast('Страница «'+pg.title+'» удалена');location.hash='#/';}break;
     case 'feature':if(pg){P.featured=pg.id;save();toast('«'+pg.title+'» теперь избранная статья');closeMenus();}break;
     case 'snap':closeMenus();snap(btn.dataset.w);break;
+    case 'wmode':closeMenus();setWikiMode(!wikiMode());break;
     case 'dl-html':closeMenus();if(pg)dlHTML(pg);break;
     case 'add-row':{const t=$('#addrow-type').value;rows.push(ROWTYPES[t][1]());re();$$('#rows > .rw').pop()?.scrollIntoView({block:'center'});break;}
     case 'row-up':if(i>0){[rows[i-1],rows[i]]=[rows[i],rows[i-1]];re();}break;

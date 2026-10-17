@@ -504,3 +504,7 @@ textarea.one{resize:none;min-height:32px;overflow:hidden}
 
 .flagicon.nob{border-color:transparent}
 .mnob{font-size:12.5px}
+
+/* режим Википедии: прячем всё, что относится к правке */
+html[data-wmode="wiki"] .mw-editsection,html[data-wmode="wiki"] .sitesub-r,html[data-wmode="wiki"] .tabs .tab-ed,html[data-wmode="wiki"] .tools-hint{display:none!important}
+html[data-wmode="wiki"] #main .mw-content [data-l]:hover,html[data-wmode="wiki"] #main .infobox tr[data-ib]:hover>*,html[data-wmode="wiki"] #main .hatnote[data-ib]:hover{background-color:transparent}
