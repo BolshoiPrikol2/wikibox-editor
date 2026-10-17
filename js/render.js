@@ -8,6 +8,12 @@ let RL='ru';
 const I18N_EN={'Содержание':'Contents','скрыть':'hide','показать':'show','Начало':'(Top)','Статья':'Article','Обсуждение':'Talk','Читать':'Read','Править':'Edit','Править код':'Edit source','История':'View history','Инструменты':'Tools','Внешний вид':'Appearance','Текст':'Text','Мелкий':'Small','Стандартный':'Standard','Крупный':'Large','Ширина':'Width','Стандартная':'Standard','Широкая':'Wide','Цвета (бета)':'Color (beta)','Автоматически':'Automatic','Светлая':'Light','Тёмная':'Dark','Режим':'Mode','Редактор':'Editor','Википедия (без правки)':'Wikipedia (read only)','Скачать статью картинкой':'Download article as image','Скачать главное картинкой':'Download lead as image','Скачать карточку картинкой':'Download infobox as image','Режим Википедии':'Wikipedia mode','Выключить режим Википедии':'Turn off Wikipedia mode','Двойной щелчок по абзацу, заголовку или строке карточки — быстрая правка прямо на странице. Выделите текст — появится меню оформления.':'Double-click a paragraph, heading or infobox row to edit it right on the page. Select text to get a formatting menu.','Примечания':'References','Категории':'Categories','Основная статья':'Main article','Основные статьи':'Main articles','См. также':'See also','править':'edit','править код':'edit source','Вернуться к тексту':'Jump up','из':'of','Развернуть':'Expand','Служебная страница':'Special page','Заглавная страница':'Main Page','Обсуждений пока нет':'No discussion yet','История правок не ведётся':'Page history is not kept','Воспроизвести аудио':'Play audio','Без изменений':'Steady','Увеличение':'Increase','Уменьшение':'Decrease','Негативное увеличение':'Negative increase','Позитивное уменьшение':'Positive decrease','Рост':'Increase','Падение':'Decrease'};
 const tr=s=>RL==='en'&&I18N_EN[s]||s;
 const pgLang=pg=>(pg&&pg.lang)||(typeof P!=='undefined'&&P&&P.wiki&&P.wiki.lang)||'ru';
+/* оставляем только безопасные свойства: цвет, фон, начертание, размер, перенос */
+function safeStyle(st){
+  const ok=/^(color|background|background-color|font-weight|font-style|font-size|white-space|text-decoration|font-variant)$/i;
+  return String(st||'').split(';').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.indexOf(':');if(i<0)return '';const k=x.slice(0,i).trim().toLowerCase(),v=x.slice(i+1).trim();
+    if(!ok.test(k)||!/^[#\w\s.%(),-]+$/.test(v)||/url|expression/i.test(v))return '';return k+':'+v;}).filter(Boolean).join(';');
+}
 const norm=s=>String(s||'').trim().toLowerCase().replace(/ё/g,'е').replace(/_/g,' ').replace(/\s+/g,' ');
 const slug=t=>encodeURIComponent(String(t||'').trim().replace(/ /g,'_'));
 const mediaSrc=n=>{if(!n)return '';const m=P.media.find(x=>x.name===n);return m?m.src:'';};
@@ -32,22 +38,23 @@ function refHTML(name,content,ctx){
 }
 /* Ссылки всегда синие; красная — только если её так отметили: [[!Статья]] или {{красная ссылка|Статья}} */
 function linkHTML(tEsc,textEsc,red){
-  const raw=unesc(tEsc).trim();const [t]=raw.split('#');const p=pageFind(t);
+  const raw=unesc(tEsc).trim();
+  if(raw[0]==='#'){const label=textEsc!==undefined?fmt(textEsc):esc(raw.slice(1));return `<a href="#" class="anchor-link" data-anchor="${esc(raw.slice(1))}">${label}</a>`;}const [t]=raw.split('#');const p=pageFind(t);
   const label=textEsc!==undefined?fmt(textEsc):tEsc;const cls=red?' class="new"':'';
   return p?`<a${cls} href="#/wiki/${slug(p.title)}" title="${esc(p.title)}">${label}</a>`
           :`<a${cls} href="#/new/${slug(t)}" title="${esc(t)} (статья ещё не написана — нажмите, чтобы создать)">${label}</a>`;
 }
 /* флажок; серая рамка отключается параметром «без рамки» или галочкой у картинки в медиатеке */
-function flagIcon(nEsc,nob){const n=unesc(nEsc||'').trim();const m=P.media.find(x=>x.name===n)||P.media.find(x=>x.name==='Флаг '+n);const s=m&&m.src;return s?`<img class="flagicon${nob||m.noborder?' nob':''}" src="${s}" alt="">`:'';}
+function flagIcon(nEsc,nob,px){const n=unesc(nEsc||'').trim();const m=P.media.find(x=>x.name===n)||P.media.find(x=>x.name==='Флаг '+n);const s=m&&m.src;return s?`<img class="flagicon${nob||m.noborder?' nob':''}" src="${s}" alt=""${px?` style="width:${px}px"`:''}>`:'';}
 const NOB_RE=/^(без рамки|без обводки|рамка\s*=\s*(нет|0|no)|noborder|border\s*=\s*(no|0))$/i;
 function tplInline(inner){
   let a=inner.split('|').map(x=>x.trim());const n=a[0].toLowerCase();
-  let nob=false;if(/^(флаг-?|флагик|flag|flagicon|флагификация|флагссылка|flaglink)$/.test(n)){nob=a.some(x=>NOB_RE.test(x));a=a.filter(x=>!NOB_RE.test(x));}
+  let nob=false,px=0;if(/^(флаг-?|флагик|flag|flagicon|флагификация|флагссылка|flaglink)$/.test(n)){nob=a.some(x=>NOB_RE.test(x));a=a.filter(x=>!NOB_RE.test(x));const pa=a.slice(1).find(x=>/^\d{1,3}px$/.test(x));if(pa){px=Math.min(120,parseInt(pa));a=a.filter(x=>x!==pa);}}
   switch(n){
-    case 'флаг':case 'flag':case 'флагификация':return flagIcon(a[1],nob)+'&nbsp;'+linkHTML(a[2]||a[1]||'',a[3]);
-    case 'флагик':case 'flagicon':if(!a[2])return flagIcon(a[1],nob);
+    case 'флаг':case 'flag':case 'флагификация':return flagIcon(a[1],nob,px)+'&nbsp;'+linkHTML(a[2]||a[1]||'',a[3]);
+    case 'флагик':case 'flagicon':if(!a[2])return flagIcon(a[1],nob,px);
     /* флаг-ссылка без названия: {{флаг-|Сибирь|Сибирская Республика}} */
-    case 'флаг-':case 'флагссылка':case 'flaglink':{const t=a[2]||a[1]||'';const ic=flagIcon(a[1],nob);if(!ic)return linkHTML(t,a[3]);const raw=unesc(t).split('#')[0].trim();const p=pageFind(raw);return `<a class="flaglink" href="${p?'#/wiki/'+slug(p.title):'#/new/'+slug(raw)}" title="${esc(p?p.title:raw)}">${ic}</a>`;}
+    case 'флаг-':case 'флагссылка':case 'flaglink':{const t=a[2]||a[1]||'';const ic=flagIcon(a[1],nob,px);if(!ic)return linkHTML(t,a[3]);const raw=unesc(t).split('#')[0].trim();const p=pageFind(raw);return `<a class="flaglink" href="${p?'#/wiki/'+slug(p.title):'#/new/'+slug(raw)}" title="${esc(p?p.title:raw)}">${ic}</a>`;}
     case 'красная ссылка':case 'красная':case 'redlink':return linkHTML(a[1]||'',a[2],true);
     /* квадрат легенды с подписью, как на картах выборов: {{легенда|#4488CC|ЛДПР}} */
     case 'легенда':case 'legend':case 'квадрат':{const t=a.slice(2).join('|');return `<span class="legend-item"><span class="legend-sq" style="background:${safeColor(unesc(a[1]||''))}"></span>${t?' '+inline(unesc(t),newCtx()):''}</span><!--/lg-->`;}
@@ -103,6 +110,9 @@ function inline(src,ctx){
   let s=String(src).replace(REF_RE,(m,name,content)=>keep(refHTML(name,content,ctx)));
   s=esc(s);
   s=s.replace(/\r?\n/g,'<br>').replace(/&lt;br\s*\/?&gt;/gi,'<br>').replace(/&lt;(\/?)(small|big|s|u|sup|sub|code)&gt;/gi,'<$1$2>');
+  // <span style="…"> с безопасными свойствами; закрываем столько, сколько открыли
+  {let open=0;s=s.replace(/&lt;span\s+style=&quot;([^&<>]*)&quot;\s*&gt;/gi,(m,st)=>{const ss=safeStyle(unesc(st));open++;return ss?`<span style="${esc(ss)}">`:'<span>';});
+   let left=open;s=s.replace(/&lt;\/span&gt;/gi,m=>left>0?(left--,'</span>'):m);s+='</span>'.repeat(left);}
   s=s.replace(/\{\{([^{}]+)\}\}/g,(m,inner)=>keep(tplInline(inner)));
   s=s.replace(/\[\[(?:Файл|File|Изображение|Image):([^\]]+)\]\]/gi,(m,spec)=>{const a=spec.split('|');const src=mediaSrc(unesc(a[0].trim()));const px=a.find(x=>/^\d+px$/.test(x.trim()));return keep(src?`<img src="${src}" alt="" style="height:${px?parseInt(px):20}px;width:auto;vertical-align:middle">`:'');});
   // буквы сразу после ссылки входят в неё, как в Википедии: [[1993 год]]а → «1993 года»
@@ -258,7 +268,7 @@ const RENDER={
   hr:()=>`<tr><td colspan="2" class="ib-hr"><hr></td></tr>`,
   anthem:(r,c)=>{const v=String(r.value||'').trim();if(!v&&!r.dur)return '';return `<tr><td colspan="2" class="plainlist ib-anthem">${r.label?inline(r.label,c)+': ':''}${v?ibVal(v,c):''}${r.dur?playerHTML(r.dur):''}</td></tr>`;},
   below:(r,c,hs)=>String(r.value||'').trim()?`<tr><td colspan="2" class="infobox-below${hs.dk}"${hs.st2}>${ibVal(r.value,c)}</td></tr>`:'',
-  image:(r,c)=>{const s=mediaSrc(r.src);if(!s)return '';return `<tr><td colspan="2" class="infobox-image"><img src="${s}" alt="" style="width:${Math.max(40,+r.w||250)}px">${r.caption?`<span class="media-caption">${legendWrap(inline(r.caption,c),r.lcols)}</span>`:''}</td></tr>`;},
+  image:(r,c)=>{const s=mediaSrc(r.src);if(!s)return '';return `<tr><td colspan="2" class="infobox-image"><img src="${s}" alt="" style="width:${Math.max(40,+r.w||250)}px">${r.caption?`<span class="media-caption"${r.capLeft?' style="text-align:left"':''}>${legendWrap(inline(r.caption,c),r.lcols)}</span>`:''}</td></tr>`;},
   images2:(r,c)=>{const a=mediaSrc(r.src1),b=mediaSrc(r.src2);if(!a&&!b)return '';
     const im=[a&&[a,'ib-flag',r.cap1],b&&[b,'ib-coat',r.cap2]].filter(Boolean);
     return `<tr><td colspan="2" class="infobox-image"><table class="ib-flags"><tbody><tr>${im.map(([s,k])=>`<td><img class="${k}" src="${s}" alt=""></td>`).join('')}</tr>${im.some(x=>String(x[2]||'').trim())?`<tr>${im.map(x=>`<td>${inline(x[2]||'',c)}</td>`).join('')}</tr>`:''}</tbody></table></td></tr>`;},
