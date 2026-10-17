@@ -3,12 +3,13 @@
    провинции, передача провинций между государствами, разрез и объединение провинций */
 
 const GEO={countries:null,prov:{},tpl:{},names:null,tplIndex:null};
-const GV='?v=14';
+const GV='?v=15';
 const geoJobs={};
 function fetchJSON(url){return geoJobs[url]=geoJobs[url]||fetch(url).then(r=>{if(!r.ok)throw new Error('нет файла '+url);return r.json();});}
 async function loadTplIndex(){if(!GEO.tplIndex){try{GEO.tplIndex=await fetchJSON('data/geo/tpl/index.json'+GV);}catch(e){GEO.tplIndex={years:[]};}}return GEO.tplIndex;}
 /* Загрузить всё, что нужно для карты: основу, шаблон и файлы провинций разбитых государств */
 async function loadFor(spec,extraUnits){
+  if(spec&&String(spec.base)==='1938')spec.base='1936';
   if(!GEO.countries)GEO.countries=await fetchJSON('data/geo/countries.json'+GV);
   if(spec&&spec.base&&!GEO.tpl[spec.base])GEO.tpl[spec.base]=await fetchJSON('data/geo/tpl/'+spec.base+'.json'+GV);
   const units=[...((spec&&spec.split)||[]),...(extraUnits||[])];
