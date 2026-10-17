@@ -90,14 +90,16 @@ function makeConverter(lang,opts){
       if(tag==='img'){
         const w=+el.getAttribute('width')||0,h=+el.getAttribute('height')||0;
         if(!opts.images)continue;
-        if(w&&w<=60||h&&h<=40){const nm=mediaName(el);if(nm)out+=`[[Файл:${nm}|${Math.max(12,Math.min(40,h||15))}px]] `;}
+        const isFlag=(w&&w<=30&&h&&h<=24)&&(el.closest('.mw-image-border,.flagicon')||/flag/i.test(el.getAttribute('src')||''));
+        if(isFlag){const nm=mediaName(el);if(nm)out+=`{{флагик|${nm}}}`;}
+        else if(w&&w<=60||h&&h<=40){const nm=mediaName(el);if(nm)out+=`[[Файл:${nm}|${Math.max(12,Math.min(40,h||15))}px]] `;}
         else if(ctx.big){const nm=mediaName(el);if(nm)out+=`[[Файл:${nm}|${Math.min(120,h||60)}px]]`;}
         continue;
       }
       if(tag==='a'){
         const href=el.getAttribute('href')||'';
         if(el.querySelector('img')){out+=inl(el,ctx);continue;}
-        const text=inl(el,ctx).trim();if(!text)continue;
+        const text=inl(el,ctx).replace(/\s*\n\s*/g,' ').trim();if(!text)continue;
         if(el.classList.contains('external')||/^https?:/.test(href)){out+=href.startsWith('http')?`[${href} ${text}]`:text;continue;}
         const t=linkTitle(href)||(el.classList.contains('new')&&(el.getAttribute('title')||'').replace(/\s*\(.*(страница|page).*\)\s*$/i,''));
         if(t){out+=(t===text?`[[${t}]]`:(text.startsWith(t)&&/^[а-яёa-z]*$/i.test(text.slice(t.length))?`[[${t}]]${text.slice(t.length)}`:`[[${t}|${text}]]`));}else out+=text;
@@ -195,6 +197,8 @@ function wiInfobox(tbl,C){
         }
         continue;
       }
+      const tcs=[...one.children].filter(d=>d.tagName==='DIV'&&/display:\s*table-cell/i.test(d.getAttribute('style')||''));
+      if(tcs.length>=2){const cells=tcs.map(d=>C.inline(d,true));if(cells.some(Boolean)){const rc=R.c('',cells);rc.plain=true;rows.push(rc);continue;}}
       const st=one.getAttribute('style')||'';
       if(/text-align:\s*left/i.test(st)&&/font-weight:\s*bold/i.test(st)){const v=C.inline(one,false);if(v)rows.push(R.f('='+v,''));continue;}
       const v=C.inline(one,true);if(v)rows.push(R.t(v));continue;

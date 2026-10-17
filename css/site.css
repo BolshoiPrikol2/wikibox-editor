@@ -598,3 +598,7 @@ html[data-wmode="wiki"] .tbl-edit{display:none}
 /* текстовые треугольники ({{вверх}}, {{вниз}}) — как в карточке «Роснефти» */
 .ticon{font-size:larger;font-weight:normal}
 .ticon-g{color:#0c0}.ticon-r{color:red}
+
+/* колонки без разделителя (как «Предшественники и преемники» у СССР) */
+.ib-cols-plain td+td{border-left:0}
+.ib-cols-plain td{text-align:left;padding:0 .4em 0 0}
