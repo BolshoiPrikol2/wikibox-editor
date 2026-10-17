@@ -609,3 +609,8 @@ html[data-wmode="wiki"] .tbl-edit{display:none}
 .ib-succ-hd .ib-succ .m{font-weight:bold}
 .ib-succ.raw .l,.ib-succ.raw .r{width:4em}
 .ib-succ.raw td{vertical-align:top}
+
+/* легенда карты: квадраты 18px с серой рамкой, подписи в колонках (как на картах выборов) */
+.legend-cols{text-align:left;column-gap:1em;margin-top:.25em}
+.legend-item{display:block;break-inside:avoid;text-align:left;line-height:1.45;margin:.1em 0}
+.legend-sq{display:inline-block;width:1.25em;height:1.25em;border:1px solid #a9a9a9;vertical-align:-.25em;box-sizing:border-box}

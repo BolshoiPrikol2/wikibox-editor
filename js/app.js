@@ -312,7 +312,7 @@ function doImport(mode){
 /* ---------- редактор ---------- */
 const TB=[
   ['Ж',"'''","'''",'жирный'],['К',"''","''",'курсив'],['[[ссылка]]','[[',']]','Статья'],['Красная ссылка','[[!',']]','Статья'],['Раздел','\n== ',' ==\n','Раздел'],
-  ['Сноска','<ref>','</ref>','Источник'],['Список','\n* ','','пункт'],['Флаг','{{флаг|','}}','Сибирь'],['Флаг без названия','{{флаг-|','}}','Сибирь|Сибирская Республика'],['Цвет','{{цвет|','}}','#3366cc'],
+  ['Сноска','<ref>','</ref>','Источник'],['Список','\n* ','','пункт'],['Флаг','{{флаг|','}}','Сибирь'],['Флаг без названия','{{флаг-|','}}','Сибирь|Сибирская Республика'],['Цвет','{{цвет|','}}','#3366cc'],['■ Легенда','{{легенда|#3366cc|','}}','Название'],
   ['Картинка','\n[[Файл:','|200px|Подпись]]\n','__MEDIA__'],['Таблица','\n{| class="wikitable"\n! Заголовок 1 !! Заголовок 2\n|-\n| ',' || ячейка\n|}\n','ячейка'],
   ['Осн. статья','{{основная статья|','}}','Статья'],['↗ рост','{{рост|','}}','5'],['↘ падение','{{падение|','}}','5'],['▲ вверх','{{вверх|','}}','21,6 трлн ₽'],['▼ вниз','{{вниз|','}}','8,16 трлн ₽'],['▶ плеер','{{плеер|','}}','1:13'],['▦ Таблица','__TABLE__','',''],['Цвет строки таблицы','\n|- style="background:','"','#d1edf2'],['Цвет ячейки','style="background:','" | ','#d1edf2'],['и. о.','{{и. о.','}}',''],
 ];
@@ -343,7 +343,7 @@ function rowEditor(r,i){
     case 'text':x=ta(p+'.value',r.value,r.ph||'Текст по центру карточки');break;
     case 'below':x=ta(p+'.value',r.value,'Текст нижней строки');break;
     case 'anthem':x=`<div class="line">${inp(p+'.label',r.label,'Подпись, например: Гимн')}<label class="inl">Длительность ${inp(p+'.dur',r.dur,'1:13')}</label></div>${ta(p+'.value',r.value,'Название гимна, например: «Славься, Сибирь»')}<span class="cnt">Плеер ненастоящий: кнопка ▶ запускает только полосу и время. Пустая длительность убирает плеер.</span>`;break;
-    case 'image':x=`${picker(p+'.src',r.src)}<div class="line"><button class="btn sm" data-act="map-for" data-path="${p}.src">Нарисовать карту</button>${P.media.some(m=>m.map&&m.name===r.src)?`<a class="btn sm" href="#/map/${slug(r.src)}">Изменить эту карту</a>`:''}</div><div class="line">${ta1(p+'.caption',r.caption,'Подпись под картинкой')}<label class="inl">Ширина, px ${num(p+'.w',r.w,40,400)}</label></div>`;break;
+    case 'image':x=`${picker(p+'.src',r.src)}<div class="line"><button class="btn sm" data-act="map-for" data-path="${p}.src">Нарисовать карту</button>${P.media.some(m=>m.map&&m.name===r.src)?`<a class="btn sm" href="#/map/${slug(r.src)}">Изменить эту карту</a>`:''}</div><div class="line">${ta1(p+'.caption',r.caption,'Подпись под картинкой')}<label class="inl">Ширина, px ${num(p+'.w',r.w,40,400)}</label><label class="inl" title="Для квадратов {{легенда|…}} в подписи; 0 — подобрать самим">Колонок в легенде ${num(p+'.lcols',r.lcols||0,0,6)}</label></div>`;break;
     case 'images2':x=`<div class="two"><div class="fld">${picker(p+'.src1',r.src1)}${inp(p+'.cap1',r.cap1,'Подпись')}</div><div class="fld">${picker(p+'.src2',r.src2)}${inp(p+'.cap2',r.cap2,'Подпись')}</div></div>`;break;
     case 'cols':x=`<div class="line">${ta1(p+'.label',r.label,'Заголовок над колонками')}<label class="inl"><input type="checkbox" id="${fid(p+'.plain')}" data-p="${p}.plain"${r.plain?' checked':''}> без линии между колонками, текст слева</label></div><div class="cells">${r.cells.map((c,j)=>`<div class="cell">${ta(p+'.cells.'+j,c,'Сторона '+(j+1))}${r.cells.length>1?`<button class="ic x" data-act="cell-del" data-i="${i}" data-j="${j}" aria-label="Убрать колонку">✕</button>`:''}</div>`).join('')}</div><div><button class="btn sm" data-act="cell-add" data-i="${i}">+ колонка</button></div>`;break;
     case 'succ':x=`<div class="two">${inp(p+'.prev',r.prev,'← Предшественник')}${inp(p+'.next',r.next,'Преемник →')}</div>${inp(p+'.label',r.label,'Подпись посередине (необязательно)')}`;break;
@@ -385,6 +385,7 @@ function editorForm(pg){
       <tr><td><code>* пункт</code> <code># пункт</code> <code>** вложенный</code></td><td>списки (в карточке тоже)</td></tr>
       <tr><td><code>&lt;ref&gt;Источник&lt;/ref&gt;</code></td><td>сноска; повтор: <code>&lt;ref name="a"&gt;…&lt;/ref&gt;</code> и <code>&lt;ref name="a"/&gt;</code>; место списка — <code>{{примечания}}</code></td></tr>
       <tr><td><code>{{флаг|Сибирь|Сибирская Республика}}</code></td><td>флаг из медиатеки и ссылка</td></tr>
+      <tr><td><code>{{легенда|#4488CC|ЛДПР}}</code></td><td>цветной квадрат с подписью, как в легенде карты выборов; несколько подряд в подписи картинки встают в колонки (в карточке — поле «Колонок в легенде», в тексте — <code>[[Файл:Карта|300px|колонки=3|Подпись {{легенда|…}} {{легенда|…}}]]</code>)</td></tr>
       <tr><td><code>{{флагик|Сибирь}}</code></td><td>только флажок</td></tr>
       <tr><td><code>{{флаг|Сибирь|без рамки}}</code></td><td>флажок без серой рамки (работает во всех флаговых шаблонах; для всех статей сразу — галочка у картинки в медиатеке)</td></tr>
       <tr><td><code>{{флаг-|Сибирь|Сибирская Республика}}</code></td><td>флажок-ссылка без названия: ведёт на статью, название видно при наведении</td></tr>

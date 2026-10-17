@@ -72,6 +72,10 @@ function makeConverter(lang,opts){
     return '';
   }
   const wrapLines=(t,a,b)=>t.split('\n').map(x=>x.trim()?a+x+b:x).join('\n');
+  /* цветной квадрат легенды: span с фоном и без текста */
+  function sqColor(el){if(!el||el.tagName!=='SPAN')return '';const st=el.getAttribute('style')||'';const m=st.match(/background(?:-color)?\s*:\s*(#[0-9a-f]{3,8}|rgb\([^)]*\)|[a-z]+)/i);if(!m||el.textContent.replace(/[\s\u00a0]/g,''))return '';return m[1];}
+  /* пункт легенды: квадрат и подпись → {{легенда|цвет|подпись}} */
+  function legendLi(li,ctx){const sq=li.firstElementChild;const hx=sq&&sqColor(sq);if(!hx)return '';const cl=li.cloneNode(true);cl.firstElementChild.remove();const t=inl(cl,ctx).replace(/\s*\n\s*/g,' ').trim();return `{{легенда|${hx}|${t}}}`;}
   function inl(node,ctx={}){
     let out='';
     for(const n of node.childNodes){
@@ -82,6 +86,7 @@ function makeConverter(lang,opts){
       if(el.getAttribute('style')&&/display:\s*none/i.test(el.getAttribute('style')))continue;
       if(tag==='sup'&&el.classList.contains('reference')){out+=refMark(el);continue;}
       {const tr=trendOf(el);if(tr){out+=tr;continue;}}
+      {const hx=sqColor(el);if(hx){out+=`{{цвет|${hx}}}`;continue;}}
       if(el.classList.contains('mw-tmh-player')||tag==='audio'||tag==='video'){
         const a=tag==='audio'||tag==='video'?el:el.querySelector('audio,video');const hint=+(a&&a.getAttribute('data-durationhint'))||0;
         const lab=el.querySelector('.mw-tmh-duration [aria-hidden]');const d=(lab&&lab.textContent.trim())||(hint?Math.floor(hint/60)+':'+String(Math.round(hint%60)).padStart(2,'0'):'');
@@ -109,7 +114,8 @@ function makeConverter(lang,opts){
       if(tag==='i'||tag==='em'){out+=wrapLines(inl(el,ctx),"''","''");continue;}
       if(['small','sup','sub','s','u'].includes(tag)){out+=wrapLines(inl(el,ctx),`<${tag}>`,`</${tag}>`);continue;}
       if(tag==='ul'||tag==='ol'){
-        const items=[...el.children].filter(li=>li.tagName==='LI').map(li=>inl(li,ctx).trim()).filter(Boolean);
+        const items=[...el.children].filter(li=>li.tagName==='LI').map(li=>legendLi(li,ctx)||inl(li,ctx).trim()).filter(Boolean);
+        if(items.length&&items.every(x=>x.startsWith('{{легенда|'))){out+=(ctx.lines?'\n':' ')+items.join(' ')+(ctx.lines?'\n':' ');continue;}
         if(el.closest('.hlist')){out+=items.join('\u00a0· ');continue;}
         out+=ctx.lines?'\n'+items.map(x=>'* '+x).join('\n')+'\n':items.join(', ');continue;
       }
@@ -182,9 +188,15 @@ function wiInfobox(tbl,C){
     // стороны конфликта во вложенной таблице (русская Википедия): колонки
     const nt=one&&[...one.querySelectorAll('table')].find(t=>t.closest('td')===one&&[...t.rows].some(r=>r.cells.length>=2)&&![...t.querySelectorAll('img')].some(i=>(+i.getAttribute('width')||0)>60||(+i.getAttribute('height')||0)>60));
     if(nt){
+      // в той же ячейке до таблицы — карта с подписью (карта выборов с легендой): сначала картинка, потом колонки
+      const bigOut=C.opts.images?[...one.querySelectorAll('img')].filter(i=>!nt.contains(i)&&((+i.getAttribute('width')||0)>60||(+i.getAttribute('height')||0)>60)):[];
+      if(bigOut.length){const cl=one.cloneNode(true);cl.querySelectorAll('table,img').forEach(e=>e.remove());cl.querySelectorAll('figcaption').forEach(f=>{if(!f.textContent.trim())f.remove();});
+        rows.push(R.i(C.mediaName(bigOut[0]),C.inline(cl,false),Math.min(400,+bigOut[0].getAttribute('width')||250)));}
       const n=Math.max(...[...nt.rows].map(r=>r.cells.length));const vals=Array(n).fill('');
       for(const r of nt.rows)[...r.cells].forEach((c,j)=>{const v=C.inline(c,true);if(v)vals[j]+=(vals[j]?'\n':'')+v;});
       const prev=rows[rows.length-1];
+      // колонки из квадратов легенды (карта выборов) — без линии и без чужого заголовка
+      if(vals.filter(Boolean).every(v=>/^(\{\{легенда\|[^{}]*\}\}\s*)+$/.test(v.trim()))){const rc=R.c('',vals);rc.plain=true;rows.push(rc);continue;}
       if(prev&&prev.t==='header'&&!prev.l&&!prev.r){rows.pop();rows.push(R.c(prev.text,vals));}else rows.push(R.c('',vals));
       continue;
     }
@@ -300,7 +312,8 @@ function wiBody(root,C,opts){
     const nm=C.mediaName(img);if(!nm)return;
     const cap=el.querySelector('figcaption,.thumbcaption');
     const w=Math.min(300,+img.getAttribute('width')||220);
-    push(`[[Файл:${nm}|${w}px|${cap?C.inline(cap,false).replace(/\|/g,'/'):''}]]`);
+    const dc=cap&&[cap,...cap.querySelectorAll('[style]')].map(e=>(e.getAttribute('style')||'').match(/column-count\s*:\s*(\d)|columns\s*:\s*(\d)/i)).find(Boolean);
+    push(`[[Файл:${nm}|${w}px${dc?'|колонки='+(dc[1]||dc[2]):''}|${cap?C.inline(cap,false):''}]]`);
   };
   const walk=parent=>{
     for(const el of parent.children){

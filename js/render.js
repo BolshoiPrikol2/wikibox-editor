@@ -49,6 +49,8 @@ function tplInline(inner){
     /* флаг-ссылка без названия: {{флаг-|Сибирь|Сибирская Республика}} */
     case 'флаг-':case 'флагссылка':case 'flaglink':{const t=a[2]||a[1]||'';const ic=flagIcon(a[1],nob);if(!ic)return linkHTML(t,a[3]);const raw=unesc(t).split('#')[0].trim();const p=pageFind(raw);return `<a class="flaglink" href="${p?'#/wiki/'+slug(p.title):'#/new/'+slug(raw)}" title="${esc(p?p.title:raw)}">${ic}</a>`;}
     case 'красная ссылка':case 'красная':case 'redlink':return linkHTML(a[1]||'',a[2],true);
+    /* квадрат легенды с подписью, как на картах выборов: {{легенда|#4488CC|ЛДПР}} */
+    case 'легенда':case 'legend':case 'квадрат':{const t=a.slice(2).join('|');return `<span class="legend-item"><span class="legend-sq" style="background:${safeColor(unesc(a[1]||''))}"></span>${t?' '+inline(unesc(t),newCtx()):''}</span><!--/lg-->`;}
     case 'цвет':case 'color':return `<span class="legend-color" style="background:${safeColor(unesc(a[1]))}"></span>`+(a[2]?' '+a[2]:'');
     case 'рост':case 'up':case 'увеличение':return trend('up','good')+(a[1]?' '+a[1]:'');
     case 'падение':case 'down':case 'уменьшение':return trend('down','bad')+(a[1]?' '+a[1]:'');
@@ -174,12 +176,20 @@ function setBgAttr(attrs,color){
   else if(color)a=(a?a+' ':'')+`style="background:${color}"`;
   return a.trim();
 }
+/* разбить по «|» верхнего уровня — не внутри [[…]] и {{…}} (подписи со ссылками и шаблонами) */
+function splitTop(s){const out=[];let d1=0,d2=0,cur='';for(let i=0;i<s.length;i++){const two=s.slice(i,i+2);if(two==='[['){d1++;cur+=two;i++;continue;}if(two===']]'&&d1){d1--;cur+=two;i++;continue;}if(two==='{{'){d2++;cur+=two;i++;continue;}if(two==='}}'&&d2){d2--;cur+=two;i++;continue;}if(s[i]==='|'&&!d1&&!d2){out.push(cur);cur='';continue;}cur+=s[i];}out.push(cur);return out;}
+/* квадраты легенды в подписи — в колонки (cols: число колонок, 0 — подобрать) */
+function legendWrap(html,cols){
+  const i=html.indexOf('<span class="legend-item"');if(i<0)return html;const j=html.lastIndexOf('<!--/lg-->')+10;
+  const n=(html.match(/class="legend-item"/g)||[]).length;const k=Math.max(1,Math.min(6,+cols||(n<=3?1:n<=8?2:3)));
+  return html.slice(0,i).replace(/(\s*<br>\s*)+$/,'')+`<div class="legend-cols" style="column-count:${k}">`+html.slice(i,j).replace(/<br>/g,'')+'</div>'+html.slice(j);
+}
 function renderThumb(spec,ctx){
-  const a=spec.split('|').map(x=>x.trim());const name=a.shift();let left=false,w=220,cap='';
-  for(const o of a){if(/^(слева|left)$/i.test(o))left=true;else if(/^\d+px$/.test(o))w=parseInt(o);else if(/^(мини|миниатюра|thumb|справа|right)$/i.test(o)){}else cap=o;}
+  const a=splitTop(spec).map(x=>x.trim());const name=a.shift();let left=false,w=220,cap='',lc=0;
+  for(const o of a){let m;if(/^(слева|left)$/i.test(o))left=true;else if(/^\d+px$/.test(o))w=parseInt(o);else if(m=o.match(/^(?:колонки|columns)\s*=\s*(\d)$/i))lc=+m[1];else if(/^(мини|миниатюра|thumb|справа|right)$/i.test(o)){}else cap=o;}
   const src=mediaSrc(name);
   if(!src)return `<div class="missing">Картинки «${esc(name)}» нет в медиатеке</div>`;
-  return `<figure class="thumb${left?' left':''}" style="width:${w+8}px"><img src="${src}" alt="" style="width:${w}px">${cap?`<figcaption>${inline(cap,ctx)}</figcaption>`:''}</figure>`;
+  return `<figure class="thumb${left?' left':''}" style="width:${w+8}px"><img src="${src}" alt="" style="width:${w}px">${cap?`<figcaption>${legendWrap(inline(cap,ctx),lc)}</figcaption>`:''}</figure>`;
 }
 function renderBody(src,ctx,pid){
   const lines=String(src||'').replace(/\r/g,'').split('\n');
@@ -248,7 +258,7 @@ const RENDER={
   hr:()=>`<tr><td colspan="2" class="ib-hr"><hr></td></tr>`,
   anthem:(r,c)=>{const v=String(r.value||'').trim();if(!v&&!r.dur)return '';return `<tr><td colspan="2" class="plainlist ib-anthem">${r.label?inline(r.label,c)+': ':''}${v?ibVal(v,c):''}${r.dur?playerHTML(r.dur):''}</td></tr>`;},
   below:(r,c,hs)=>String(r.value||'').trim()?`<tr><td colspan="2" class="infobox-below${hs.dk}"${hs.st2}>${ibVal(r.value,c)}</td></tr>`:'',
-  image:(r,c)=>{const s=mediaSrc(r.src);if(!s)return '';return `<tr><td colspan="2" class="infobox-image"><img src="${s}" alt="" style="width:${Math.max(40,+r.w||250)}px">${r.caption?`<span class="media-caption">${inline(r.caption,c)}</span>`:''}</td></tr>`;},
+  image:(r,c)=>{const s=mediaSrc(r.src);if(!s)return '';return `<tr><td colspan="2" class="infobox-image"><img src="${s}" alt="" style="width:${Math.max(40,+r.w||250)}px">${r.caption?`<span class="media-caption">${legendWrap(inline(r.caption,c),r.lcols)}</span>`:''}</td></tr>`;},
   images2:(r,c)=>{const a=mediaSrc(r.src1),b=mediaSrc(r.src2);if(!a&&!b)return '';
     const im=[a&&[a,'ib-flag',r.cap1],b&&[b,'ib-coat',r.cap2]].filter(Boolean);
     return `<tr><td colspan="2" class="infobox-image"><table class="ib-flags"><tbody><tr>${im.map(([s,k])=>`<td><img class="${k}" src="${s}" alt=""></td>`).join('')}</tr>${im.some(x=>String(x[2]||'').trim())?`<tr>${im.map(x=>`<td>${inline(x[2]||'',c)}</td>`).join('')}</tr>`:''}</tbody></table></td></tr>`;},
