@@ -12,9 +12,10 @@ const APP={size:'1',width:'std',theme:'auto'};
 /* ---------- хранение ---------- */
 function normalize(p){
   if(!p||!Array.isArray(p.pages))throw new Error('в тексте нет списка страниц (pages)');
-  p.wiki=Object.assign({name:'Wikibox Editor',motto:'Энциклопедия несбывшейся истории',tag:'Материал из Wikibox Editor — свободной энциклопедии',welcome:'энциклопедия несбывшейся истории, которую может редактировать каждый'},p.wiki||{});
+  p.wiki=Object.assign({name:'Wikibox Editor',motto:'',tag:'Материал из Wikibox Editor — свободной энциклопедии',welcome:'энциклопедия несбывшейся истории, которую может редактировать каждый'},p.wiki||{});
   // старое название сайта меняем на новое
   if(p.wiki.name==='Апокрифопедия')p.wiki.name='Wikibox Editor';
+  if(p.wiki.motto==='Энциклопедия несбывшейся истории')p.wiki.motto='';
   p.wiki.tag=String(p.wiki.tag).replace('Материал из Апокрифопедии','Материал из Wikibox Editor');
   p.media=Array.isArray(p.media)?p.media.filter(m=>m&&m.name&&(m.src||m.map)):[];
   p.pages=p.pages.map(pg=>{
@@ -54,7 +55,7 @@ function appearanceHTML(px){
 function renderTools(){$('#tools').innerHTML=`<div class="side-h">Внешний вид</div>${appearanceHTML('t')}`;}
 
 /* ---------- каркас страниц ---------- */
-function applyBrand(){$('#logo-name').textContent=P.wiki.name;$('#logo-motto').textContent=P.wiki.motto;$('#q').placeholder='Искать в '+P.wiki.name.replace(/ия$/,'ии');}
+function applyBrand(){$('#logo-name').textContent=P.wiki.name;$('#logo-motto').textContent=P.wiki.motto||'';$('#logo-motto').hidden=!P.wiki.motto;$('#q').placeholder='Искать в '+P.wiki.name.replace(/ия$/,'ии');}
 function mainMenuHTML(){
   const counts={};P.pages.forEach(p=>counts[p.type]=(counts[p.type]||0)+1);
   return `<div class="side-h">Главное меню</div><ul class="menu-list">
@@ -214,7 +215,7 @@ function viewFile(){
   <h2>Настройки вики</h2>
   <div class="settings">
     <label class="fld"><span>Название</span><input id="s-name" data-scope="proj" data-p="wiki.name" value="${esc(P.wiki.name)}"></label>
-    <label class="fld"><span>Строка под логотипом</span><input id="s-motto" data-scope="proj" data-p="wiki.motto" value="${esc(P.wiki.motto)}"></label>
+    <label class="fld"><span>Слоган под логотипом (можно оставить пустым)</span><input id="s-motto" data-scope="proj" data-p="wiki.motto" value="${esc(P.wiki.motto)}"></label>
     <label class="fld"><span>Строка под заголовком статьи</span><input id="s-tag" data-scope="proj" data-p="wiki.tag" value="${esc(P.wiki.tag)}"></label>
     <label class="fld"><span>Приветствие на заглавной</span><input id="s-welcome" data-scope="proj" data-p="wiki.welcome" value="${esc(P.wiki.welcome)}"></label>
     <label class="fld"><span>Избранная статья</span><select id="s-featured" data-scope="proj" data-p="featured">${P.pages.map(p=>`<option value="${p.id}"${p.id===P.featured?' selected':''}>${esc(p.title)}</option>`).join('')}</select></label>
