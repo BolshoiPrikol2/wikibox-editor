@@ -25,7 +25,26 @@ function makeMapDraw(d3,topojson){
       land:'#c0c0c0',border:'#ffffff',ocean:'#ffffff',bw:globe?.5:.6,grat:globe,shade:globe,lakes:true,
       groups:[{name:globe?'Государство':'Члены союза',color:globe?'#346733':'#1f93c0',countries:[],regions:[],prov:[]}],split:[],owner:{},states:{}};
   }
-  function projection(spec){
+  /* Карта одной страны (например, для выборов): контур страны — по основе карты и по провинциям, которыми она владеет */
+  function onlyFC(geo,spec){
+    const u=spec.only;if(!u||!geo||!geo.countries)return null;prepare(geo);
+    const T=tplOf(geo,spec);const D=splitData(geo,spec);const feats=[];
+    if(D)for(const f of D.feats)if(ownerOf(geo,spec,f)===u)feats.push(f);
+    if(!D||!D.splitSet.has(u))feats.push(...(T?T.feats.filter(f=>f.properties.u===u):geo._c.filter(f=>f.properties.id===u)));
+    return feats.length?{type:'FeatureCollection',features:feats}:null;
+  }
+  function projection(spec,geo){
+    if(spec.only&&geo){const fc=onlyFC(geo,spec);if(fc){
+      const p=PROJ[spec.proj]?PROJ[spec.proj].make():PROJ.ortho.make();const c=d3.geoCentroid(fc);
+      if(spec.proj==='conic')p.parallels([c[1]-10,c[1]+10]).rotate([-c[0],0]);
+      else if(spec.proj==='ortho'||spec.proj==='laea'||!PROJ[spec.proj])p.rotate([-c[0],-c[1]]);
+      else p.rotate([-c[0],0]);
+      const a=ASPECTS[spec.aspect]||0;const W=1000,pad=14;
+      p.fitWidth(W-2*pad,fc);const b=d3.geoPath(p).bounds(fc);const r=(b[1][1]-b[0][1])/Math.max(1,b[1][0]-b[0][0]);
+      const H=a?Math.round(W/a):Math.round(Math.min(1.4,Math.max(.4,r))*(W-2*pad)+2*pad);
+      p.fitExtent([[pad,pad],[W-pad,H-pad]],fc);
+      return {p,W,H,only:true};
+    }}
     const p=PROJ[spec.proj]?PROJ[spec.proj].make():PROJ.ortho.make();
     const zoom=Math.max(1,+spec.zoom||1),lon=+spec.lon||0,lat=+spec.lat||0;const a=ASPECTS[spec.aspect]||0;
     if(spec.proj==='ortho'||!PROJ[spec.proj]){
@@ -132,7 +151,9 @@ function makeMapDraw(d3,topojson){
 
   function drawMap(spec,geo,opt={}){
     prepare(geo);
-    const {p,W,H}=projection(spec);const path=d3.geoPath(p).digits(spec.proj==='ortho'?1:0);
+    const PR=opt.proj||projection(spec,geo);const {p,W,H}=PR;const path=d3.geoPath(p).digits(spec.proj==='ortho'?1:0);
+    // только одна страна: остальной мир, океан и сетка не рисуются
+    const one=spec.only&&(PR.only||opt.inner)?spec.only:'';
     const ia=!!opt.interactive,globe=spec.proj==='ortho';
     const T=tplOf(geo,spec);const D=splitData(geo,spec);const splitSet=D?D.splitSet:new Set();
     const bw=+spec.bw||.5,B=spec.border||'#fff';
@@ -140,13 +161,14 @@ function makeMapDraw(d3,topojson){
     if(globe)s+=`<defs><radialGradient id="mo" cx="42%" cy="40%" r="62%"><stop offset="0" stop-color="${spec.ocean}"/><stop offset=".72" stop-color="${spec.ocean}"/><stop offset="1" stop-color="#d4d4d4"/></radialGradient><radialGradient id="ms" cx="42%" cy="40%" r="62%"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".16"/></radialGradient></defs>`;
     const sph=path(SPHERE)||'';
     const regional=spec.proj==='laea'||spec.proj==='conic';
-    if(regional)s+=`<rect width="${W}" height="${H}" fill="${spec.ocean}"/>`;
-    s+=`<path d="${sph}" fill="${globe&&spec.shade?'url(#mo)':spec.ocean}"/>`;
-    if(spec.grat)s+=`<path d="${path(d3.geoGraticule10())}" fill="none" stroke="#000" stroke-opacity=".13" stroke-width=".5"/>`;
+    if(regional&&!one)s+=`<rect width="${W}" height="${H}" fill="${spec.ocean}"/>`;
+    if(!one)s+=`<path d="${sph}" fill="${globe&&spec.shade?'url(#mo)':spec.ocean}"/>`;
+    if(spec.grat&&!one)s+=`<path d="${path(d3.geoGraticule10())}" fill="none" stroke="#000" stroke-opacity=".13" stroke-width=".5"/>`;
     // государства основы, которые не разбиты на провинции
     let land='',under='';
     const baseFeats=T?T.feats.map(f=>[f,f.properties.u]):geo._c.map(f=>[f,f.properties.id]);
     for(const [f,u] of baseFeats){
+      if(one&&u!==one)continue;
       if(D&&splitSet.has(u)){
         // в готовой карте под провинциями лежит сплошное государство — микрозазоры между провинциями не видны
         if(!ia){const d=path(f);if(d)under+=`<path d="${d}" fill="${colorOf(spec,u)||spec.land}"/>`;}
@@ -163,38 +185,65 @@ function makeMapDraw(d3,topojson){
       const colF=f=>colorOf(spec,own(f),reg(f),f.properties.id)||spec.land;
       const geoms=D.obj.geometries;const ownG=g=>(spec.owner&&spec.owner[g.properties.id])||g.properties.u;
       const colG=g=>colorOf(spec,ownG(g),reg(g),g.properties.id)||spec.land;
+      const inO=g=>!one||ownG(g)===one;const inF=f=>!one||own(f)===one;
       if(ia){
         let pv='';
-        for(const f of D.feats){const d=path(f);if(!d)continue;const {id,c}=f.properties;const r=reg(f);
+        for(const f of D.feats){if(!inF(f))continue;const d=path(f);if(!d)continue;const {id,c}=f.properties;const r=reg(f);
           const hl=opt.hl&&opt.hl===own(f)||opt.hlr&&opt.hlr===r;
           pv+=`<path d="${d}" fill="${colF(f)}" data-p="${id}" data-r="${r}" data-c="${c}" data-u="${own(f)}"${hl?' class="tgt"':''}/>`;}
         s+=`<g stroke="${B}" stroke-width="${r1(bw*.3)}" stroke-opacity=".6">${pv}</g>`;
-        const rm=path(topojson.mesh(D.topo,D.obj,(a,b)=>a!==b&&reg(a)!==reg(b)&&ownG(a)===ownG(b)));
+        const rm=path(topojson.mesh(D.topo,D.obj,(a,b)=>a!==b&&inO(a)&&reg(a)!==reg(b)&&ownG(a)===ownG(b)));
         if(rm)s+=`<path d="${rm}" fill="none" stroke="${B}" stroke-width="${r1(bw*.8)}" stroke-opacity=".85" pointer-events="none"/>`;
-        const grp=path(topojson.mesh(D.topo,D.obj,(a,b)=>a!==b&&ownG(a)===ownG(b)&&colG(a)!==colG(b)));
+        const grp=path(topojson.mesh(D.topo,D.obj,(a,b)=>a!==b&&inO(a)&&ownG(a)===ownG(b)&&colG(a)!==colG(b)));
         if(grp)s+=`<path d="${grp}" fill="none" stroke="${B}" stroke-width="${r1(bw*1.6)}" pointer-events="none"/>`;
-        const brd=path(topojson.mesh(D.topo,D.obj,(a,b)=>a===b||ownG(a)!==ownG(b)));
+        const brd=path(topojson.mesh(D.topo,D.obj,(a,b)=>(inO(a)||inO(b))&&(a===b||ownG(a)!==ownG(b))));
         if(brd)s+=`<path d="${brd}" fill="none" stroke="${B}" stroke-width="${r1(bw*2.2)}" stroke-linejoin="round" pointer-events="none"/>`;
       }else{
         // в готовой карте провинции одного цвета сливаются, рисуются только границы
-        const byCol={};for(const g of geoms){const c=colG(g);(byCol[c]=byCol[c]||[]).push(g);}
+        const byCol={};for(const g of geoms){if(!inO(g))continue;const c=colG(g);(byCol[c]=byCol[c]||[]).push(g);}
         let fills='';for(const c in byCol){const d=path(topojson.merge(D.topo,byCol[c]));if(d)fills+=`<path d="${d}" fill="${c}" stroke="${c}" stroke-width=".3"/>`;}
         s+=`<g>${fills}</g>`;
         // провинции и регионы видны на готовой карте, только если их включили
-        if(spec.showProv){const pm=path(topojson.mesh(D.topo,D.obj,(a,b)=>a!==b&&reg(a)===reg(b)&&ownG(a)===ownG(b)&&colG(a)===colG(b)));if(pm)s+=`<path d="${pm}" fill="none" stroke="${B}" stroke-width="${r1(bw*.35)}" stroke-opacity=".7"/>`;}
-        if(spec.showReg){const rm=path(topojson.mesh(D.topo,D.obj,(a,b)=>a!==b&&reg(a)!==reg(b)&&ownG(a)===ownG(b)&&colG(a)===colG(b)));if(rm)s+=`<path d="${rm}" fill="none" stroke="${B}" stroke-width="${r1(bw*.7)}"/>`;}
-        const brd=path(topojson.mesh(D.topo,D.obj,(a,b)=>a===b||ownG(a)!==ownG(b)||colG(a)!==colG(b)));
+        if(spec.showProv){const pm=path(topojson.mesh(D.topo,D.obj,(a,b)=>a!==b&&inO(a)&&reg(a)===reg(b)&&ownG(a)===ownG(b)&&colG(a)===colG(b)));if(pm)s+=`<path d="${pm}" fill="none" stroke="${B}" stroke-width="${r1(bw*.35)}" stroke-opacity=".7"/>`;}
+        if(spec.showReg){const rm=path(topojson.mesh(D.topo,D.obj,(a,b)=>a!==b&&inO(a)&&reg(a)!==reg(b)&&ownG(a)===ownG(b)&&colG(a)===colG(b)));if(rm)s+=`<path d="${rm}" fill="none" stroke="${B}" stroke-width="${r1(bw*.7)}"/>`;}
+        const brd=path(topojson.mesh(D.topo,D.obj,(a,b)=>one?((inO(a)||inO(b))&&(a===b||ownG(a)!==ownG(b)||colG(a)!==colG(b))):(a===b||ownG(a)!==ownG(b)||colG(a)!==colG(b))));
         if(brd)s+=`<path d="${brd}" fill="none" stroke="${B}" stroke-width="${bw}" stroke-linejoin="round"/>`;
       }
     }
-    if(spec.lakes&&geo._lakes.length){let l='';for(const f of geo._lakes){const d=path(f);if(d)l+=`<path d="${d}"/>`;}s+=`<g fill="${spec.ocean}"${ia?' pointer-events="none"':''}>${l}</g>`;}
-    if(globe&&spec.shade)s+=`<path d="${sph}" fill="url(#ms)" pointer-events="none"/>`;
-    if(!regional)s+=`<path d="${sph}" fill="none" stroke="#9a9a9a" stroke-width="${globe?1:.8}" pointer-events="none"/>`;
+    // озёра на карте одной страны — только внутри её рамки на экране
+    if(spec.lakes&&geo._lakes.length){let l='';for(const f of geo._lakes){if(one){const c=p(d3.geoCentroid(f));if(!c||c[0]<0||c[1]<0||c[0]>W||c[1]>H)continue;}const d=path(f);if(d)l+=`<path d="${d}"/>`;}s+=`<g fill="${spec.ocean}"${ia?' pointer-events="none"':''}>${l}</g>`;}
+    if(globe&&spec.shade&&!one)s+=`<path d="${sph}" fill="url(#ms)" pointer-events="none"/>`;
+    if(!regional&&!one)s+=`<path d="${sph}" fill="none" stroke="#9a9a9a" stroke-width="${globe?1:.8}" pointer-events="none"/>`;
     // кружок вокруг маленьких государств (как на карте Данцига)
     (spec.groups||[]).forEach((g,i)=>{if(!g.circle)return;const c=groupCentroid(spec,i,geo);const xy=c&&p(c);
       if(xy&&isFinite(xy[0]))s+=`<circle cx="${xy[0].toFixed(1)}" cy="${xy[1].toFixed(1)}" r="${regional||globe?11:8}" fill="none" stroke="#333" stroke-width="1.4" pointer-events="none"/>`;});
-    if(spec.inset)s+=insetSVG(spec,geo,p,W,H);
+    if(spec.inset&&!opt.inner)s+=insetSVG(spec,geo,p,W,H);
+    if(spec.zoomBox&&!opt.inner)s+=zoomSVG(spec,geo,p,W,H);
     return s+'</svg>';
+  }
+  /* Выноска с увеличением (как на карте Тайваня): рамка на карте, большая рамка с приближением и «луч» между ними */
+  function zoomSVG(spec,geo,p,W,H){
+    const z=spec.zoomBox;const lon=+z.lon||0,lat=+z.lat||0;
+    const span=Math.max(.2,Math.min(60,+z.span||8)),ratio=Math.max(.4,Math.min(2.5,+z.ratio||1.2));
+    const dLon=span/2,dLat=Math.min(85,span/2*ratio*Math.cos(lat*Math.PI/180));
+    const c=[[lon-dLon,lat-dLat],[lon+dLon,lat-dLat],[lon+dLon,lat+dLat],[lon-dLon,lat+dLat]];
+    const ring=[];for(let i=0;i<4;i++){const a=c[i],b=c[(i+1)%4];for(let k=0;k<12;k++){const t=k/12;ring.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);}}
+    const vis=spec.proj!=='ortho'||d3.geoDistance([lon,lat],[-p.rotate()[0],-p.rotate()[1]])<1.45;
+    const sp=vis?ring.map(q=>p(q)).filter(q=>q&&isFinite(q[0])&&isFinite(q[1])):[];
+    const bw=Math.round(W*Math.max(.15,Math.min(.7,+z.size||.42))),bh=Math.round(bw*ratio),pad=Math.round(W*.02);
+    const pos=z.pos||'tl';const x0=pos[1]==='r'?W-bw-pad:pad,y0=pos[0]==='b'?Math.max(pad,H-bh-pad):pad;
+    const sw=W>600?2:1.3;const f1=v=>v.toFixed(1);
+    const smallD=sp.length>3?'M'+sp.map(q=>f1(q[0])+','+f1(q[1])).join('L')+'Z':'';
+    let s='<g pointer-events="none">';
+    if(smallD){const hull=d3.polygonHull([...sp,[x0,y0],[x0+bw,y0],[x0+bw,y0+bh],[x0,y0+bh]]);
+      if(hull)s+=`<path d="M${hull.map(q=>f1(q[0])+','+f1(q[1])).join('L')}Z ${smallD}" fill="#000" fill-opacity=".2" fill-rule="evenodd"/>`;}
+    const ip=d3.geoMercator().rotate([-lon,0]).fitExtent([[0,0],[bw,bh]],{type:'MultiPoint',coordinates:c}).clipExtent([[-2,-2],[bw+2,bh+2]]);
+    const inner=drawMap(Object.assign({},spec,{proj:'mercator',grat:false,shade:false,inset:false,zoomBox:null}),geo,{inner:true,proj:{p:ip,W:bw,H:bh}});
+    s+=`<rect x="${x0}" y="${y0}" width="${bw}" height="${bh}" fill="${spec.only?'#fff':spec.ocean}"/>`;
+    s+=inner.replace('<svg xmlns="http://www.w3.org/2000/svg"',`<svg x="${x0}" y="${y0}" overflow="hidden"`);
+    s+=`<rect x="${x0}" y="${y0}" width="${bw}" height="${bh}" fill="none" stroke="#555" stroke-width="${sw}"/>`;
+    if(smallD)s+=`<path d="${smallD}" fill="none" stroke="#555" stroke-width="${sw}" stroke-linejoin="round"/>`;
+    return s+'</g>';
   }
   /* Мини-карта мира в углу с рамкой показанной области (как на карте Чехии) */
   function insetSVG(spec,geo,p,W,H){
@@ -223,7 +272,7 @@ function makeMapDraw(d3,topojson){
     const c=d3.geoCentroid({type:'FeatureCollection',features:feats});
     return isFinite(c[0])?c:null;
   }
-  return {PROJ,ASPECTS,defaults,projection,prepare,provFor,splitData,baseUnit,ownerOf,regionOf,filesFor,unitName,tplOf,drawMap,groupCentroid,owns,colorOf};
+  return {PROJ,ASPECTS,defaults,projection,onlyFC,prepare,provFor,splitData,baseUnit,ownerOf,regionOf,filesFor,unitName,tplOf,drawMap,groupCentroid,owns,colorOf};
 }
 if(typeof module!=='undefined'&&module.exports)module.exports=makeMapDraw;
 else root.MapDraw=makeMapDraw(root.d3,root.topojson);

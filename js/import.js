@@ -249,11 +249,12 @@ function wiBody(root,C,opts){
   const tableMarkup=tbl=>{
     let s='{| class="wikitable"\n';const cap=tbl.querySelector(':scope > caption');if(cap)s+='|+ '+C.inline(cap,false)+'\n';
     let first=true;
-    for(const tr of tbl.rows){if(!first)s+='|-\n';first=false;
+    const bgOf=e=>{const b=e.getAttribute('bgcolor');if(b&&/^#?[0-9a-f]{3,8}$/i.test(b))return b[0]==='#'?b:'#'+b;const m=(e.getAttribute('style')||'').match(/background(?:-color)?\s*:\s*(#[0-9a-f]{3,8})/i);return m?m[1]:'';};
+    for(const tr of tbl.rows){const rb=bgOf(tr);if(!first||rb)s+=rb?`|- style="background:${rb}"\n`:'|-\n';first=false;
       for(const c of tr.cells){
         const at=['colspan','rowspan'].filter(a=>+c.getAttribute(a)>1).map(a=>`${a}="${c.getAttribute(a)}"`).join(' ');
-        const st=(c.getAttribute('style')||'').match(/background(?:-color)?\s*:\s*#[0-9a-f]{3,6}/i);
-        const attrs=[at,st?`style="${st[0]}"`:''].filter(Boolean).join(' ');
+        const cb=bgOf(c);
+        const attrs=[at,cb?`style="background:${cb}"`:''].filter(Boolean).join(' ');
         s+=(c.tagName==='TH'?'! ':'| ')+(attrs?attrs+' | ':'')+C.inline(c,false).replace(/\|\|/g,'| |')+'\n';}
     }
     return s+'|}';

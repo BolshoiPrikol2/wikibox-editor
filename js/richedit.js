@@ -151,6 +151,8 @@ function selCtx(){
   const a=r.startContainer,b=r.endContainer;const el=n=>n.nodeType===1?n:n.parentElement;
   if(IE&&IE.rich&&IE.rich.contains(a)&&IE.rich.contains(b))return {edit:true,r};
   if(parseHash().k!=='wiki'||wikiMode()||IE)return null;
+  {const ca=el(a).closest('#main .mw-content [data-tc]'),cb=el(b).closest('#main .mw-content [data-tc]');
+   if(ca||cb){if(ca!==cb)return null;const tbl=ca.closest('[data-l]');if(!tbl)return null;return {table:true,r,cell:ca,row:ca.closest('tr'),tbl};}}
   const A=ieBlockOf(el(a)),Bb=ieBlockOf(el(b));if(!A||!Bb)return null;
   const blk=A.ib?A.cell:A.bl,blk2=Bb.ib?Bb.cell:Bb.bl;if(blk!==blk2)return null;
   if(A.bl&&!/^(P|H2|H3|H4|DL)$/.test(A.bl.tagName))return null;
@@ -160,6 +162,11 @@ function selbarShow(force){
   const c=selCtx();const bar=selbar();
   if(!c){if(!sbMode||!force)bar.hidden=true;return;}
   if(sbMode&&!force)return;
+  if(c.table){
+    const sw=k=>TABLE_COLORS.map(([col,n])=>`<button type="button" class="sb sw" data-sb="${k}:${col}" title="${n}" aria-label="${k==='cell'?'Ячейка':'Строка'}: ${n}" style="${col?`background:${col}`:''}">${col?'':'✕'}</button>`).join('');
+    bar.innerHTML=`<span class="sb-l">Ячейка</span>${sw('cell')}<span class="sb-sep"></span><span class="sb-l">Строка</span>${sw('row')}<span class="sb-sep"></span><button type="button" class="sb" data-sb="tcode" title="Править таблицу разметкой">✎ Разметка</button>`;
+    bar.hidden=false;sbPlace(c.r);return;
+  }
   const tools=SB_TOOLS.map(([k,l,t])=>`<button type="button" class="sb" data-sb="${k}" title="${t}" aria-label="${t}">${l}</button>`).join('');
   bar.innerHTML=tools+(c.edit?'':`<span class="sb-sep"></span><button type="button" class="sb" data-sb="edit" title="Править этот абзац">✎ Править</button>`);
   bar.hidden=false;sbPlace(c.r);
@@ -211,6 +218,7 @@ function sbDo(k){
     return;
   }
   const c=selCtx();if(!c)return;
+  if(c.table){tableAction(c,k);return;}
   if(!c.edit){
     // режим чтения: открываем правку этого блока и переносим выделение
     const [s,e]=rangeOffsets(c.blk,c.r);
@@ -230,13 +238,35 @@ function sbDo(k){
   }
   selbarShow(true);
 }
+/* цвета таблиц, как в Википедии (и. о. в списке президентов — #d1edf2) */
+const TABLE_COLORS=[['#d1edf2','голубой'],['#cedff2','синий'],['#d4f4d4','зелёный'],['#fff3b0','жёлтый'],['#ffe4c4','оранжевый'],['#ffd6d6','красный'],['#eaecf0','серый'],['','без цвета']];
+function tableAction(c,k){
+  const pg=cur();if(!pg)return;
+  if(k==='tcode'){selbarHide();ieOpenAt(c.tbl,'code');return;}
+  const m=k.match(/^(cell|row):(.*)$/);if(!m)return;const color=m[2];
+  const s0=+c.tbl.dataset.l.split('-')[0];const L=String(pg.body||'').replace(/\r/g,'').split('\n');const at=k2=>s0+1+k2;
+  if(m[1]==='row'){
+    const [rl,fl]=c.row.dataset.tr.split(':').map(Number);
+    if(rl>=0){const t=L[at(rl)].trim();const a=setBgAttr(t.slice(2),color);L[at(rl)]='|-'+(a?' '+a:'');}
+    else if(color)L.splice(at(fl),0,`|- style="background:${color}"`);
+  }else{
+    const [li,pi]=c.cell.dataset.tc.split(':').map(Number);const t=L[at(li)].trim();const lead=t[0];
+    const parts=t.slice(1).split(lead==='!'?/(!!|\|\|)/:/(\|\|)/);const idx=pi*2;let part=parts[idx];if(part==null)return;
+    const mm=part.match(/^\s*((?:[a-z-]+\s*=\s*(?:"[^"]*"|[^\s|"]+)\s*)+)\|(?!\|)(.*)$/i);
+    const attrs=mm?mm[1]:'',body=mm?mm[2]:part;const na=setBgAttr(attrs,color);
+    parts[idx]=na?' '+na+' |'+(body.startsWith(' ')?body:' '+body):(body.startsWith(' ')?body:' '+body);
+    L[at(li)]=lead+parts.join('');
+  }
+  pg.body=L.join('\n');pg.updated=Date.now();save();selbarHide();getSelection().removeAllRanges();
+  const y=window.scrollY;viewArticle(pg);window.scrollTo(0,y);toast(color?(m[1]==='row'?'Цвет строки изменён':'Цвет ячейки изменён'):'Цвет убран');
+}
 let sbT=0;
 document.addEventListener('selectionchange',()=>{if(sbMode)return;cancelAnimationFrame(sbT);sbT=requestAnimationFrame(()=>selbarShow(false));});
 window.addEventListener('resize',()=>{if(SB&&!SB.hidden&&!sbMode)selbarShow(true);});
 
 /* ---------- события ---------- */
 document.addEventListener('dblclick',e=>{
-  const t=e.target;if(t.closest('a,button,input,textarea,select,.fplayer,.ie'))return;
+  const t=e.target;if(t.closest('a,button,input,textarea,select,.fplayer,.ie,#main .mw-content .table-wrap [data-tc]'))return;
   if(ieOpenAt(t,'rich')){e.preventDefault();}
 });
 document.addEventListener('keydown',e=>{

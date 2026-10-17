@@ -137,26 +137,36 @@ function cellAttrs(a){
     k=k.toLowerCase();v=q!==undefined?q:v;
     if((k==='colspan'||k==='rowspan')&&/^\d+$/.test(v))out+=` ${k}="${v}"`;
     else if(k==='align'&&/^(left|right|center)$/i.test(v))out+=` style="text-align:${v}"`;
+    else if(k==='bgcolor'&&/^#[0-9a-f]{3,8}$|^[a-z]+$/i.test(v))out+=` style="background:${v}"`;
     else if(k==='style'){const ok=v.split(';').map(x=>x.trim()).filter(x=>/^(background|background-color|color|text-align|width|white-space)\s*:\s*[#\w.%\s-]+$/i.test(x));if(ok.length)out+=` style="${esc(ok.join(';'))}"`;}
     return m;});
   return out;
 }
-function renderTable(tl,ctx){
-  let cap='';const rows=[];let row=null;
-  for(const raw of tl){
-    const l=raw.trim();if(!l)continue;
-    if(l.startsWith('|+')){cap=l.slice(2).trim();continue;}
-    if(l.startsWith('|-')){row=null;continue;}
+/* Таблица; mark — пометить строки и ячейки номерами строк исходника (data-tr, data-tc), чтобы менять их цвет прямо на странице */
+function renderTable(tl,ctx,mark){
+  let cap='';const rows=[];let row=null,rowA='',rowL=-1;
+  tl.forEach((raw,li)=>{
+    const l=raw.trim();if(!l)return;
+    if(l.startsWith('|+')){cap=l.slice(2).trim();return;}
+    if(l.startsWith('|-')){row=null;rowA=cellAttrs(l.slice(2));rowL=li;return;}
     if(l[0]==='!'||l[0]==='|'){
-      if(!row){row=[];rows.push(row);}
+      if(!row){row={cells:[],a:rowA,rl:rowL,fl:li};rows.push(row);rowA='';rowL=-1;}
       const isH=l[0]==='!';
-      for(const part of l.slice(1).split(isH?/!!|\|\|/:/\|\|/)){
+      l.slice(1).split(isH?/!!|\|\|/:/\|\|/).forEach((part,pi)=>{
         const m=part.match(/^\s*((?:[a-z-]+\s*=\s*(?:"[^"]*"|[^\s|"]+)\s*)+)\|(?!\|)(.*)$/i);
-        row.push({h:isH,a:m?cellAttrs(m[1]):'',c:m?m[2]:part});
-      }
-    }else if(row&&row.length){row[row.length-1].c+=' '+l;}
-  }
-  return `<div class="table-wrap"><table class="wikitable">${cap?`<caption>${inline(cap,ctx)}</caption>`:''}<tbody>${rows.map(r=>'<tr>'+r.map(c=>`<${c.h?'th':'td'}${c.a}>${inline(c.c.trim(),ctx)}</${c.h?'th':'td'}>`).join('')+'</tr>').join('')}</tbody></table></div>`;
+        row.cells.push({h:isH,a:m?cellAttrs(m[1]):'',c:m?m[2]:part,li,pi});
+      });
+    }else if(row&&row.cells.length){row.cells[row.cells.length-1].c+=' '+l;}
+  });
+  return `<div class="table-wrap"><table class="wikitable">${cap?`<caption>${inline(cap,ctx)}</caption>`:''}<tbody>${rows.map(r=>`<tr${r.a}${mark?` data-tr="${r.rl}:${r.fl}"`:''}>`+r.cells.map(c=>`<${c.h?'th':'td'}${c.a}${mark?` data-tc="${c.li}:${c.pi}"`:''}>${inline(c.c.trim(),ctx)}</${c.h?'th':'td'}>`).join('')+'</tr>').join('')}</tbody></table></div>`;
+}
+/* цвет фона в атрибутах строки или ячейки таблицы: '' — убрать */
+function setBgAttr(attrs,color){
+  let a=String(attrs||'').replace(/\s*bgcolor\s*=\s*("[^"]*"|[^\s"|]+)/i,'').trim();
+  const sm=a.match(/style\s*=\s*"([^"]*)"/i);
+  if(sm){let st=sm[1].replace(/(^|;)\s*background(-color)?\s*:[^;]*/gi,'$1').split(';').map(x=>x.trim()).filter(Boolean).join(';');if(color)st=(st?st+';':'')+'background:'+color;a=st?a.replace(sm[0],`style="${st}"`):a.replace(sm[0],'').trim();}
+  else if(color)a=(a?a+' ':'')+`style="background:${color}"`;
+  return a.trim();
 }
 function renderThumb(spec,ctx){
   const a=spec.split('|').map(x=>x.trim());const name=a.shift();let left=false,w=220,cap='';
@@ -180,7 +190,7 @@ function renderBody(src,ctx,pid){
       const text=inline(m[2],newCtx());heads.push({lv,id,text:text.replace(/<[^>]+>/g,'')});
       const ed=pid&&lv===2?`<span class="mw-editsection"><span class="br">[</span>${RL==='en'?`<a href="#/edit/${pid}">edit</a>`:`<a href="#/edit/${pid}">править</a><span class="sep">|</span><a href="#/edit/${pid}/code">править код</a>`}<span class="br">]</span></span>`:'';
       push(`<h${lv} id="${id}">${inline(m[2],ctx)}${ed}</h${lv}>`,i,i);i++;continue;}
-    if(/^\{\|/.test(t)){flush();const s0=i;const tl=[];i++;while(i<lines.length&&!/^\|\}/.test(lines[i].trim())){tl.push(lines[i]);i++;}i++;push(renderTable(tl,ctx),s0,Math.min(i,lines.length)-1);continue;}
+    if(/^\{\|/.test(t)){flush();const s0=i;const tl=[];i++;while(i<lines.length&&!/^\|\}/.test(lines[i].trim())){tl.push(lines[i]);i++;}i++;push(renderTable(tl,ctx,!!pid),s0,Math.min(i,lines.length)-1);continue;}
     if(/^[*#]/.test(t)){flush();const s0=i;const ll=[];while(i<lines.length&&/^[*#]/.test(lines[i].trim())){ll.push(lines[i].trim());i++;}push(renderList(ll,ctx),s0,i-1);continue;}
     if(m=t.match(/^\[\[(?:Файл|File|Изображение|Image):(.+)\]\]$/i)){flush();push(renderThumb(m[1],ctx),i,i);i++;continue;}
     if(m=t.match(/^\{\{\s*(основная статья|основные статьи|main|см\. также|see also)\s*\|(.+)\}\}$/i)){flush();const it=m[2].split('|').map(x=>x.trim()).filter(Boolean);const main=!/также|also/i.test(m[1]);push(`<div class="hatnote">${main?(it.length>1?tr('Основные статьи'):tr('Основная статья')):tr('См. также')}: ${inline(it.map(x=>'[['+x+']]').join(', '),ctx)}</div>`,i,i);i++;continue;}

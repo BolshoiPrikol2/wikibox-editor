@@ -3,7 +3,7 @@
    провинции, передача провинций между государствами, разрез и объединение провинций */
 
 const GEO={countries:null,prov:{},tpl:{},names:null,tplIndex:null};
-const GV='?v=35';
+const GV='?v=36';
 const geoJobs={};
 function fetchJSON(url){return geoJobs[url]=geoJobs[url]||fetch(url).then(r=>{if(!r.ok)throw new Error('нет файла '+url);return r.json();});}
 async function loadTplIndex(){if(!GEO.tplIndex){try{GEO.tplIndex=await fetchJSON('data/geo/tpl/index.json'+GV);}catch(e){GEO.tplIndex={years:[]};}}return GEO.tplIndex;}
@@ -70,7 +70,7 @@ function applyView(name){
   if(!v.bbox){s.lon=v.lon;s.lat=v.lat;s.zoom=v.zoom;return;}
   const [w,so,e,n]=v.bbox;s.lon=(w+e)/2;s.lat=(so+n)/2;s.zoom=1;
   // подбираем масштаб, чтобы рамка региона заполнила кадр
-  const {p,W,H}=MapDraw.projection(s);const pts=[];
+  const {p,W,H}=MapDraw.projection(s,GEO);const pts=[];
   for(let k=0;k<=20;k++){const t=k/20;pts.push([w+(e-w)*t,so],[w+(e-w)*t,n],[w,so+(n-so)*t],[e,so+(n-so)*t]);}
   const xy=pts.map(q=>p(q)).filter(q=>q&&isFinite(q[0]));
   const xs=xy.map(q=>q[0]),ys=xy.map(q=>q[1]);
@@ -79,7 +79,7 @@ function applyView(name){
 const MAP_COLORS=['#346733','#66cc66','#1f93c0','#c0392b','#e67e22','#8e44ad','#f1c40f','#16a085','#7f8c8d','#2c3e50'];
 const MAP_TOOLS={
   pan:['Двигать','Перетаскивайте карту, колесо мыши меняет масштаб.'],
-  country:['Страны','Щелчок добавляет государство целиком в отмеченную группу или убирает его. Так удобно собирать союзы вроде ЕС. В режиме «Только одна страна» щелчок выделяет её одну, а всё остальное снимается.'],
+  country:['Страны','Щелчок добавляет государство целиком в отмеченную группу или убирает его. Так удобно собирать союзы вроде ЕС.'],
   prov:['Кисть','Щёлкните по государству, чтобы разбить его на провинции, потом закрашивайте их цветом группы, проводя мышью. Провинция принадлежит только одной группе. Если повести кистью по уже закрашенной провинции, она станет прежней.'],
   region:['Регион целиком','Щелчок закрашивает целую область, штат или провинцию первого уровня.'],
   erase:['Ластик','Проведите мышью, чтобы освободить провинции от любых групп.'],
@@ -152,7 +152,6 @@ function renderMeTools(){
   const t=$('#me-tools');if(!t)return;const s=S();
   const tb=list=>list.map(([k,v])=>`<button class="${ME.tool===k?'on':''}" data-act="me-tool" data-k="${k}">${v[0]}</button>`).join('');
   let extra='';
-  if(ME.tool==='country')extra=`<div class="seg" role="group" aria-label="Сколько стран выделять"><button class="${ME.single?'':'on'}" data-act="me-single" data-k="0">Несколько стран</button><button class="${ME.single?'on':''}" data-act="me-single" data-k="1">Только одна страна</button></div>`;
   if(ME.tool==='merge')extra=`<button class="btn sm pri" data-act="me-merge"${ME.sel.size<2?' disabled':''}>Объединить выбранные (${ME.sel.size})</button>${ME.sel.size?'<button class="btn sm" data-act="me-unsel">Снять выбор</button>':''}`;
   if(ME.tool==='regions'){
     const rm_=(k,l)=>`<button class="${ME.regMode===k?'on':''}" data-act="me-regmode" data-k="${k}">${l}</button>`;
@@ -206,6 +205,8 @@ function renderMePanel(){
   ${s.split.length?`<fieldset class="grp"><legend>Разбиты на провинции</legend><div class="chips">${s.split.map(u=>`<span class="chip on">${esc(uname(u))} <button class="ic x" data-act="me-unsplit" data-k="${esc(u)}" aria-label="Собрать обратно" title="Собрать обратно">✕</button></span>`).join('')}</div>
     ${editedFiles.length?`<p class="cnt">Изменены границы провинций: ${editedFiles.map(c=>`${esc(cname(c))} <button class="ic" data-act="me-preset-reset" data-k="${c}" title="Вернуть исходные провинции" aria-label="Вернуть исходные провинции">⟲</button>`).join(' ')}</p>`:''}</fieldset>`:''}
   <fieldset class="grp"><legend>Вид</legend>
+    <div class="line"><label class="inl">Рисовать <select id="me-only" aria-label="Что рисовать на карте"><option value="">весь мир</option>${unitOptions().map(([id,n])=>`<option value="${esc(id)}"${id===s.only?' selected':''}>только: ${esc(n)}</option>`).join('')}</select></label><button class="btn sm${ME.pick==='only'?' pri':''}" data-act="me-pickonly">Выбрать страну на карте</button></div>
+    ${s.only?'<p class="cnt">Рисуется только эта страна: карта сама обрезана по её границам, масштаб и центр подобраны. Разбейте её на провинции или регионы кистью и раскрасьте — получится карта выборов.</p>':''}
     <label class="fld"><span>Готовый вид</span><select id="me-view"><option value="">Выберите регион…</option>${Object.keys(MAP_VIEWS).map(k=>`<option>${k}</option>`).join('')}</select></label>
     <div class="seg">${Object.entries(pr).map(([k,v])=>`<button class="${s.proj===k?'on':''}" data-act="me-proj" data-k="${k}">${v.name}</button>`).join('')}</div>
     <label class="fld"><span>Долгота центра: <b id="me-lon-v">${Math.round(s.lon)}°</b></span><input type="range" id="me-lon" min="-180" max="180" step="1" value="${s.lon}"></label>
@@ -214,8 +215,16 @@ function renderMePanel(){
     <div><button class="btn sm" data-act="me-center">Повернуть к выбранной группе</button></div>
     <div class="line"><label class="inl">Обрезка <select id="me-aspect">${[['','без обрезки'],['1:1','квадрат 1:1'],['6:5','6:5'],['4:3','4:3'],['3:2','3:2'],['16:9','16:9'],['3:4','вертикально 3:4']].map(([v,l])=>`<option value="${v}"${(s.aspect||'')===v?' selected':''}>${l}</option>`).join('')}</select></label>
       <label class="inl"><input type="checkbox" data-ms="inset"${s.inset?' checked':''}> мини-карта мира</label>
+      <label class="inl"><input type="checkbox" id="me-zb"${s.zoomBox?' checked':''}> выноска с увеличением</label>
       ${s.inset?`<select id="me-insetpos" aria-label="Угол мини-карты">${[['tl','слева вверху'],['tr','справа вверху'],['bl','слева внизу'],['br','справа внизу']].map(([v,l])=>`<option value="${v}"${(s.insetPos||'tl')===v?' selected':''}>${l}</option>`).join('')}</select>`:''}</div>
   </fieldset>
+  ${s.zoomBox?`<fieldset class="grp"><legend>Выноска с увеличением</legend>
+    <div class="line"><button class="btn sm${ME.pick==='zoom'?' pri':''}" data-act="me-pickzoom">Выбрать место щелчком по карте</button><span class="cnt">сейчас: ${(+s.zoomBox.lat).toFixed(1)}°, ${(+s.zoomBox.lon).toFixed(1)}°</span></div>
+    <label class="fld"><span>Ширина области: <b id="me-zb-span-v">${(+s.zoomBox.span).toFixed(1)}°</b></span><input type="range" id="me-zb-span" min="0.5" max="40" step="0.5" value="${s.zoomBox.span}"></label>
+    <label class="fld"><span>Размер выноски: <b id="me-zb-size-v">${Math.round(s.zoomBox.size*100)}%</b></span><input type="range" id="me-zb-size" min="0.15" max="0.7" step="0.01" value="${s.zoomBox.size}"></label>
+    <label class="fld"><span>Пропорции (высота к ширине): <b id="me-zb-ratio-v">${(+s.zoomBox.ratio).toFixed(2)}</b></span><input type="range" id="me-zb-ratio" min="0.5" max="2" step="0.05" value="${s.zoomBox.ratio}"></label>
+    <label class="inl">Где выноска <select id="me-zb-pos">${[['tl','слева вверху'],['tr','справа вверху'],['bl','слева внизу'],['br','справа внизу']].map(([v,l])=>`<option value="${v}"${(s.zoomBox.pos||'tl')===v?' selected':''}>${l}</option>`).join('')}</select></label>
+  </fieldset>`:''}
   <fieldset class="grp"><legend>Оформление</legend>
     <div class="line"><label class="inl">Суша <input type="color" data-ms="land" value="${s.land}"></label><label class="inl">Границы <input type="color" data-ms="border" value="${s.border}"></label><label class="inl">Океан <input type="color" data-ms="ocean" value="${s.ocean}"></label></div>
     <div class="line"><label class="inl"><input type="checkbox" data-ms="grat"${s.grat?' checked':''}> сетка</label>${s.proj==='ortho'?`<label class="inl"><input type="checkbox" data-ms="shade"${s.shade?' checked':''}> объём</label>`:''}<label class="inl"><input type="checkbox" data-ms="lakes"${s.lakes?' checked':''}> озёра</label></div>
@@ -238,7 +247,7 @@ function drawMe(){
 function drawDraft(){
   const svg=$('#me-svg svg');if(!svg)return;const old=svg.querySelector('#me-draft');if(old)old.remove();
   const d=ME.draft;if(!d||d.pts.length<2)return;
-  const {p}=MapDraw.projection(S());const xy=d.pts.map(q=>p(q)).filter(q=>q&&isFinite(q[0]));if(xy.length<2)return;
+  const {p}=MapDraw.projection(S(),GEO);const xy=d.pts.map(q=>p(q)).filter(q=>q&&isFinite(q[0]));if(xy.length<2)return;
   const lasso=ME.tool==='lasso'||(ME.tool==='owner'&&ME.ownMode==='lasso')||(ME.tool==='regions'&&ME.regMode==='lasso');
   svg.insertAdjacentHTML('beforeend',`<path id="me-draft" d="M${xy.map(q=>q[0].toFixed(1)+','+q[1].toFixed(1)).join('L')}${lasso?'Z':''}" fill="${lasso?'rgba(215,51,51,.15)':'none'}" stroke="#d33" stroke-width="2" stroke-dasharray="6 4" pointer-events="none"/>`);
 }
@@ -246,7 +255,7 @@ function clientToGeo(e){
   const svg=$('#me-svg svg');if(!svg)return null;
   // учитываем, что картинка может быть вписана в рамку со сдвигом
   const m=svg.getScreenCTM();if(!m)return null;const pt=new DOMPoint(e.clientX,e.clientY).matrixTransform(m.inverse());
-  const {p}=MapDraw.projection(S());const g=p.invert([pt.x,pt.y]);
+  const {p}=MapDraw.projection(S(),GEO);const g=p.invert([pt.x,pt.y]);
   return g&&isFinite(g[0])&&isFinite(g[1])?[+g[0].toFixed(5),+g[1].toFixed(5)]:null;
 }
 function drawMeSoon(){if(ME.raf)return;ME.raf=requestAnimationFrame(()=>{ME.raf=0;drawMe();});}
@@ -589,6 +598,8 @@ document.addEventListener('click',e=>{
     case 'me-regreset':if(armed(b,'Точно вернуть?')){s.preg={};renderMeTools();drawMe();toast('Регионы — как были');}break;
     case 'me-ownmode':ME.ownMode=b.dataset.k;ME.draft=null;renderMeTools();break;
     case 'me-ownscope':ME.ownScope=b.dataset.k;renderMeTools();break;
+    case 'me-pickonly':ME.pick=ME.pick==='only'?'':'only';renderMePanel();if(ME.pick)$('#me-hover').textContent='Щёлкните по стране, которую нужно оставить на карте';break;
+    case 'me-pickzoom':ME.pick=ME.pick==='zoom'?'':'zoom';renderMePanel();if(ME.pick)$('#me-hover').textContent='Щёлкните по месту, которое нужно показать в выноске';break;
     case 'me-single':ME.single=b.dataset.k==='1';renderMeTools();break;
     case 'me-pickstate':ME.ownT=b.dataset.k;ME.ownMode='paint';renderMeTools();drawMe();break;
     case 'me-delstate':if(armed(b,'?')){const id=b.dataset.k;delete s.states[id];for(const p in s.owner)if(s.owner[p]===id)delete s.owner[p];s.split=s.split.filter(x=>x!==id);for(const g of s.groups)rm(g.countries,id);if(ME.ownT===id)ME.ownT='';s.ownerV=(s.ownerV||0)+1;renderMePanel();drawMe();}break;
@@ -606,6 +617,7 @@ document.addEventListener('input',e=>{
   if(el.id==='me-name'){ME.name=el.value;const t=$('#me-title');if(t)t.textContent=el.value;return;}
   if(el.id==='me-lon'||el.id==='me-lat'||el.id==='me-zoom'){s[el.id.slice(3)]=+el.value;syncSliders();if(el.id==='me-zoom'&&s.proj!=='ortho'&&!$('#me-lat')&&s.zoom>1)renderMePanel();drawMeSoon();return;}
   if(el.dataset.mg){const g=s.groups[+el.dataset.i];g[el.dataset.mg]=el.value;const lg=$('#me-legend');if(lg)lg.value=legendText();renderMeTools();if(el.dataset.mg==='color')drawMeSoon();return;}
+  if(el.id&&el.id.startsWith('me-zb-')&&el.type==='range'&&s.zoomBox){const k=el.id.slice(6);s.zoomBox[k]=+el.value;const v=$('#'+el.id+'-v');if(v)v.textContent=k==='size'?Math.round(el.value*100)+'%':k==='span'?(+el.value).toFixed(1)+'°':(+el.value).toFixed(2);drawMeSoon();return;}
   if(el.dataset.ms){const k=el.dataset.ms;s[k]=el.type==='checkbox'?el.checked:el.type==='number'?+el.value:el.value;drawMeSoon();return;}
 });
 document.addEventListener('change',e=>{
@@ -613,6 +625,9 @@ document.addEventListener('change',e=>{
   if(el.id==='me-view'&&el.value){meSnap();applyView(el.value);el.value='';renderMePanel();drawMe();return;}
   if(el.id==='me-aspect'){meSnap();s.aspect=el.value;renderMePanel();drawMe();return;}
   if(el.id==='me-insetpos'){meSnap();s.insetPos=el.value;drawMe();return;}
+  if(el.id==='me-only'){meSnap();if(el.value)s.only=el.value;else delete s.only;renderMePanel();drawMe();return;}
+  if(el.id==='me-zb'){meSnap();if(el.checked)s.zoomBox={lon:+(+s.lon).toFixed(2),lat:+(+s.lat).toFixed(2),span:8,size:.42,ratio:1.2,pos:'tl'};else delete s.zoomBox;renderMePanel();drawMe();if(el.checked)toast('Выноска добавлена. Нажмите «Выбрать место щелчком по карте» и щёлкните по нужному месту');return;}
+  if(el.id==='me-zb-pos'&&s.zoomBox){meSnap();s.zoomBox.pos=el.value;drawMe();return;}
   if(el.dataset&&(el.dataset.state||el.dataset.region)){renderMePanel();return;}
   if(el.id==='me-base'){changeBase(el.value);return;}
   if(el.id==='me-own'){pickOwner(el.value);return;}
@@ -688,7 +703,7 @@ document.addEventListener('pointermove',e=>{
   if(ME.pinch&&PTRS.size>=2){
     const q=ME.pinch,st=pinchState(),s=S();
     s.zoom=Math.max(1,Math.min(60,+(q.zoom*st.d/Math.max(10,q.d)).toFixed(2)));
-    const {p}=MapDraw.projection(s);const deg=180/Math.PI/p.scale()*q.k;
+    const {p}=MapDraw.projection(s,GEO);const deg=180/Math.PI/p.scale()*q.k;
     s.lon=((q.lon-(st.mx-q.mx)*deg+540)%360)-180;
     if(s.proj==='ortho'||s.zoom>1)s.lat=Math.max(-90,Math.min(90,q.lat+(st.my-q.my)*deg));
     if(s.proj!=='ortho'&&s.zoom>1&&!$('#me-lat'))renderMePanel();
@@ -702,7 +717,7 @@ document.addEventListener('pointermove',e=>{
   if(ME.drag){
     const d=ME.drag,dx=e.clientX-d.x,dy=e.clientY-d.y;
     if(!d.moved&&Math.hypot(dx,dy)<4)return;d.moved=true;
-    const s=S(),{p}=MapDraw.projection(s);const deg=180/Math.PI/p.scale()*d.k;
+    const s=S(),{p}=MapDraw.projection(s,GEO);const deg=180/Math.PI/p.scale()*d.k;
     s.lon=((d.lon-dx*deg+540)%360)-180;
     if(s.proj==='ortho'||s.zoom>1)s.lat=Math.max(-90,Math.min(90,d.lat+dy*deg));
     syncSliders();drawMeSoon();return;
@@ -726,6 +741,10 @@ document.addEventListener('pointerup',async e=>{
   const d=ME.drag;if(!d)return;ME.drag=null;
   if(d.moved||!d.click)return;
   const t=d.target,s=S(),g=s.groups[ME.active];
+  if(ME.pick){const k=ME.pick;ME.pick='';
+    if(k==='zoom'){const gg=clientToGeo(e);if(gg){meSnap();s.zoomBox=Object.assign(s.zoomBox||{span:8,size:.42,ratio:1.2,pos:'tl'},{lon:+gg[0].toFixed(2),lat:+gg[1].toFixed(2)});}}
+    else if(k==='only'&&t.dataset&&t.dataset.u){meSnap();s.only=t.dataset.u;toast('На карте осталась только страна «'+uname(t.dataset.u)+'»');}
+    renderMePanel();drawMe();return;}
   if(!t.dataset||!t.dataset.u)return;
   if(ME.tool==='country'){
     if(g)meSnap();
