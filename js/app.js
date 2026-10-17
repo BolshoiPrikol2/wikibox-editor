@@ -252,7 +252,7 @@ const TB=[
   ['Ж',"'''","'''",'жирный'],['К',"''","''",'курсив'],['[[ссылка]]','[[',']]','Статья'],['Красная ссылка','[[!',']]','Статья'],['Раздел','\n== ',' ==\n','Раздел'],
   ['Сноска','<ref>','</ref>','Источник'],['Список','\n* ','','пункт'],['Флаг','{{флаг|','}}','Сибирь'],['Цвет','{{цвет|','}}','#3366cc'],
   ['Картинка','\n[[Файл:','|200px|Подпись]]\n','__MEDIA__'],['Таблица','\n{| class="wikitable"\n! Заголовок 1 !! Заголовок 2\n|-\n| ',' || ячейка\n|}\n','ячейка'],
-  ['Осн. статья','{{основная статья|','}}','Статья'],['↗ рост','{{рост|','}}','5'],['↘ падение','{{падение|','}}','5'],['и. о.','{{и. о.','}}',''],
+  ['Осн. статья','{{основная статья|','}}','Статья'],['↗ рост','{{рост|','}}','5'],['↘ падение','{{падение|','}}','5'],['▶ плеер','{{плеер|','}}','1:13'],['и. о.','{{и. о.','}}',''],
 ];
 const inp=(path,val,ph='')=>`<input id="${fid(path)}" data-p="${path}" value="${esc(val)}" placeholder="${esc(ph)}">`;
 const ta=(path,val,ph='',rows)=>`<textarea id="${fid(path)}" data-p="${path}" rows="${rows||Math.min(6,Math.max(1,String(val||'').split('\n').length))}" placeholder="${esc(ph)}">${esc(val)}</textarea>`;
@@ -273,6 +273,7 @@ function rowEditor(r,i){
   switch(r.t){
     case 'text':x=ta(p+'.value',r.value,r.ph||'Текст по центру карточки');break;
     case 'below':x=ta(p+'.value',r.value,'Текст нижней строки');break;
+    case 'anthem':x=`<div class="line">${inp(p+'.label',r.label,'Подпись, например: Гимн')}<label class="inl">Длительность ${inp(p+'.dur',r.dur,'1:13')}</label></div>${ta(p+'.value',r.value,'Название гимна, например: «Славься, Сибирь»')}<span class="cnt">Плеер ненастоящий: кнопка ▶ запускает только полосу и время. Пустая длительность убирает плеер.</span>`;break;
     case 'image':x=`${picker(p+'.src',r.src)}<div class="line"><button class="btn sm" data-act="map-for" data-path="${p}.src">Нарисовать карту</button>${P.media.some(m=>m.map&&m.name===r.src)?`<a class="btn sm" href="#/map/${slug(r.src)}">Изменить эту карту</a>`:''}</div><div class="line">${ta1(p+'.caption',r.caption,'Подпись под картинкой')}<label class="inl">Ширина, px ${num(p+'.w',r.w,40,400)}</label></div>`;break;
     case 'images2':x=`<div class="two"><div class="fld">${picker(p+'.src1',r.src1)}${inp(p+'.cap1',r.cap1,'Подпись')}</div><div class="fld">${picker(p+'.src2',r.src2)}${inp(p+'.cap2',r.cap2,'Подпись')}</div></div>`;break;
     case 'cols':x=`${ta1(p+'.label',r.label,'Заголовок над колонками')}<div class="cells">${r.cells.map((c,j)=>`<div class="cell">${ta(p+'.cells.'+j,c,'Сторона '+(j+1))}${r.cells.length>1?`<button class="ic x" data-act="cell-del" data-i="${i}" data-j="${j}" aria-label="Убрать колонку">✕</button>`:''}</div>`).join('')}</div><div><button class="btn sm" data-act="cell-add" data-i="${i}">+ колонка</button></div>`;break;
@@ -318,7 +319,8 @@ function editorForm(pg){
       <tr><td><code>{{цвет|#1d7a3e}}</code></td><td>цветной квадрат партии</td></tr>
       <tr><td><code>{{рост|5 %}}</code> <code>{{падение|3 %}}</code> <code>{{неизм}}</code></td><td>стрелки, как в статистике Википедии: ↗ зелёная, ↘ красная, → серая</td></tr>
       <tr><td><code>{{рост-|…}}</code> <code>{{падение+|…}}</code></td><td>наоборот: красный рост (например, безработицы) и зелёное падение</td></tr>
-      <tr><td><code>{{▲|5}}</code> <code>{{▼|3}}</code></td><td>треугольники для результатов выборов</td></tr>
+      <tr><td><code>{{▲|5}}</code> <code>{{▼|3}}</code> <code>{{▲-}}</code> <code>{{▼+}}</code> <code>{{▬}}</code></td><td>треугольники для результатов выборов (с минусом — красный, с плюсом — зелёный)</td></tr>
+      <tr><td><code>{{плеер|1:13}}</code></td><td>фейковый аудиоплеер, как у гимна в Википедии (звука нет)</td></tr>
       <tr><td>подпись <code>• Итого</code></td><td>подстрока в карточке (обычным шрифтом); подпись <code>=ВВП (ППС)</code> — заголовок группы строк</td></tr>
       <tr><td><code>{{и. о.}}</code></td><td>и.&nbsp;о. с подсказкой</td></tr>
       <tr><td><code>[[Файл:Имя|200px|слева|Подпись]]</code></td><td>картинка-миниатюра из медиатеки</td></tr>
@@ -441,7 +443,18 @@ document.addEventListener('submit',e=>{
   const q=(e.target.id==='search'?$('#q'):$('#q2'))?.value.trim()||'';if(!q)return;
   const p=pageFind(q);location.hash=p?'#/wiki/'+slug(p.title):'#/search/'+slug(q);$('#q').blur();
 });
+/* фейковый плеер гимна: звука нет, идёт только время */
+function fpToggle(pl){
+  if(pl._t){clearInterval(pl._t);pl._t=null;pl.classList.remove('on');pl.setAttribute('aria-label','Воспроизвести аудио');return;}
+  const d=+pl.dataset.dur||73;if((pl._pos||0)>=d)pl._pos=0;
+  pl.classList.add('on');pl.setAttribute('aria-label','Пауза');
+  const tick=()=>{pl._pos=(pl._pos||0)+.25;const k=Math.min(1,pl._pos/d);pl.querySelector('.fp-fill').style.width=(k*100)+'%';pl.querySelector('.fp-dur').textContent=fmtDur(k<1?pl._pos:d);
+    if(k>=1){clearInterval(pl._t);pl._t=null;pl.classList.remove('on');setTimeout(()=>{if(!pl._t){pl._pos=0;pl.querySelector('.fp-fill').style.width='0';pl.querySelector('.fp-dur').textContent=fmtDur(d);}},900);}};
+  tick();pl._t=setInterval(tick,250);
+}
+document.addEventListener('keydown',e=>{const pl=e.target.closest&&e.target.closest('.fplayer');if(pl&&(e.key==='Enter'||e.key===' ')){e.preventDefault();fpToggle(pl);}});
 document.addEventListener('click',e=>{
+  const fp=e.target.closest('.fplayer');if(fp){e.preventDefault();fpToggle(fp);return;}
   const tb=e.target.closest('[data-tb]');if(tb){e.preventDefault();insertTB(+tb.dataset.tb);return;}
   const j=e.target.closest('[data-jump],[data-cite],[data-back]');
   if(j){e.preventDefault();const root=j.closest('#edprev')||document;

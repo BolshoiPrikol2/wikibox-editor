@@ -69,9 +69,14 @@ label.inl{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:va
 
 /* ---------- шапка ---------- */
 .vh-wrap{position:relative;z-index:20}
-.vh,.vpage{max-width:1596px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+:root{--gut:16px;--colw:196px}
+@media (min-width:720px){:root{--gut:24px}}
+@media (min-width:1200px){:root{--gut:44px}}
+@media (min-width:1680px){:root{--gut:52px;--colw:248px}}
+.vh,.vpage{max-width:1596px;margin:0 auto;padding-left:max(var(--gut),env(safe-area-inset-left,0px));padding-right:max(var(--gut),env(safe-area-inset-right,0px))}
+.vh{padding-left:max(calc(var(--gut) - 6px),env(safe-area-inset-left,0px))}
 html[data-width="wide"] .vh,html[data-width="wide"] .vpage{max-width:none}
-.vh{display:flex;align-items:center;gap:12px;min-height:56px;padding-block:8px}
+.vh{display:flex;align-items:center;gap:14px;min-height:56px;padding-block:8px}
 .vh-burger{width:32px;height:32px;flex:none;border:0;border-radius:2px;background:none;color:var(--text);cursor:pointer;display:grid;place-items:center}
 .vh-burger:hover{background:var(--bg-neutral)}
 .logo{display:flex;align-items:center;gap:10px;color:var(--text);flex:none;margin-right:12px}
@@ -93,8 +98,8 @@ html[data-width="wide"] .vh,html[data-width="wide"] .vpage{max-width:none}
 .menu-col{min-width:200px}
 
 /* ---------- раскладка ---------- */
-.vpage{display:grid;grid-template-columns:200px minmax(0,1fr) 180px;column-gap:28px}
-.vside,.vtools{position:sticky;top:0;align-self:start;max-height:100vh;overflow:auto;padding:20px 0 24px;font-size:14px}
+.vpage{display:grid;grid-template-columns:var(--colw) minmax(0,1fr) var(--colw);column-gap:24px}
+.vside,.vtools{position:sticky;top:-50px;align-self:start;max-height:calc(100vh + 50px);overflow:auto;padding:70px 0 24px;font-size:14px}
 .vmain{min-width:0;padding-bottom:24px}
 body.mode-edit .vpage{grid-template-columns:minmax(0,1fr)}
 body.mode-edit .vside,body.mode-edit .vtools{display:none}
@@ -114,11 +119,11 @@ body.mode-edit .vside,body.mode-edit .vtools{display:none}
 .ap-inline{display:flex;gap:40px;flex-wrap:wrap}
 
 /* ---------- заголовок страницы ---------- */
-.titlebar{padding-top:18px;border-bottom:1px solid var(--border)}
-.fh{font-family:var(--serif);font-size:28.8px;font-weight:normal;line-height:1.375;margin:0 0 4px;overflow-wrap:break-word}
-.tabs{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:14px}
+.titlebar{padding-top:24px;border-bottom:1px solid var(--border)}
+.fh{font-family:var(--serif);font-size:28.8px;font-weight:normal;line-height:1.375;margin:0;overflow-wrap:break-word}
+.tabs{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:14px;margin-top:-1px}
 .tabs>div{display:flex;align-items:flex-end;flex-wrap:wrap}
-.tabs a,.tabs .off,.tabs .sel,.tab-btn{display:inline-block;padding:8px 8px 6px;border-bottom:2px solid transparent;line-height:1.3}
+.tabs a,.tabs .off,.tabs .sel,.tab-btn{display:inline-block;padding:8px 8px 5px;border-bottom:2px solid transparent;line-height:1.3}
 .tabs .sel{color:var(--text);border-bottom-color:var(--text)}
 .tabs a.sel:hover{text-decoration:none}
 .tabs .off{color:var(--subtle)}
@@ -130,10 +135,10 @@ body.mode-edit .vside,body.mode-edit .vtools{display:none}
 .dd-menu button.danger{color:var(--destructive)}
 .dd-h{font-size:12px;color:var(--subtle);font-weight:bold;padding:8px 14px 2px;border-top:1px solid var(--border-muted)}
 .dd-h:first-child{border-top:0}
-.sitesub{font-size:12.8px;color:var(--subtle);margin-top:8px}
+.sitesub{font-size:12.8px;line-height:22px;color:var(--subtle);margin-top:8px}
 
 /* ---------- текст статьи ---------- */
-.mw-content{font-size:var(--fs);line-height:1.6;margin-top:12px;overflow-wrap:break-word}
+.mw-content{font-size:var(--fs);line-height:1.625;margin-top:16px;overflow-wrap:break-word}
 .mw-content p{margin:.5em 0}
 .mw-content h2,.mw-content h3,.mw-content h4{color:var(--text);overflow:hidden}
 .mw-content h2{font-family:var(--serif);font-size:1.5em;font-weight:normal;line-height:1.375;margin:1em 0 .25em;padding:0 0 .05em;border-bottom:1px solid var(--border)}
@@ -389,7 +394,7 @@ textarea.one{resize:none;min-height:32px;overflow:hidden}
 
 /* ---------- адаптивность ---------- */
 @media (max-width:1199px){
-  .vpage{grid-template-columns:200px minmax(0,1fr)}
+  .vpage{grid-template-columns:var(--colw) minmax(0,1fr)}
   .vtools{display:none}
 }
 @media (max-width:999px){
@@ -447,6 +452,18 @@ textarea.one{resize:none;min-height:32px;overflow:hidden}
 
 .seatbar{display:block;width:100%;max-width:130px;height:8px;margin:3px 0 2px;border:1px solid var(--border);background:var(--bg)}
 .seatbar>span{display:block;height:100%}
-.trend{vertical-align:-1px;margin-right:1px}
 .infobox th.ib-l2{font-weight:normal;padding-left:.6em!important}
 .infobox .ib-sub{font-weight:bold;text-align:left!important;padding-bottom:0!important}
+
+/* стрелки как в шаблонах Википедии */
+.ts{font-size:larger;font-weight:bold;line-height:1}
+.ts-g{color:var(--success,#14866d)}.ts-r{color:#d73333}.ts-n{color:#0c99df}
+/* фейковый плеер гимна, как в карточке «Чехии» */
+.fplayer{position:relative;display:flex;align-items:center;justify-content:space-between;width:250px;max-width:100%;height:30px;margin:4px auto 2px;background:rgba(0,0,0,.5);cursor:pointer;overflow:hidden;user-select:none;text-align:left;font-style:normal}
+.fplayer:focus-visible{outline:2px solid var(--link);outline-offset:1px}
+.fp-fill{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(255,255,255,.22);pointer-events:none}
+.fp-play{position:relative;width:0;height:0;margin-left:14px;border-style:solid;border-width:8px 0 8px 13px;border-color:transparent transparent transparent #fff}
+.fplayer.on .fp-play{width:11px;height:15px;border:0;border-left:4px solid #fff;border-right:4px solid #fff;margin-left:15px}
+.fp-dur{position:relative;margin-right:4px;background:rgba(0,0,0,.8);color:#fff;font-size:11.5px;font-weight:bold;line-height:1;padding:5px 6px;border-radius:3.5px;font-variant-numeric:tabular-nums}
+.fplayer:hover{background:rgba(0,0,0,.58)}
+.infobox .ib-anthem{text-align:center}

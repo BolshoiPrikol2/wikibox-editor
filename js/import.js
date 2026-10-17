@@ -51,6 +51,22 @@ function makeConverter(lang,opts){
   C.mediaName=mediaName;
   const SKIP='style,link,meta,script,.mw-editsection,.mw-empty-elt,.noprint,.reference-accessdate,.sortkey,.mw-cite-backlink,.Z3988,.metadata,.navbar,.plainlinks.hlist.navbar,.ext-phonos';
   const linkTitle=href=>{const m=href.match(/^\/wiki\/([^#?]+)/);if(!m)return null;const t=decodeURIComponent(m[1]).replace(/_/g,' ');if(/^[^:]+:/.test(t)&&!/^[^:]+: /.test(t)&&/^(Файл|File|Категория|Category|Служебная|Special|Шаблон|Template|Википедия|Wikipedia|Портал|Portal|Help|Справка|Обсуждение|Talk|Image|Изображение)/i.test(t))return null;return t;};
+  /* стрелки и треугольники из шаблонов ru.wiki (span.ts-…) и картинки en.wiki (Increase2.svg …) */
+  const TS={'ts-up-arrow':'рост','ts-down-arrow':'падение','ts-updown-arrow':'падение+','ts-downup-arrow':'рост-','ts-nochange-arrow':'неизм','ts-up':'▲','ts-profit':'▲','ts-down':'▼','ts-loss':'▼','ts-updown':'▼+','ts-downup':'▲-','ts-nochange':'▬','ts-stalledprofit':'▬'};
+  const TIMG=[[/^(increase2|increase|increase positive|green arrow up(?: darker)?|arrow up green|up green arrow)$/,'▲'],[/^(decrease2|decrease|decrease negative|red arrow down|arrow down red|down red arrow)$/,'▼'],[/^(increase negative|red arrow up|arrow up red)$/,'▲-'],[/^(decrease positive|green arrow down|arrow down green)$/,'▼+'],[/^(increase neutral|increase steady)$/,'▲0'],[/^(decrease neutral|decrease steady)$/,'▼0'],[/^(steady|steady hold|nochange|no change|blue steady|yellow arrow right|steady2)$/,'▬']];
+  function trendOf(el){
+    const tag=el.tagName.toLowerCase();
+    if(tag==='span'){for(const c of el.classList)if(TS[c])return `{{${TS[c]}}}`;}
+    const img=tag==='img'?el:(tag==='span'||tag==='a'||tag==='figure')&&el.querySelectorAll('img').length===1&&!el.textContent.trim()?el.querySelector('img'):null;
+    if(!img)return '';
+    const w=+img.getAttribute('width')||0;if(w>30)return '';
+    const a=img.closest('a');const href=a&&a.getAttribute('href')||'';
+    let f=(href.match(/\/wiki\/[^:]+:(.+)$/)||[])[1]||(img.getAttribute('src')||'').split('?')[0].split('/').pop().replace(/^\d+px-/,'');
+    try{f=decodeURIComponent(f);}catch(e){}
+    f=f.replace(/\.(svg|png|gif)(\.png)?$/i,'').replace(/_/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
+    for(const [re,t] of TIMG)if(re.test(f))return `{{${t}}}`;
+    return '';
+  }
   function inl(node,ctx={}){
     let out='';
     for(const n of node.childNodes){
@@ -60,6 +76,7 @@ function makeConverter(lang,opts){
       if(el.matches(SKIP))continue;
       if(el.getAttribute('style')&&/display:\s*none/i.test(el.getAttribute('style')))continue;
       if(tag==='sup'&&el.classList.contains('reference')){out+=refMark(el);continue;}
+      {const tr=trendOf(el);if(tr){out+=tr;continue;}}
       if(tag==='br'){out+=ctx.lines?'\n':'<br>';continue;}
       if(tag==='img'){
         const w=+el.getAttribute('width')||0,h=+el.getAttribute('height')||0;

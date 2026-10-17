@@ -40,23 +40,43 @@ function tplInline(inner){
     case 'флагик':case 'flagicon':return flagIcon(a[1]);
     case 'красная ссылка':case 'красная':case 'redlink':return linkHTML(a[1]||'',a[2],true);
     case 'цвет':case 'color':return `<span class="legend-color" style="background:${safeColor(unesc(a[1]))}"></span>`+(a[2]?' '+a[2]:'');
-    case 'рост':case 'up':return trend('up','good')+(a[1]?' '+a[1]:'');
-    case 'падение':case 'down':return trend('down','bad')+(a[1]?' '+a[1]:'');
+    case 'рост':case 'up':case 'увеличение':return trend('up','good')+(a[1]?' '+a[1]:'');
+    case 'падение':case 'down':case 'уменьшение':return trend('down','bad')+(a[1]?' '+a[1]:'');
     case 'рост-':case 'рост плохо':case 'рост отриц':return trend('up','bad')+(a[1]?' '+a[1]:'');
     case 'падение+':case 'падение хорошо':case 'падение полож':return trend('down','good')+(a[1]?' '+a[1]:'');
     case 'неизм':case 'steady':case '=':case 'без изменений':return trend('flat','')+(a[1]?' '+a[1]:'');
-    case '▲':case 'увеличение':return '<span class="up">▲</span>'+(a[1]?' '+a[1]:'');
-    case '▼':case 'уменьшение':return '<span class="dn">▼</span>'+(a[1]?' '+a[1]:'');
+    case '▲':return tri('up','good')+(a[1]?' '+a[1]:'');
+    case '▼':return tri('down','bad')+(a[1]?' '+a[1]:'');
+    case '▲-':return tri('up','bad')+(a[1]?' '+a[1]:'');
+    case '▼+':return tri('down','good')+(a[1]?' '+a[1]:'');
+    case '▲0':return tri('up','')+(a[1]?' '+a[1]:'');
+    case '▼0':return tri('down','')+(a[1]?' '+a[1]:'');
+    case '▬':return tri('flat','')+(a[1]?' '+a[1]:'');
+    case 'плеер':case 'гимн':case 'аудио':case 'player':return playerHTML(a[a.length-1]&&a.length>1?a[a.length-1]:'');
     case 'и. о.':case 'ио':return '<abbr title="исполняющий обязанности">и.&nbsp;о.</abbr>';
     case 'нп':case 'nowrap':return '<span class="nowrap">'+a.slice(1).join('|')+'</span>';
     default:return '{{'+inner+'}}';
   }
 }
-/* Стрелки, как в статистике Википедии: ↗ рост, ↘ падение, → без изменений */
+/* Стрелки, как в шаблонах Википедии {{Увеличение}}, {{Уменьшение}}, {{Без изменений}} */
 function trend(dir,mood){
-  const col=mood==='good'?'#14866d':mood==='bad'?'#d33':'#72777d';
-  const d=dir==='up'?'M2 10L9 3M4.5 3H9v4.5':dir==='down'?'M2 2l7 7M4.5 9H9V4.5':'M1.5 6h8M6.5 3l3 3-3 3';
-  return `<svg class="trend" viewBox="0 0 11 12" width="11" height="12" aria-hidden="true"><path d="${d}" fill="none" stroke="${col}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const g=dir==='up'?'↗':dir==='down'?'↘':'→';
+  const cl=mood==='good'?'ts-g':mood==='bad'?'ts-r':'ts-n';
+  const t=dir==='flat'?'Без изменений':(dir==='up'?(mood==='bad'?'Негативное увеличение':'Увеличение'):(mood==='good'?'Позитивное уменьшение':'Уменьшение'));
+  return `<span class="ts ${cl}" title="${t}">${g}</span>`;
+}
+/* Треугольники, как {{Рост}} и {{Падение}} */
+function tri(dir,mood){
+  const g=dir==='up'?'▲':dir==='down'?'▼':'▬';
+  const cl=mood==='good'?'ts-g':mood==='bad'?'ts-r':'ts-n';
+  return `<span class="ts ${cl}" title="${dir==='up'?'Рост':dir==='down'?'Падение':'Без изменений'}">${g}</span>`;
+}
+/* Фейковый аудиоплеер, как у гимна в карточке «Чехии»: звука нет, но кнопка и время работают */
+function durSec(d){const m=String(d||'').trim().match(/^(?:(\d+):)?(\d{1,2}):(\d{2})$/);if(m)return (+m[1]||0)*3600+(+m[2])*60+(+m[3]);const n=parseInt(d,10);return n>0?n:0;}
+function fmtDur(s){s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),c=String(s%60).padStart(2,'0');return h?`${h}:${String(m).padStart(2,'0')}:${c}`:`${m}:${c}`;}
+function playerHTML(dur){
+  const s=durSec(dur)||73;
+  return `<span class="fplayer" data-dur="${s}" role="button" tabindex="0" aria-label="Воспроизвести аудио (${fmtDur(s)})" title="Воспроизвести аудио"><span class="fp-fill"></span><span class="fp-play" aria-hidden="true"></span><span class="fp-dur">${fmtDur(s)}</span></span>`;
 }
 function inline(src,ctx){
   if(src==null||src==='')return '';
@@ -191,6 +211,7 @@ const RENDER={
   field:(r,c)=>{const lb=String(r.label||'');if(/^=/.test(lb))return `<tr><td colspan="2" class="ib-sub">${inline(lb.replace(/^=\s*/,''),c)}${String(r.value||'').trim()?' '+ibVal(r.value,c):''}</td></tr>`;if(!String(r.value||'').trim())return '';return r.label?`<tr><th scope="row" class="plainlist${/^\s*•/.test(lb)?' ib-l2':''}">${inline(r.label,c)}</th><td class="plainlist">${ibVal(r.value,c)}</td></tr>`:`<tr><td colspan="2" class="plainlist">${ibVal(r.value,c)}</td></tr>`;},
   text:(r,c)=>String(r.value||'').trim()?`<tr><td colspan="2" class="plainlist" style="text-align:center">${ibVal(r.value,c)}</td></tr>`:'',
   hr:()=>`<tr><td colspan="2" class="ib-hr"><hr></td></tr>`,
+  anthem:(r,c)=>{const v=String(r.value||'').trim();if(!v&&!r.dur)return '';return `<tr><td colspan="2" class="plainlist ib-anthem">${r.label?inline(r.label,c)+': ':''}${v?ibVal(v,c):''}${r.dur?playerHTML(r.dur):''}</td></tr>`;},
   below:(r,c,hs)=>String(r.value||'').trim()?`<tr><td colspan="2" class="infobox-below${hs.dk}"${hs.st2}>${ibVal(r.value,c)}</td></tr>`:'',
   image:(r,c)=>{const s=mediaSrc(r.src);if(!s)return '';return `<tr><td colspan="2" class="infobox-image"><img src="${s}" alt="" style="width:${Math.max(40,+r.w||250)}px">${r.caption?`<span class="media-caption">${inline(r.caption,c)}</span>`:''}</td></tr>`;},
   images2:(r,c)=>{const a=mediaSrc(r.src1),b=mediaSrc(r.src2);if(!a&&!b)return '';const one=(s,cap)=>s?`<div><img src="${s}" alt=""><span class="media-caption">${inline(cap,c)}</span></div>`:'';return `<tr><td colspan="2" class="infobox-image"><div class="ib-pair">${one(a,r.cap1)}${one(b,r.cap2)}</div></td></tr>`;},
