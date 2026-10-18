@@ -345,7 +345,7 @@ function rowEditor(r,i){
     case 'text':x=ta(p+'.value',r.value,r.ph||'Текст по центру карточки');break;
     case 'below':x=ta(p+'.value',r.value,'Текст нижней строки');break;
     case 'anthem':x=`<div class="line">${inp(p+'.label',r.label,'Подпись, например: Гимн')}<label class="inl">Длительность ${inp(p+'.dur',r.dur,'1:13')}</label></div>${ta(p+'.value',r.value,'Название гимна, например: «Славься, Сибирь»')}<span class="cnt">Плеер ненастоящий: кнопка ▶ запускает только полосу и время. Пустая длительность убирает плеер.</span>`;break;
-    case 'image':x=`${picker(p+'.src',r.src)}<div class="line"><button class="btn sm" data-act="map-for" data-path="${p}.src">Нарисовать карту</button>${P.media.some(m=>m.map&&m.name===r.src)?`<a class="btn sm" href="#/map/${slug(r.src)}">Изменить эту карту</a>`:''}</div><div class="line">${ta1(p+'.caption',r.caption,'Подпись под картинкой')}<label class="inl">Ширина, px ${num(p+'.w',r.w,40,400)}</label><label class="inl" title="Для квадратов {{легенда|…}} в подписи; 0 — подобрать самим">Колонок в легенде ${num(p+'.lcols',r.lcols||0,0,6)}</label><label class="inl"><input type="checkbox" id="${fid(p+'.capLeft')}" data-p="${p}.capLeft"${r.capLeft?' checked':''}> подпись слева</label></div>`;break;
+    case 'image':x=`${picker(p+'.src',r.src)}<div class="line"><button class="btn sm" data-act="map-for" data-path="${p}.src">Нарисовать карту</button>${P.media.some(m=>m.map&&m.name===r.src)?`<a class="btn sm" href="#/map/${slug(r.src)}">Изменить эту карту</a>`:''}</div><div class="line">${ta1(p+'.caption',r.caption,'Подпись под картинкой')}<label class="inl">Ширина, px ${num(p+'.w',r.w,40,400)}</label><label class="inl" title="Для квадратов {{легенда|…}} в подписи; 0 — подобрать самим">Колонок в легенде ${num(p+'.lcols',r.lcols||0,0,6)}</label><label class="inl"><input type="checkbox" id="${fid(p+'.capLeft')}" data-p="${p}.capLeft"${r.capLeft?' checked':''}> подпись слева</label></div>${(r.alts&&r.alts.length)?`<div class="alts"><span class="cnt">Переключатель картинок (кнопки под картинкой, как «Show globe / Show map» в Википедии):</span>${r.alts.map((a,j)=>`<div class="line">${picker(p+'.alts.'+j+'.src',a.src)}${inp(p+'.alts.'+j+'.label',a.label,'Подпись у кнопки')}<button class="ic x" data-act="alt-del" data-i="${i}" data-j="${j}" aria-label="Убрать вариант">✕</button></div>`).join('')}${inp(p+'.swAll',r.swAll||'','Кнопка «показать все» (необязательно)')}</div>`:''}<div><button class="btn sm" data-act="alt-add" data-i="${i}">+ вариант картинки (переключатель)</button></div>`;break;
     case 'images2':x=`<div class="two"><div class="fld">${picker(p+'.src1',r.src1)}${inp(p+'.cap1',r.cap1,'Подпись')}</div><div class="fld">${picker(p+'.src2',r.src2)}${inp(p+'.cap2',r.cap2,'Подпись')}</div></div>`;break;
     case 'cols':x=`<div class="line">${ta1(p+'.label',r.label,'Заголовок над колонками')}<label class="inl"><input type="checkbox" id="${fid(p+'.plain')}" data-p="${p}.plain"${r.plain?' checked':''}> без линии между колонками, текст слева</label></div><div class="cells">${r.cells.map((c,j)=>`<div class="cell">${ta(p+'.cells.'+j,c,'Сторона '+(j+1))}${r.cells.length>1?`<button class="ic x" data-act="cell-del" data-i="${i}" data-j="${j}" aria-label="Убрать колонку">✕</button>`:''}</div>`).join('')}</div><div><button class="btn sm" data-act="cell-add" data-i="${i}">+ колонка</button></div>`;break;
     case 'succ':x=`<div class="two">${inp(p+'.prev',r.prev,'← Предшественник')}${inp(p+'.next',r.next,'Преемник →')}</div>${inp(p+'.label',r.label,'Подпись посередине (необязательно)')}`;break;
@@ -525,6 +525,7 @@ document.addEventListener('input',e=>{
   if(el.dataset.scope==='proj'){setPath(P,p,el.value);applyBrand();clearTimeout(svT);svT=setTimeout(save,500);return;}
   const pg=edPage;if(!pg||!$('#edform')?.contains(el))return;
   let v=el.type==='checkbox'?el.checked:el.type==='number'?(el.value===''?'':+el.value):el.value;
+  {const mm=p.match(/^ib\.rows\.(\d+)\.alts\.0\.src$/);if(mm&&pg.ib.rows[+mm[1]])pg.ib.rows[+mm[1]].src=v;}
   if(p==='title'){
     if(pg.ib.title===pg.title){pg.ib.title=v;const f=$('#f-ib-title');if(f)f.value=v;}
     const t=$('#ed-title');if(t)t.textContent=v;document.title='Редактирование: '+v+' — '+P.wiki.name;
@@ -538,6 +539,7 @@ document.addEventListener('input',e=>{
 document.addEventListener('focusin',e=>{const p=e.target.dataset?.p;if(p&&(e.target.tagName==='TEXTAREA'||(e.target.tagName==='INPUT'&&!['number','color','checkbox'].includes(e.target.type))))state.lastP=p;});
 document.addEventListener('change',async e=>{
   const el=e.target;
+  if(el.closest&&el.closest('.ib-switch')){const td=el.closest('td');const v=el.value;td.querySelectorAll('img.sw-img').forEach(im=>im.hidden=!(v==='all'||im.dataset.sw===v));return;}
   if(el.id==='f-lang'&&edPage){const was=pgLang(edPage);if(el.value)edPage.lang=el.value;else delete edPage.lang;const now=pgLang(edPage);if(now!==was){const n=translateLabels(edPage,now);if(n)toast(now==='en'?`Подписи карточки переведены на английский: ${n}`:`Подписи карточки переведены на русский: ${n}`);}changed(edPage);viewEdit(edPage);return;}
   if(el.id==='s-lang'){P.wiki.lang=el.value;save();toast(el.value==='en'?'Новые и неотмеченные статьи — в стиле английской Википедии':'Статьи по умолчанию — в стиле русской Википедии');return;}
   if(el.dataset.up){const names=await addFiles([...el.files]);if(names[0]&&edPage){setPath(edPage,el.dataset.up,names[0]);rerenderForm();changed(edPage);}return;}
@@ -606,6 +608,8 @@ document.addEventListener('click',e=>{
     case 'row-del':rows.splice(i,1);SETOPEN.clear();re();break;
     case 'row-set':{const box=btn.closest('.rw').querySelector('.rw-set');if(box){box.hidden=!box.hidden;box.hidden?SETOPEN.delete(i):SETOPEN.add(i);if(!box.hidden)box.querySelector('input')?.focus();}break;}
     case 'cell-add':rows[i].cells.push('');re();break;
+    case 'alt-add':{const r=rows[i];r.alts=r.alts&&r.alts.length?r.alts:[{src:r.src,label:'Вариант 1'}];r.alts.push({src:'',label:'Вариант '+(r.alts.length+1)});re();break;}
+    case 'alt-del':{const r=rows[i];r.alts.splice(jx,1);if(r.alts.length<2){if(r.alts[0])r.src=r.alts[0].src;delete r.alts;delete r.swAll;}else r.src=r.alts[0].src;re();break;}
     case 'cell-del':rows[i].cells.splice(jx,1);re();break;
     case 'party-add':rows[i].parties.push({name:'Новая партия',seats:10,color:'#888888'});re();break;
     case 'party-del':rows[i].parties.splice(jx,1);re();break;

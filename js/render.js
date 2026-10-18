@@ -57,7 +57,7 @@ function tplInline(inner){
     case 'флаг-':case 'флагссылка':case 'flaglink':{const t=a[2]||a[1]||'';const ic=flagIcon(a[1],nob,px);if(!ic)return linkHTML(t,a[3]);const raw=unesc(t).split('#')[0].trim();const p=pageFind(raw);return `<a class="flaglink" href="${p?'#/wiki/'+slug(p.title):'#/new/'+slug(raw)}" title="${esc(p?p.title:raw)}">${ic}</a>`;}
     case 'красная ссылка':case 'красная':case 'redlink':return linkHTML(a[1]||'',a[2],true);
     /* квадрат легенды с подписью, как на картах выборов: {{легенда|#4488CC|ЛДПР}} */
-    case 'легенда':case 'legend':case 'квадрат':{const t=a.slice(2).join('|');return `<span class="legend-item"><span class="legend-sq" style="background:${safeColor(unesc(a[1]||''))}"></span>${t?' '+inline(unesc(t),newCtx()):''}</span><!--/lg-->`;}
+    case 'легенда':case 'legend':case 'квадрат':{const t=a.slice(2).join('|');return `<span class="legend-item"><span class="legend-sq${RL==='en'?' en':''}" style="background:${safeColor(unesc(a[1]||''))}"></span>${t?' '+inline(unesc(t),newCtx()):''}</span><!--/lg-->`;}
     case 'цвет':case 'color':return `<span class="legend-color" style="background:${safeColor(unesc(a[1]))}"></span>`+(a[2]?' '+a[2]:'');
     case 'рост':case 'up':case 'увеличение':return trend('up','good')+(a[1]?' '+a[1]:'');
     case 'падение':case 'down':case 'уменьшение':return trend('down','bad')+(a[1]?' '+a[1]:'');
@@ -68,8 +68,8 @@ function tplInline(inner){
     case '▼':return tri('down','bad')+(a[1]?' '+a[1]:'');
     case '▲-':return tri('up','bad')+(a[1]?' '+a[1]:'');
     case '▼+':return tri('down','good')+(a[1]?' '+a[1]:'');
-    case '▲0':return tri('up','')+(a[1]?' '+a[1]:'');
-    case '▼0':return tri('down','')+(a[1]?' '+a[1]:'');
+    case '▲0':return tri('up','gray')+(a[1]?' '+a[1]:'');
+    case '▼0':return tri('down','gray')+(a[1]?' '+a[1]:'');
     case '▬':return tri('flat','')+(a[1]?' '+a[1]:'');
     /* текстовые треугольники, как в карточках компаний («Роснефть»): ▲ зелёный, ▼ красный, вплотную к числу */
     case 'вверх':case 'texticon up':return ticon('up','good')+(a[1]||'');
@@ -92,7 +92,7 @@ function trend(dir,mood){
 /* Треугольники, как {{Рост}} и {{Падение}} */
 function tri(dir,mood){
   const g=dir==='up'?'▲':dir==='down'?'▼':'▬';
-  const cl=mood==='good'?'ts-g':mood==='bad'?'ts-r':'ts-n';
+  const cl=mood==='good'?'ts-g':mood==='bad'?'ts-r':mood==='gray'?'ts-gr':'ts-n';
   return `<span class="ts ${cl}" title="${tr(dir==='up'?'Рост':dir==='down'?'Падение':'Без изменений')}">${g}</span>`;
 }
 function ticon(dir,mood){return `<span class="ticon ${mood==='good'?'ticon-g':'ticon-r'}" title="${tr(dir==='up'?'Рост':'Падение')}">${dir==='up'?'▲':'▼'}</span>`;}
@@ -263,12 +263,18 @@ const RENDER={
     const l=mediaSrc(r.l),rr=mediaSrc(r.r);const fb=r.fold?foldBtn(!!r.foldOpen,'f'+i):'';
     if(!l&&!rr)return hdr(fb+inline(r.text,c),c,hs);
     return hdr(fb+`<div class="ib-office"><div class="ib-office-img">${l?`<img src="${l}" alt="">`:''}</div><div class="ib-office-label">${inline(r.text,c)}</div><div class="ib-office-img">${rr?`<img src="${rr}" alt="">`:''}</div></div>`,c,hs);},
-  field:(r,c)=>{const lb=String(r.label||'');if(/^=/.test(lb))return `<tr><td colspan="2" class="ib-sub">${inline(lb.replace(/^=\s*/,''),c)}${String(r.value||'').trim()?' '+ibVal(r.value,c):''}</td></tr>`;if(!String(r.value||'').trim())return '';return r.label?`<tr><th scope="row" class="plainlist${/^\s*•/.test(lb)?' ib-l2':''}">${inline(/^\s*•/.test(lb)?'\u00a0•\u00a0'+lb.replace(/^\s*•\s*/,''):r.label,c)}</th><td class="plainlist">${foldBox(r,ibVal(r.value,c),c)}</td></tr>`:`<tr><td colspan="2" class="plainlist">${foldBox(r,ibVal(r.value,c),c)}</td></tr>`;},
+  field:(r,c)=>{const lb=String(r.label||'');if(/^=/.test(lb))return `<tr><td colspan="2" class="ib-sub">${inline(lb.replace(/^=\s*/,''),c)}${String(r.value||'').trim()?' '+ibVal(r.value,c):''}</td></tr>`;if(!String(r.value||'').trim())return '';return r.label?`<tr><th scope="row" class="plainlist${/^\s*•/.test(lb)?' ib-l2':''}">${/^\s*•/.test(lb)&&RL==='en'?`<div class="fake-li">${inline('•\u00a0'+lb.replace(/^\s*•\s*/,''),c)}</div>`:inline(/^\s*•/.test(lb)?'\u00a0•\u00a0'+lb.replace(/^\s*•\s*/,''):r.label,c)}</th><td class="plainlist">${foldBox(r,ibVal(r.value,c),c)}</td></tr>`:`<tr><td colspan="2" class="plainlist">${foldBox(r,ibVal(r.value,c),c)}</td></tr>`;},
   text:(r,c)=>String(r.value||'').trim()?`<tr><td colspan="2" class="plainlist" style="text-align:center">${foldBox(r,ibVal(r.value,c),c)}</td></tr>`:'',
   hr:()=>`<tr><td colspan="2" class="ib-hr"><hr></td></tr>`,
   anthem:(r,c)=>{const v=String(r.value||'').trim();if(!v&&!r.dur)return '';return `<tr><td colspan="2" class="plainlist ib-anthem">${r.label?inline(r.label,c)+': ':''}${v?ibVal(v,c):''}${r.dur?playerHTML(r.dur):''}</td></tr>`;},
   below:(r,c,hs)=>String(r.value||'').trim()?`<tr><td colspan="2" class="infobox-below${hs.dk}"${hs.st2}>${ibVal(r.value,c)}</td></tr>`:'',
-  image:(r,c)=>{const s=mediaSrc(r.src);if(!s)return '';return `<tr><td colspan="2" class="infobox-image"><img src="${s}" alt="" style="width:${Math.max(40,+r.w||250)}px">${r.caption?`<span class="media-caption"${r.capLeft?' style="text-align:left"':''}>${legendWrap(inline(r.caption,c),r.lcols)}</span>`:''}</td></tr>`;},
+  image:(r,c)=>{const s=mediaSrc(r.src);if(!s)return '';const W=Math.max(40,+r.w||250);
+    const alts=(r.alts||[]).filter(a=>mediaSrc(a.src));
+    if(alts.length>1){const id='sw'+(++SWN);
+      const im=alts.map((a,k)=>`<img class="sw-img" data-sw="${k}" src="${mediaSrc(a.src)}" alt="" style="width:${W}px"${k?' hidden':''}>`).join('');
+      const sw=`<div class="ib-switch">${alts.map((a,k)=>`<label${k?'':' class="first"'}><input type="radio" name="${id}" value="${k}"${k?'':' checked'}>${inline(a.label||'',c)}</label>`).join('')}${r.swAll?`<label><input type="radio" name="${id}" value="all">${inline(r.swAll,c)}</label>`:''}</div>`;
+      return `<tr><td colspan="2" class="infobox-image">${im}${sw}${r.caption?`<span class="media-caption"${r.capLeft?' style="text-align:left"':''}>${legendWrap(inline(r.caption,c),r.lcols)}</span>`:''}</td></tr>`;}
+    return `<tr><td colspan="2" class="infobox-image"><img src="${s}" alt="" style="width:${W}px">${r.caption?`<span class="media-caption"${r.capLeft?' style="text-align:left"':''}>${legendWrap(inline(r.caption,c),r.lcols)}</span>`:''}</td></tr>`;},
   images2:(r,c)=>{const a=mediaSrc(r.src1),b=mediaSrc(r.src2);if(!a&&!b)return '';
     const im=[a&&[a,'ib-flag',r.cap1],b&&[b,'ib-coat',r.cap2]].filter(Boolean);
     return `<tr><td colspan="2" class="infobox-image"><table class="ib-flags"><tbody><tr>${im.map(([s,k])=>`<td><img class="${k}" src="${s}" alt=""></td>`).join('')}</tr>${im.some(x=>String(x[2]||'').trim())?`<tr>${im.map(x=>`<td>${inline(x[2]||'',c)}</td>`).join('')}</tr>`:''}</tbody></table></td></tr>`;},
@@ -298,25 +304,30 @@ const RENDER={
     }
     return h;},
 };
-function renderInfobox(ib,ctx,mark){
+let SWN=0;
+function renderInfobox(ib,ctx,mark,country){
   const th=ib.custom?safeColor(ib.theme):'';const fg=th?textOn(th):'';
   const hs={st:th?` style="background:${th};color:${fg}"`:'',st2:th?` style="background:${th};color:${fg}"`:'',dk:fg==='#ffffff'?' dk':''};
-  let h='',fold=null;(ib.rows||[]).forEach((r,i)=>{
+  const rowsA=ib.rows||[];const isSub=r=>r&&r.t==='field'&&/^\s*•/.test(String(r.label||''))&&String(r.value||'').trim();
+  // следующая видимая строка (пустые поля не рисуются)
+  const nextShown=i=>{for(let k=i+1;k<rowsA.length;k++){const q=rowsA[k];if(q.t==='field'&&!String(q.value||'').trim()&&!/^=/.test(String(q.label||'')))continue;return q;}return null;};
+  let h='',fold=null;rowsA.forEach((r,i)=>{
     if(r.t==='header')fold=r.fold&&r.text?{id:'f'+i,open:!!r.foldOpen}:null;
     let x=RENDER[r.t]?RENDER[r.t](r,ctx,hs,i):'';if(mark)x=x.replace(/<tr(?=[ >])/g,`<tr data-ib="${i}"`);
+    if(country&&x){const nx=nextShown(i);const cls=isSub(r)?(isSub(nx)?'mergedrow':'mergedbottomrow'):(isSub(nx)?'mergedtoprow':'');if(cls)x=x.replace(/<tr(?=[ >])/g,`<tr class="${cls}"`);}
     if(fold&&r.t!=='header')x=x.replace(/<tr(?=[ >])/g,`<tr data-fold="${fold.id}"${fold.open?'':' hidden'}`);
     h+=x;});
   if(!h&&!ib.title&&!ib.above)return '';
   // стандартная ширина 23em в Википедии на деле 23,4em (ru) и 22em (en); своя ширина (style=width) — ровно как задана
   const w0=Math.min(40,Math.max(14,+ib.w||23));const w=w0===23?(RL==='en'?22:23.4):w0;
-  return `<table class="infobox" style="width:${w}em"><tbody>${ib.above?`<tr${mark?' data-ib="above"':''}><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr${mark?' data-ib="title"':''}><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
+  return `<table class="infobox${country?' ib-country':''}" style="width:${w}em"><tbody>${ib.above?`<tr${mark?' data-ib="above"':''}><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr${mark?' data-ib="title"':''}><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
 }
 
 /* ---------- article ---------- */
 function articleParts(pg,opts={}){
   RL=pgLang(pg);
   const ctx=newCtx();
-  const ibh=renderInfobox(pg.ib,ctx,opts.editLinks);
+  const ibh=renderInfobox(pg.ib,ctx,opts.editLinks,RL==='en'&&(pg.type==='country'||pg.ib.kind==='country'));
   const b=renderBody(pg.body,ctx,opts.editLinks?pg.id:null);
   let html=b.out.join('\n');
   const refs=ctx.refs.length?`<div class="reflist"><ol class="references">${ctx.refs.map((r,i)=>`<li id="cite_note-${i+1}"><span class="mw-cite-backlink"><a href="#" data-back="${i+1}" title="${tr('Вернуться к тексту')}">${RL==='en'?'^':'↑'}</a></span> ${r}</li>`).join('')}</ol></div>`:'';

@@ -50,7 +50,7 @@ function makeConverter(lang,opts){
     C.media.push({name:n,src});return n;
   };
   C.mediaName=mediaName;
-  const SKIP='style,link,meta,script,.mw-editsection,.mw-empty-elt,.noprint,.reference-accessdate,.sortkey,.mw-cite-backlink,.Z3988,.metadata,.navbar,.plainlinks.hlist.navbar,.ext-phonos';
+  const SKIP='style,link,meta,script,.mw-editsection,.mw-empty-elt,.noprint,.reference-accessdate,.sortkey,.mw-cite-backlink,.Z3988,.metadata,.navbar,.plainlinks.hlist.navbar,.ext-phonos,.geo-nondefault,.geo-multi-punct,.geo-inline-hidden';
   const linkTitle=href=>{const m=href.match(/^\/wiki\/([^#?]+)/);if(!m)return null;const t=decodeURIComponent(m[1]).replace(/_/g,' ');if(/^[^:]+:/.test(t)&&!/^[^:]+: /.test(t)&&/^(Файл|File|Категория|Category|Служебная|Special|Шаблон|Template|Википедия|Wikipedia|Портал|Portal|Help|Справка|Обсуждение|Talk|Image|Изображение)/i.test(t))return null;return t;};
   /* стрелки и треугольники из шаблонов ru.wiki (span.ts-…) и картинки en.wiki (Increase2.svg …) */
   const TS={'ts-up-arrow':'рост','ts-down-arrow':'падение','ts-updown-arrow':'падение+','ts-downup-arrow':'рост-','ts-nochange-arrow':'неизм','ts-up':'▲','ts-profit':'▲','ts-down':'▼','ts-loss':'▼','ts-updown':'▼+','ts-downup':'▲-','ts-nochange':'▬','ts-stalledprofit':'▬'};
@@ -86,7 +86,10 @@ function makeConverter(lang,opts){
       if(el.getAttribute('style')&&/display:\s*none/i.test(el.getAttribute('style')))continue;
       if(tag==='sup'&&el.classList.contains('reference')){out+=refMark(el);continue;}
       {const tr=trendOf(el);if(tr){out+=tr;continue;}}
+      if(el.classList.contains('legend')&&el.querySelector('.legend-color')){const sq=el.querySelector('.legend-color');const m=(sq.getAttribute('style')||'').match(/background(?:-color)?\s*:\s*(#[0-9a-f]{3,8}|rgb\([^)]*\)|[a-z]+)/i);if(m){const cl=el.cloneNode(true);cl.querySelector('.legend-color').remove();const t=inl(cl,ctx).replace(/\s*\n\s*/g,' ').trim();out+=(ctx.lines?'\n':' ')+`{{легенда|${m[1]}|${t}}}`+(ctx.lines?'\n':' ');continue;}}
       {const hx=sqColor(el);if(hx){out+=`{{цвет|${hx}}}`;continue;}}
+      if(el.classList.contains('nowrap')&&el.textContent.trim()){const t=inl(el,ctx);out+=t.includes('\n')?t:`<span style="white-space:nowrap">${t}</span>`;continue;}
+      if(/\bib-country-(largest|lang|ethnic|religion|sovereignty)\b|\bnobold\b/.test(el.className||'')&&el.textContent.trim()){const t=inl(el,ctx).trim();out+=(tag==='div'?(ctx.lines?'\n':'<br>'):'')+wrapLines(t,'<span style="font-weight:normal">','</span>');continue;}
       if(tag==='span'&&el.getAttribute('style')){const ss=safeStyle(el.getAttribute('style'));if(ss&&el.textContent.trim()){const t=inl(el,ctx);out+=t.trim()?wrapLines(t,`<span style="${ss}">`,'</span>'):t;continue;}}
       if(el.classList.contains('mw-tmh-player')||tag==='audio'||tag==='video'){
         const a=tag==='audio'||tag==='video'?el:el.querySelector('audio,video');const hint=+(a&&a.getAttribute('data-durationhint'))||0;
@@ -162,7 +165,7 @@ function wiInfobox(tbl,C){
     const cells=[...tr.cells];if(!cells.length)continue;
     const th=cells.filter(c=>c.tagName==='TH'),td=cells.filter(c=>c.tagName==='TD');
     const one=cells.length===1?cells[0]:null;
-    if(one&&(one.classList.contains('infobox-above')||(!rows.length&&!title&&one.tagName==='TH'&&!one.querySelector('img')))){title=title||C.inline(one,false);continue;}
+    if(one&&(one.classList.contains('infobox-above')||(!rows.length&&!title&&one.tagName==='TH'&&!one.querySelector('img')))){if(!title){const nm=one.querySelector('.ib-country-names');if(nm){const cl=one.cloneNode(true);cl.querySelector('.ib-country-names').remove();const n2=C.inline(nm,false).trim();title=C.inline(cl,false).trim()+(n2?'<br><span style="font-weight:normal">'+n2+'</span>':'');}else title=C.inline(one,false);}continue;}
     if(one&&one.classList.contains('infobox-below')){const v=C.inline(one,true);if(v)rows.push(R.below(v));continue;}
     // строка предшественников и преемников (ru.wiki «Государство»): плавающие блоки слева и справа, даты посередине
     if(one){const ch=[...one.children].filter(d=>d.tagName==='DIV');const fl=d=>(d.getAttribute('style')||'').match(/float:\s*(left|right)/i);
@@ -207,10 +210,17 @@ function wiInfobox(tbl,C){
       const big=[...one.querySelectorAll('img')].filter(i=>(+i.getAttribute('width')||0)>60||(+i.getAttribute('height')||0)>60);
       if(big.length&&C.opts.images){
         const caps=[...one.querySelectorAll('.infobox-caption,.media-caption,.ib-country-map-caption,figcaption')];
+        const swc=one.querySelector('.switcher-container');
+        if(swc&&big.length>=2){
+          const simgs=big.filter(i=>swc.contains(i));const labs=[...swc.querySelectorAll('.switcher-label')].map(l=>{const c2=l.cloneNode(true);c2.removeAttribute('style');const w=l.ownerDocument.createElement('div');w.appendChild(c2);return C.inline(w,false).replace(/\s*\n\s*/g,' ').trim();});
+          const alts=simgs.map((im,k)=>({src:C.mediaName(im),label:labs[k]||('Вариант '+(k+1))}));
+          const cl=one.cloneNode(true);cl.querySelector('.switcher-container').remove();cl.querySelectorAll('img').forEach(i=>{if((+i.getAttribute('width')||0)>60)i.remove();});
+          const ri=R.i(alts[0].src,C.inline(cl,false),Math.min(400,+simgs[0].getAttribute('width')||250));ri.alts=alts;ri.swAll=C.lang==='en'?'Show all':'Показать все';rows.push(ri);continue;
+        }
         if(big.length>=2){
           // флаг и герб: подпись под каждой картинкой ищем в ближайшем общем блоке
           const isBig=i=>(+i.getAttribute('width')||0)>60||(+i.getAttribute('height')||0)>60;
-          const capFor=img=>{let p=img.parentElement,best=null;while(p&&p!==one&&[...p.querySelectorAll('img')].filter(isBig).length===1){best=p;p=p.parentElement;}return best?best.textContent.replace(/s+/g,' ').trim():'';};
+          const capFor=img=>{let p=img.parentElement,best=null;while(p&&p!==one&&[...p.querySelectorAll('img')].filter(isBig).length===1){best=p;p=p.parentElement;}if(!best)return '';const cl=best.cloneNode(true);cl.querySelectorAll('img').forEach(i=>i.remove());return C.inline(cl,false).replace(/\s+/g,' ').trim();};
           const capEls=[...one.querySelectorAll('.media-caption,.infobox-caption')];const capOf=(img,i)=>capEls.length>=2?C.inline(capEls[i],false):(capFor(img)||img.getAttribute('alt')||'');
           rows.push(R.i2(C.mediaName(big[0]),capOf(big[0],0),C.mediaName(big[1]),capOf(big[1],1)));
           for(const extra of big.slice(2))rows.push(R.i(C.mediaName(extra),'',Math.min(300,+extra.getAttribute('width')||250)));
@@ -281,7 +291,7 @@ function wiInfobox(tbl,C){
   // своя ширина карточки (у СССР style="width:28em")
   const wm=(tbl.getAttribute('style')||'').match(/(?:^|;)\s*width\s*:\s*([\d.]+)\s*(em|px)/i);
   const w=wm?(wm[2].toLowerCase()==='px'?+wm[1]/14.4:+wm[1]):0;
-  return {title,rows,w:w>=14&&w<=40?Math.round(w*10)/10:0};
+  return {title,rows,w:w>=14&&w<=40?Math.round(w*10)/10:0,kind:tbl.classList.contains('ib-country')?'country':''};
 }
 
 function wiBody(root,C,opts){
@@ -372,7 +382,7 @@ async function wikiImport(q,lang,opts){
   if(L==='en')pg.lang='en';else if(L==='ru'&&(P.wiki.lang||'ru')!=='ru')pg.lang='ru';
   Object.assign(pg,{hatnote:opts.body?hatnote:'',body:body||`'''${pageTitle}''' — …`,cats:cats.join(', '),
     source:{lang:L,title:parse.title,url:`https://${L}.wikipedia.org/wiki/${encodeURIComponent(parse.title.replace(/ /g,'_'))}`}});
-  pg.ib={title:ib.title||pageTitle,custom:false,theme:'#3366cc',w:ib.w||23,rows:ib.rows.length?ib.rows:pg.ib.rows};
+  pg.ib={title:ib.title||pageTitle,custom:false,theme:'#3366cc',w:ib.w||23,rows:ib.rows.length?ib.rows:pg.ib.rows};if(ib.kind)pg.ib.kind=ib.kind;
   P.media.push(...C.media);P.pages.push(pg);save();
   return {pg,images:C.media.length,refs:C.refCount};
 }
