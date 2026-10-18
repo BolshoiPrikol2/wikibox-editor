@@ -62,9 +62,10 @@ function ieRichBox(val,tag){
 }
 /* что править в строке карточки: [объект, поле] или null — тогда только в редакторе */
 function ieTarget(pg,key,cell){
-  if(key==='title'||key==='above')return [pg.ib,key];
+  let ib=pg.ib;const em=String(key).match(/^e(\d+):(.*)$/);if(em){ib=(pg.extra||[])[+em[1]];key=em[2];if(!ib)return null;}
+  if(key==='title'||key==='above')return [ib,key];
   if(key==='hatnote')return [pg,'hatnote'];
-  const r=pg.ib.rows[+key];if(!r)return null;
+  const r=ib.rows[+key];if(!r)return null;
   switch(r.t){
     case 'field':return [r,cell&&cell.tagName==='TH'||cell&&cell.classList.contains('ib-sub')?'label':'value'];
     case 'header':return [r,'text'];

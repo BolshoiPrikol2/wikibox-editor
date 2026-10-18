@@ -220,6 +220,7 @@ function renderBody(src,ctx,pid){
     if(/^[*#]/.test(t)){flush();const s0=i;const ll=[];while(i<lines.length&&/^[*#]/.test(lines[i].trim())){ll.push(lines[i].trim());i++;}push(renderList(ll,ctx),s0,i-1);continue;}
     if(m=t.match(/^\[\[(?:Файл|File|Изображение|Image):(.+)\]\]$/i)){flush();push(renderThumb(m[1],ctx),i,i);i++;continue;}
     if(m=t.match(/^\{\{\s*(основная статья|основные статьи|main|см\. также|see also)\s*\|(.+)\}\}$/i)){flush();const it=m[2].split('|').map(x=>x.trim()).filter(Boolean);const main=!/также|also/i.test(m[1]);push(`<div class="hatnote">${main?(it.length>1?tr('Основные статьи'):tr('Основная статья')):tr('См. также')}: ${inline(it.map(x=>'[['+x+']]').join(', '),ctx)}</div>`,i,i);i++;continue;}
+    if(m=t.match(/^\{\{\s*(?:карточка|infobox)\s*\|\s*(\d+)\s*\}\}$/i)){flush();out.push('\u0005IB'+m[1]+'\u0005');i++;continue;}
     if(/^(\{\{\s*(примечания|reflist|references)\s*\}\}|<references\s*\/?>)$/i.test(t)){flush();out.push('\u0003REFS\u0003');i++;continue;}
     if(t==='----'){flush();push('<hr>',i,i);i++;continue;}
     if(t[0]===':'){flush();push(`<dl><dd>${inline(t.replace(/^:+/,''),ctx)}</dd></dl>`,i,i);i++;continue;}
@@ -313,14 +314,14 @@ function renderInfobox(ib,ctx,mark,country){
   const nextShown=i=>{for(let k=i+1;k<rowsA.length;k++){const q=rowsA[k];if(q.t==='field'&&!String(q.value||'').trim()&&!/^=/.test(String(q.label||'')))continue;return q;}return null;};
   let h='',fold=null;rowsA.forEach((r,i)=>{
     if(r.t==='header')fold=r.fold&&r.text?{id:'f'+i,open:!!r.foldOpen}:null;
-    let x=RENDER[r.t]?RENDER[r.t](r,ctx,hs,i):'';if(mark)x=x.replace(/<tr(?=[ >])/g,`<tr data-ib="${i}"`);
+    let x=RENDER[r.t]?RENDER[r.t](r,ctx,hs,i):'';if(mark)x=x.replace(/<tr(?=[ >])/g,`<tr data-ib="${typeof mark==='string'?mark:''}${i}"`);
     if(country&&x){const nx=nextShown(i);const cls=isSub(r)?(isSub(nx)?'mergedrow':'mergedbottomrow'):(isSub(nx)?'mergedtoprow':'');if(cls)x=x.replace(/<tr(?=[ >])/g,`<tr class="${cls}"`);}
     if(fold&&r.t!=='header')x=x.replace(/<tr(?=[ >])/g,`<tr data-fold="${fold.id}"${fold.open?'':' hidden'}`);
     h+=x;});
   if(!h&&!ib.title&&!ib.above)return '';
   // стандартная ширина 23em в Википедии на деле 23,4em (ru) и 22em (en); своя ширина (style=width) — ровно как задана
   const w0=Math.min(40,Math.max(14,+ib.w||23));const w=w0===23?(RL==='en'?22:23.4):w0;
-  return `<table class="infobox${country?' ib-country':''}" style="width:${w}em"><tbody>${ib.above?`<tr${mark?' data-ib="above"':''}><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr${mark?' data-ib="title"':''}><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
+  return `<table class="infobox${country?' ib-country':''}${ib.kind&&ib.kind!=='country'?' ib-'+esc(ib.kind):''}" style="width:${w}em"><tbody>${ib.above?`<tr${mark?` data-ib="${typeof mark==='string'?mark:''}above"`:''}><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr${mark?` data-ib="${typeof mark==='string'?mark:''}title"`:''}><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
 }
 
 /* ---------- article ---------- */
@@ -330,10 +331,15 @@ function articleParts(pg,opts={}){
   const ibh=renderInfobox(pg.ib,ctx,opts.editLinks,RL==='en'&&(pg.type==='country'||pg.ib.kind==='country'));
   const b=renderBody(pg.body,ctx,opts.editLinks?pg.id:null);
   let html=b.out.join('\n');
+  // дополнительные карточки: там, где в тексте стоит {{карточка|N}}, остальные — сразу под первой
+  const extra=pg.extra||[];const placed=new Set();
+  const xib=k=>{const x=extra[k];if(!x)return '';return renderInfobox(x,ctx,opts.editLinks?'e'+k+':':false,RL==='en'&&x.kind==='country');};
+  html=html.replace(/\u0005IB(\d+)\u0005/g,(m,n)=>{const k=+n-2;if(k<0||placed.has(k))return '';placed.add(k);return xib(k);});
+  const rest=extra.map((x,k)=>placed.has(k)?'':xib(k)).join('');
   const refs=ctx.refs.length?`<div class="reflist"><ol class="references">${ctx.refs.map((r,i)=>`<li id="cite_note-${i+1}"><span class="mw-cite-backlink"><a href="#" data-back="${i+1}" title="${tr('Вернуться к тексту')}">${RL==='en'?'^':'↑'}</a></span> ${r}</li>`).join('')}</ol></div>`:'';
   if(html.includes('\u0003REFS\u0003'))html=html.replace('\u0003REFS\u0003',refs).replace(/\u0003REFS\u0003/g,'');
   else if(refs){const id='sec-'+b.heads.length;b.heads.push({lv:2,id,text:tr('Примечания')});html+=`<h2 id="${id}">${tr('Примечания')}</h2>`+refs;}
-  const content=`${pg.hatnote?`<div class="hatnote"${opts.editLinks?' data-ib="hatnote"':''}>${inline(pg.hatnote,ctx)}</div>`:''}${ibh}${html}<div class="clear"></div>`;
+  const content=`${pg.hatnote?`<div class="hatnote"${opts.editLinks?' data-ib="hatnote"':''}>${inline(pg.hatnote,ctx)}</div>`:''}${ibh}${rest}${html}<div class="clear"></div>`;
   return {content,heads:b.heads};
 }
 function catsOf(pg){return String(pg.cats||'').split(/[,\n]/).map(s=>s.trim()).filter(Boolean);}

@@ -27,7 +27,8 @@ function normalize(p){
   p.pages=p.pages.map(pg=>{
     const ib=Object.assign({title:'',custom:false,theme:'#3366cc',w:23,rows:[]},pg.ib||{});
     if(p.v!==2){ib.custom=false;ib.w=23;}
-    return Object.assign({id:uid(),type:'blank',title:'Без названия',hatnote:'',body:'',cats:'',created:Date.now(),updated:Date.now()},pg,{ib});
+    const extra=Array.isArray(pg.extra)?pg.extra.filter(Boolean).map(x=>Object.assign({title:'',custom:false,theme:'#3366cc',w:23,rows:[]},x)):[];
+    return Object.assign({id:uid(),type:'blank',title:'Без названия',hatnote:'',body:'',cats:'',created:Date.now(),updated:Date.now()},pg,{ib,extra});
   });
   p.v=2;
   if(!p.pages.some(x=>x.id===p.featured))p.featured=p.pages[0]?.id;
@@ -327,16 +328,19 @@ function picker(path,val,label){
   const s=mediaSrc(val);
   return `<div class="pick">${label?`<span class="pick-l">${label}</span>`:''}<span class="pthumb">${s?`<img src="${s}" alt="">`:''}</span><select id="${fid(path)}" data-p="${path}" aria-label="${label||'Изображение'}"><option value="">— нет —</option>${P.media.map(m=>`<option value="${esc(m.name)}"${m.name===val?' selected':''}>${esc(m.name)}</option>`).join('')}${val&&!s?`<option value="${esc(val)}" selected>${esc(val)} (нет в медиатеке)</option>`:''}</select><label class="btn sm" title="Загрузить картинку с компьютера">Загрузить<input type="file" accept="image/*" data-up="${path}" hidden></label></div>`;
 }
+/* какая карточка правится: 0 — основная, N — pg.extra[N-1] */
+const IBP=()=>state.ibi&&edPage&&edPage.extra&&edPage.extra[state.ibi-1]?'extra.'+(state.ibi-1):'ib';
+const curIb=pg=>IBP()==='ib'?pg.ib:pg.extra[state.ibi-1];
 const FOLDABLE=['field','text','header'];const SETOPEN=new Set();
 /* панель настроек строки (⚙): кнопка «показать/скрыть» */
 function rowSet(r,i){
-  if(!FOLDABLE.includes(r.t))return '';const p='ib.rows.'+i;
+  if(!FOLDABLE.includes(r.t))return '';const p=IBP()+'.rows.'+i;
   const cb=(k,txt)=>`<label class="inl"><input type="checkbox" id="${fid(p+'.'+k)}" data-p="${p}.${k}"${r[k]?' checked':''}> ${txt}</label>`;
   return `<div class="rw-set"${r.fold||SETOPEN.has(i)?'':' hidden'}><span class="rw-type">Настройки строки</span>${cb('fold','Кнопка «показать / скрыть»')}${cb('foldOpen','сначала развёрнуто')}${r.t==='header'?'<span class="cnt">Сворачивает строки карточки до следующего заголовка</span>':`<label class="inl rw-set-sum">Видно, пока свёрнуто ${inp(p+'.foldSum',r.foldSum||'','например: 32 государства')}</label>`}</div>`;
 }
 const rbtns=(i,dup=true,set=false)=>`<span class="rbtns">${set?`<button class="ic" data-act="row-set" data-i="${i}" aria-label="Настройки строки" title="Настройки строки: кнопка «показать / скрыть»">⚙</button>`:''}<span class="drag" data-drag="${i}" title="Перетащите, чтобы переставить строку" aria-label="Перетащить строку">⠿</span><button class="ic" data-act="row-up" data-i="${i}" aria-label="Выше" title="Выше">↑</button><button class="ic" data-act="row-down" data-i="${i}" aria-label="Ниже" title="Ниже">↓</button>${dup?`<button class="ic" data-act="row-dup" data-i="${i}" aria-label="Копировать строку" title="Копировать">⧉</button>`:''}<button class="ic x" data-act="row-del" data-i="${i}" aria-label="Удалить строку" title="Удалить">✕</button></span>`;
 function rowEditor(r,i){
-  const p='ib.rows.'+i;
+  const p=IBP()+'.rows.'+i;
   if(r.t==='field')return `<div class="rw f" data-row="${i}">${ta1(p+'.label',r.label,'Подпись')}${ta(p+'.value',r.value,r.ph||'Значение')}${rbtns(i,false,true)}${rowSet(r,i)}</div>`;
   if(r.t==='header')return `<div class="rw h" data-row="${i}"><div class="rw-line">${ta1(p+'.text',r.text,'Заголовок раздела или название должности')}${rbtns(i,false,true)}</div><div class="two">${picker(p+'.l',r.l,'Слева')}${picker(p+'.r',r.r,'Справа')}</div>${rowSet(r,i)}</div>`;
   if(r.t==='hr')return `<div class="rw f hr" data-row="${i}"><span class="rw-type">Разделительная линия</span><span></span>${rbtns(i,false)}</div>`;
@@ -371,10 +375,11 @@ function editorForm(pg){
     <label class="fld"><span>Пометка над текстом</span>${inp('hatnote',pg.hatnote,'Например: Об одноимённом городе см. [[Омск]]')}</label>
   </fieldset>
   <fieldset class="grp"><legend>Карточка</legend>
-    <label class="fld"><span>Надпись над заголовком карточки</span>${ta1('ib.above',pg.ib.above||'','Например: Город-государство под протекторатом [[Лига Наций|Лиги Наций]]')}</label>
-    <label class="fld"><span>Заголовок карточки</span>${ta1('ib.title',pg.ib.title)}</label>
-    <div class="line"><label class="inl"><input type="checkbox" id="f-ib-custom" data-p="ib.custom"${pg.ib.custom?' checked':''}> свой цвет шапок</label>${col('ib.theme',pg.ib.theme)}<label class="inl">Ширина, em ${num('ib.w',pg.ib.w,14,40)}</label></div>
-    <div id="rows">${pg.ib.rows.map(rowEditor).join('')}</div>
+    ${ibTabsHTML(pg)}
+    <label class="fld"><span>Надпись над заголовком карточки</span>${ta1(IBP()+'.above',curIb(pg).above||'','Например: Город-государство под протекторатом [[Лига Наций|Лиги Наций]]')}</label>
+    <label class="fld"><span>Заголовок карточки</span>${ta1(IBP()+'.title',curIb(pg).title)}</label>
+    <div class="line"><label class="inl"><input type="checkbox" id="f-ib-custom" data-p="${IBP()}.custom"${curIb(pg).custom?' checked':''}> свой цвет шапок</label>${col(IBP()+'.theme',curIb(pg).theme)}<label class="inl">Ширина, em ${num('ib.w',pg.ib.w,14,40)}</label></div>
+    <div id="rows">${curIb(pg).rows.map(rowEditor).join('')}</div>
     <div class="addrow"><select id="addrow-type" aria-label="Тип строки">${Object.entries(ROWTYPES).map(([k,v])=>`<option value="${k}">${v[0]}</option>`).join('')}</select><button class="btn" data-act="add-row">Добавить строку</button></div>
   </fieldset>
   <fieldset class="grp"><legend>Текст статьи</legend>
@@ -388,6 +393,7 @@ function editorForm(pg){
       <tr><td><code>&lt;ref&gt;Источник&lt;/ref&gt;</code></td><td>сноска; повтор: <code>&lt;ref name="a"&gt;…&lt;/ref&gt;</code> и <code>&lt;ref name="a"/&gt;</code>; место списка — <code>{{примечания}}</code></td></tr>
       <tr><td><code>{{флаг|Сибирь|Сибирская Республика}}</code></td><td>флаг из медиатеки и ссылка</td></tr>
       <tr><td><code>&lt;span style="font-size:85%"&gt;…&lt;/span&gt;</code></td><td>мелкий шрифт, цвет (<code>color:#090</code>), фон (<code>background:#6699FF</code>), обычная толщина (<code>font-weight:normal</code>) — как в разметке Википедии</td></tr>
+      <tr><td><code>{{карточка|2}}</code></td><td>место для второй (третьей…) карточки статьи — отдельной строкой в тексте; без неё дополнительная карточка встаёт под первой</td></tr>
       <tr><td><code>[[#Раздел|↓]]</code></td><td>ссылка на раздел или заголовок карточки этой же страницы</td></tr>
       <tr><td><code>{{флагик|Сибирь|20px}}</code></td><td>флажок нужной ширины</td></tr>
       <tr><td><code>{{легенда|#4488CC|ЛДПР}}</code></td><td>цветной квадрат с подписью, как в легенде карты выборов; несколько подряд в подписи картинки встают в колонки (в карточке — поле «Колонок в легенде», в тексте — <code>[[Файл:Карта|300px|колонки=3|Подпись {{легенда|…}} {{легенда|…}}]]</code>)</td></tr>
@@ -414,7 +420,7 @@ function editorForm(pg){
   <div class="ed-top"><a class="btn pri" href="#/wiki/${slug(pg.title)}">Готово — к статье</a><button class="btn" data-act="dup-page">Создать копию</button><button class="btn danger" data-act="del-page">Удалить страницу</button></div>`;
 }
 function viewEdit(pg){
-  edPage=pg;RL=pgLang(pg);$('#main').classList.remove('is-main');
+  if(edPage!==pg)state.ibi=0;edPage=pg;RL=pgLang(pg);$('#main').classList.remove('is-main');
   const content=`<div class="ed-switch"><button data-act="ed-tab" data-v="form" class="${state.edTab==='form'?'on':''}">Правка</button><button data-act="ed-tab" data-v="prev" class="${state.edTab==='prev'?'on':''}">Предпросмотр</button></div>
   <div class="editor" data-tab="${state.edTab}"><div class="ed-form" id="edform">${editorForm(pg)}</div><div class="ed-prev"><div class="ed-prev-l">Предпросмотр</div><div id="edprev"></div></div></div>`;
   setView('',shell({title:`Редактирование: <span id="ed-title">${esc(pg.title)}</span>`,mode:'edit',pg,content,sub:false,foot:false}),'Редактирование: '+pg.title);
@@ -438,6 +444,11 @@ function insertTB(k){
   el.dispatchEvent(new Event('input',{bubbles:true}));
 }
 
+/* вкладки карточек в редакторе: «Карточка 1 / 2 / + карточка» */
+function ibTabsHTML(pg){
+  const n=1+(pg.extra||[]).length;const cur=state.ibi||0;
+  return `<div class="ib-tabs" role="tablist" aria-label="Карточки статьи">${Array.from({length:n},(_,k)=>`<button type="button" role="tab" aria-selected="${k===cur}" class="btn sm${k===cur?' pri':''}" data-act="ib-sel" data-k="${k}">Карточка ${k+1}</button>`).join('')}<span class="ib-add"><select id="ib-add-type" aria-label="Шаблон новой карточки">${Object.entries(TPL).map(([k,t])=>`<option value="${k}"${k==='blank'?' selected':''}>${esc(t.name)}</option>`).join('')}</select><button type="button" class="btn sm" data-act="ib-add">+ карточка</button></span>${cur>0?`<button type="button" class="btn sm danger" data-act="ib-del">Удалить карточку ${cur+1}</button><span class="cnt">Встаёт под первой карточкой; чтобы поставить её в другое место текста, впишите туда строку <code>{{карточка|${cur+1}}}</code></span>`:''}</div>`;
+}
 /* Таблица в редакторе статьи: курсор внутри {| … |} — правим её, иначе вставляем новую */
 function tableFromEditor(){
   const el=$('#f-body');if(!el)return;const v=el.value;const pos=el.selectionStart??v.length;
@@ -472,7 +483,7 @@ const LABELS_EN={'Должность':'Office','Глава правительс�
 function translateLabels(pg,to){
   const map=to==='en'?LABELS_EN:Object.fromEntries(Object.entries(LABELS_EN).map(([k,v])=>[v,k]));let n=0;
   const t=v=>{if(v==null)return v;const k=String(v).trim();if(map[k]){n++;return map[k];}return v;};
-  for(const r of pg.ib.rows||[]){if('label' in r)r.label=t(r.label);if(r.t==='header')r.text=t(r.text);if(r.stats)r.stats.forEach(s=>s.label=t(s.label));if('photoLabel' in r)r.photoLabel=t(r.photoLabel);if('nameLabel' in r)r.nameLabel=t(r.nameLabel);}
+  for(const r of [pg.ib,...(pg.extra||[])].flatMap(b=>b.rows||[])){if('label' in r)r.label=t(r.label);if(r.t==='header')r.text=t(r.text);if(r.stats)r.stats.forEach(s=>s.label=t(s.label));if('photoLabel' in r)r.photoLabel=t(r.photoLabel);if('nameLabel' in r)r.nameLabel=t(r.nameLabel);}
   return n;
 }
 /* ---------- выгрузка ---------- */
@@ -525,7 +536,7 @@ document.addEventListener('input',e=>{
   if(el.dataset.scope==='proj'){setPath(P,p,el.value);applyBrand();clearTimeout(svT);svT=setTimeout(save,500);return;}
   const pg=edPage;if(!pg||!$('#edform')?.contains(el))return;
   let v=el.type==='checkbox'?el.checked:el.type==='number'?(el.value===''?'':+el.value):el.value;
-  {const mm=p.match(/^ib\.rows\.(\d+)\.alts\.0\.src$/);if(mm&&pg.ib.rows[+mm[1]])pg.ib.rows[+mm[1]].src=v;}
+  {const mm=p.match(/^(ib|extra\.(\d+))\.rows\.(\d+)\.alts\.0\.src$/);const box=mm&&(mm[2]!=null?(pg.extra||[])[+mm[2]]:pg.ib);if(box&&box.rows[+mm[3]])box.rows[+mm[3]].src=v;}
   if(p==='title'){
     if(pg.ib.title===pg.title){pg.ib.title=v;const f=$('#f-ib-title');if(f)f.value=v;}
     const t=$('#ed-title');if(t)t.textContent=v;document.title='Редактирование: '+v+' — '+P.wiki.name;
@@ -585,7 +596,7 @@ document.addEventListener('click',e=>{
   if(!e.target.closest('#menu,#burger'))$('#menu').hidden=true;
   if(!e.target.closest('#search'))$('#sugg').hidden=true;
   const btn=e.target.closest('[data-act]');if(!btn)return;
-  const act=btn.dataset.act,i=+btn.dataset.i,jx=+btn.dataset.j;const pg=cur();const rows=edPage?.ib.rows;
+  const act=btn.dataset.act,i=+btn.dataset.i,jx=+btn.dataset.j;const pg=cur();const rows=edPage?curIb(edPage).rows:null;
   const re=()=>{rerenderForm();changed(edPage);};
   switch(act){
     case 'burger':{const m=$('#menu');if(m.hidden)renderMenu();m.hidden=!m.hidden;btn.setAttribute('aria-expanded',String(!m.hidden));break;}
@@ -608,6 +619,9 @@ document.addEventListener('click',e=>{
     case 'row-del':rows.splice(i,1);SETOPEN.clear();re();break;
     case 'row-set':{const box=btn.closest('.rw').querySelector('.rw-set');if(box){box.hidden=!box.hidden;box.hidden?SETOPEN.delete(i):SETOPEN.add(i);if(!box.hidden)box.querySelector('input')?.focus();}break;}
     case 'cell-add':rows[i].cells.push('');re();break;
+    case 'ib-sel':state.ibi=+btn.dataset.k;rerenderForm();break;
+    case 'ib-add':{const t=$('#ib-add-type')?.value||'blank';const made=TPL[t]?TPL[t].make('Новая карточка'):{rows:[]};edPage.extra=edPage.extra||[];edPage.extra.push({title:'',custom:false,theme:'#3366cc',w:23,rows:made.rows||[]});state.ibi=edPage.extra.length;changed(edPage);rerenderForm();toast('Карточка '+(state.ibi+1)+' добавлена — она встанет под первой; чтобы поставить её в другое место, впишите в текст строку {{карточка|'+(state.ibi+1)+'}}');break;}
+    case 'ib-del':if(armed(btn,'Точно удалить карточку?')&&state.ibi>0){const n=state.ibi;edPage.extra.splice(n-1,1);edPage.body=String(edPage.body||'').replace(new RegExp('^\\{\\{\\s*(?:карточка|infobox)\\s*\\|\\s*'+(n+1)+'\\s*\\}\\}\\s*$','gim'),'');edPage.body=edPage.body.replace(/^(\{\{\s*(?:карточка|infobox)\s*\|\s*)(\d+)(\s*\}\})/gim,(m,a1,d,a3)=>+d>n+1?a1+(+d-1)+a3:m);state.ibi=0;changed(edPage);rerenderForm();}break;
     case 'alt-add':{const r=rows[i];r.alts=r.alts&&r.alts.length?r.alts:[{src:r.src,label:'Вариант 1'}];r.alts.push({src:'',label:'Вариант '+(r.alts.length+1)});re();break;}
     case 'alt-del':{const r=rows[i];r.alts.splice(jx,1);if(r.alts.length<2){if(r.alts[0])r.src=r.alts[0].src;delete r.alts;delete r.swAll;}else r.src=r.alts[0].src;re();break;}
     case 'cell-del':rows[i].cells.splice(jx,1);re();break;
@@ -653,7 +667,7 @@ document.addEventListener('pointerup',()=>{
   if(!rowDrag)return;const d=rowDrag;rowDrag=null;
   $$('#rows .rw').forEach(r=>r.classList.remove('drop-before','drop-after','dragging'));
   if(d.to==null||!edPage)return;
-  const rows=edPage.ib.rows;let to=d.to+(d.after?1:0);if(to>d.from)to--;
+  const rows=curIb(edPage).rows;let to=d.to+(d.after?1:0);if(to>d.from)to--;
   if(to===d.from)return;
   const [it]=rows.splice(d.from,1);rows.splice(to,0,it);rerenderForm();changed(edPage);
 });

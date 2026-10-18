@@ -50,7 +50,7 @@ function makeConverter(lang,opts){
     C.media.push({name:n,src});return n;
   };
   C.mediaName=mediaName;
-  const SKIP='style,link,meta,script,.mw-editsection,.mw-empty-elt,.noprint,.reference-accessdate,.sortkey,.mw-cite-backlink,.Z3988,.metadata,.navbar,.plainlinks.hlist.navbar,.ext-phonos,.geo-nondefault,.geo-multi-punct,.geo-inline-hidden';
+  const SKIP='style,link,meta,script,.mw-editsection,.mw-empty-elt,.reference-accessdate,.sortkey,.mw-cite-backlink,.Z3988,.navbar,.plainlinks.hlist.navbar,.ext-phonos,.geo-nondefault,.geo-multi-punct,.geo-inline-hidden';
   const linkTitle=href=>{const m=href.match(/^\/wiki\/([^#?]+)/);if(!m)return null;const t=decodeURIComponent(m[1]).replace(/_/g,' ');if(/^[^:]+:/.test(t)&&!/^[^:]+: /.test(t)&&/^(Файл|File|Категория|Category|Служебная|Special|Шаблон|Template|Википедия|Wikipedia|Портал|Portal|Help|Справка|Обсуждение|Talk|Image|Изображение)/i.test(t))return null;return t;};
   /* стрелки и треугольники из шаблонов ru.wiki (span.ts-…) и картинки en.wiki (Increase2.svg …) */
   const TS={'ts-up-arrow':'рост','ts-down-arrow':'падение','ts-updown-arrow':'падение+','ts-downup-arrow':'рост-','ts-nochange-arrow':'неизм','ts-up':'▲','ts-profit':'▲','ts-down':'▼','ts-loss':'▼','ts-updown':'▼+','ts-downup':'▲-','ts-nochange':'▬','ts-stalledprofit':'▬'};
@@ -83,6 +83,7 @@ function makeConverter(lang,opts){
       if(n.nodeType!==1)continue;
       const el=n,tag=el.tagName.toLowerCase();
       if(el.matches(SKIP))continue;
+      if(el.matches('.noprint,.metadata')&&!el.closest('table.infobox'))continue;
       if(el.getAttribute('style')&&/display:\s*none/i.test(el.getAttribute('style')))continue;
       if(tag==='sup'&&el.classList.contains('reference')){out+=refMark(el);continue;}
       {const tr=trendOf(el);if(tr){out+=tr;continue;}}
@@ -124,6 +125,7 @@ function makeConverter(lang,opts){
         if(el.closest('.hlist')){out+=items.join('\u00a0· ');continue;}
         out+=ctx.lines?'\n'+items.map(x=>'* '+x).join('\n')+'\n':items.join(', ');continue;
       }
+      if(tag==='div'&&(/(^|\s)(ib-[\w-]+-(locality|country|region)|locality|country-name|region)(\s|$)/.test(el.className||'')||/display:\s*inline(?!-)/i.test(el.getAttribute('style')||''))){out+=inl(el,ctx);continue;}
       if(tag==='li'||tag==='p'||tag==='div'||tag==='dd'||tag==='dt'){const t=inl(el,ctx);out+=ctx.lines?(t.trim()?'\n'+t+'\n':''):t+' ';continue;}
       if(tag==='table'){
         // вложенная таблица в ячейке: строки через перевод строки
@@ -266,7 +268,7 @@ function wiInfobox(tbl,C){
       const cl=cell.cloneNode(true);cl.querySelectorAll('style,link,sup').forEach(e=>e.remove());const m=cl.textContent.replace(/[\u00a0\u202f\s]+/g,' ').match(/^\s*(\d[\d ]*)\s*(?:из|\/|of)\s*(\d[\d ]*)/i);
       if(bar&&m){const col=(bar.getAttribute('style').match(/background(?:-color)?\s*:\s*(#[0-9a-f]{3,8}|rgb\([^)]*\)|[a-z]+)/i)||[])[1]||'#3366cc';
         rows.push(R.seats(C.inline(th[0],false),+m[1].replace(/ /g,''),+m[2].replace(/ /g,''),col));continue;}
-      const label=C.inline(th[0],false),v=C.inline(td[0],true);if(v)rows.push(R.f(label,v));continue;}
+      const label=C.inline(th[0],false),v=C.inline(td[0],true);if(v)rows.push(R.f(label,v));else if(label)rows.push(R.f(label,'\u200b'));continue;}
     if(td.length>=2&&!th.length){
       const vals=td.map(c=>C.inline(c,true));
       const prev=rows[rows.length-1];
@@ -291,7 +293,7 @@ function wiInfobox(tbl,C){
   // своя ширина карточки (у СССР style="width:28em")
   const wm=(tbl.getAttribute('style')||'').match(/(?:^|;)\s*width\s*:\s*([\d.]+)\s*(em|px)/i);
   const w=wm?(wm[2].toLowerCase()==='px'?+wm[1]/14.4:+wm[1]):0;
-  return {title,rows,w:w>=14&&w<=40?Math.round(w*10)/10:0,kind:tbl.classList.contains('ib-country')?'country':''};
+  return {title,rows,w:w>=14&&w<=40?Math.round(w*10)/10:0,kind:(String(tbl.className).match(/(?:^|\s)ib-([a-z][a-z-]*)(?:\s|$)/)||[])[1]||''};
 }
 
 function wiBody(root,C,opts){
@@ -341,6 +343,8 @@ function wiBody(root,C,opts){
         push('='.repeat(lv)+' '+t+' '+'='.repeat(lv));continue;
       }
       if(skipLevel)continue;
+      if(C.ibIdx&&C.ibIdx.has(el)){push(`{{карточка|${C.ibIdx.get(el)}}}`);continue;}
+      {const inner=C.ibIdx&&[...C.ibIdx.keys()].filter(t=>el.contains(t)&&el!==t);if(inner&&inner.length&&el.matches('div,section')&&!el.matches('.navbox,.sidebar')){for(const t of inner)push(`{{карточка|${C.ibIdx.get(t)}}}`);continue;}}
       if(el.matches('style,link,meta,.infobox,.navbox,.navbox-styles,.vertical-navbox,.sidebar,.metadata,.ambox,.ombox,.tmbox,.toc,#toc,.mw-references-wrap,.reflist,.references,.noprint,.sistersitebox,.side-box,.shortdescription,.mw-empty-elt,.mw-editsection,.gallery,.mw-kartographer-maplink,.thumb.tright .navbox,.printfooter,.catlinks'))continue;
       if(el.matches('.hatnote,.dablink,.rellink')){
         const t=C.inline(el,false);
@@ -369,11 +373,13 @@ async function wikiImport(q,lang,opts){
   const root=doc.querySelector('.mw-parser-output')||doc.body;
   const C=makeConverter(L,opts);
   C.collectRefs(root);
-  const ibEl=root.querySelector('table.infobox');
+  const ibAll=[...root.querySelectorAll('table.infobox')].filter(t=>!t.parentElement.closest('table.infobox'));
+  const ibEl=ibAll[0]||null;C.ibIdx=new Map(ibAll.slice(1).map((t,k)=>[t,k+2]));
   const disp=(new DOMParser().parseFromString(parse.displaytitle||parse.title,'text/html').body.textContent||parse.title).trim();
   let type='blank';
   if(ibEl){const key=(ibEl.getAttribute('data-name')||'')+' '+ibEl.className.replace(/\b(vevent|vcard|geography|hproduct|infobox)\b/g,'');for(const [re,t] of WI_TYPES)if(re.test(key)){type=t;break;}}
   const ib=ibEl?wiInfobox(ibEl,C):{title:'',rows:[]};
+  const extraIb=ibAll.slice(1).map(t=>{const x=wiInfobox(t,C);const o={title:x.title||'',custom:false,theme:'#3366cc',w:x.w||23,rows:x.rows};if(x.kind)o.kind=x.kind;return o;});
   if(ib.rows.some(r=>r.t==='cols')&&!['battle','war'].includes(type))type='battle';
   const {body,hatnote}=opts.body?wiBody(root,C,opts):{body:'',hatnote:''};
   let pageTitle=disp,k=2;while(pageFind(pageTitle))pageTitle=`${disp} (${k++})`;
@@ -383,6 +389,7 @@ async function wikiImport(q,lang,opts){
   Object.assign(pg,{hatnote:opts.body?hatnote:'',body:body||`'''${pageTitle}''' — …`,cats:cats.join(', '),
     source:{lang:L,title:parse.title,url:`https://${L}.wikipedia.org/wiki/${encodeURIComponent(parse.title.replace(/ /g,'_'))}`}});
   pg.ib={title:ib.title||pageTitle,custom:false,theme:'#3366cc',w:ib.w||23,rows:ib.rows.length?ib.rows:pg.ib.rows};if(ib.kind)pg.ib.kind=ib.kind;
+  pg.extra=extraIb;
   P.media.push(...C.media);P.pages.push(pg);save();
   return {pg,images:C.media.length,refs:C.refCount};
 }
