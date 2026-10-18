@@ -14,6 +14,7 @@ function richHTML(src){
   const links=[];
   s=s.replace(LINK_RE,(m,r,t,x,tr)=>'\u0003'+(links.push({r,t,x:(x||t)+(tr||'')})-1)+'\u0004');
   s=s.replace(/\r?\n/g,'<br>').replace(/&lt;br\s*\/?&gt;/gi,'<br>');
+  {let open=0;s=s.replace(/&lt;span\s+style=&quot;([^&<>]*)&quot;\s*&gt;/gi,(m,st)=>{const ss=safeStyle(unesc(st));open++;return `<span style="${esc(ss)}">`;});let left=open;s=s.replace(/&lt;\/span&gt;/gi,m=>left>0?(left--,'</span>'):m);s+='</span>'.repeat(left);}
   s=fmt(s);
   s=s.replace(/\u0003(\d+)\u0004/g,(m,i)=>{const l=links[+i];return `<a class="wk-link${l.r?' new':''}" data-t="${l.t}" href="#">${fmt(l.x)}</a>`;});
   return s.replace(/\u0001(\d+)\u0002/g,(m,i)=>atomHTML(atoms[+i],ctx));
@@ -36,6 +37,7 @@ function richWiki(node){
       else o+=`[[${r}${t}|${txt}]]`;
       continue;
     }
+    if(tg==='SPAN'&&!n.classList.length){const ss=safeStyle(n.getAttribute('style')||'');o+=ss&&inner.trim()?`<span style="${ss}">${inner}</span>`:inner;continue;}
     if(tg==='B'||tg==='STRONG'){o+=inner.trim()?`'''${inner}'''`:inner;continue;}
     if(tg==='I'||tg==='EM'){o+=inner.trim()?`''${inner}''`:inner;continue;}
     if(tg==='DIV'||tg==='P'){o+=(o&&!o.endsWith('\n')?'\n':'')+inner;continue;}
@@ -172,7 +174,8 @@ function selbarShow(force){
     bar.hidden=false;sbPlace(c.r);return;
   }
   if(c.edit)RR=c.root;
-  const tools=SB_TOOLS.map(([k,l,t])=>`<button type="button" class="sb" data-sb="${k}" title="${t}" aria-label="${t}">${l}</button>`).join('');
+  const inTh=!!((c.edit?c.root:c.blk)&&(c.edit?c.root:c.blk).closest&&(c.edit?c.root:c.blk).closest('th'));
+  const tools=SB_TOOLS.map(([k,l,t])=>`<button type="button" class="sb" data-sb="${k}" title="${t}" aria-label="${t}">${l}</button>`).join('')+(inTh?`<button type="button" class="sb" data-sb="nb" title="Сделать выделенную часть подписи нежирной (или снова жирной)" aria-label="Не жирный">Не жирный</button>`:'');
   bar.innerHTML=tools+(c.edit?'':`<span class="sb-sep"></span><button type="button" class="sb" data-sb="edit" title="Править этот абзац">✎ Править</button>`);
   bar.hidden=false;sbPlace(c.r);
 }
@@ -239,6 +242,13 @@ function sbDo(k){
     case 'red':sbInput('red',r.toString().trim());return;
     case 'ref':sbInput('ref','');return;
     case 'unlink':{for(const a of [...rr().querySelectorAll('a.wk-link')])if(r.intersectsNode(a)){a.replaceWith(...a.childNodes);}break;}
+    case 'nb':{
+      // уже нежирный — возвращаем жирный, иначе оборачиваем в span font-weight:normal
+      const R0=rr();const an=n=>{let e=n.nodeType===1?n:n.parentElement;while(e&&e!==R0){if(e.tagName==='SPAN'&&/font-weight\s*:\s*(normal|400)/i.test(e.getAttribute('style')||''))return e;e=e.parentElement;}return null;};
+      const sp=an(r.startContainer)||an(r.endContainer);
+      if(sp){const st=safeStyle((sp.getAttribute('style')||'').replace(/font-weight\s*:[^;]*;?/i,''));if(st)sp.setAttribute('style',st);else sp.replaceWith(...sp.childNodes);}
+      else{const s=document.createElement('span');s.setAttribute('style','font-weight:normal');wrapRange(r,s);}
+      break;}
     case 'clear':{const t=r.toString();r.deleteContents();const tn=document.createTextNode(t);r.insertNode(tn);const nr=document.createRange();nr.selectNodeContents(tn);const s=getSelection();s.removeAllRanges();s.addRange(nr);break;}
   }
   selbarShow(true);
