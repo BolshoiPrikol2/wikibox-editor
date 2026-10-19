@@ -175,7 +175,7 @@ function selbarShow(force){
   }
   if(c.edit)RR=c.root;
   const inTh=!!((c.edit?c.root:c.blk)&&(c.edit?c.root:c.blk).closest&&(c.edit?c.root:c.blk).closest('th'));
-  const tools=SB_TOOLS.map(([k,l,t])=>`<button type="button" class="sb" data-sb="${k}" title="${t}" aria-label="${t}">${l}</button>`).join('')+(inTh?`<button type="button" class="sb" data-sb="nb" title="Сделать выделенную часть подписи нежирной (или снова жирной)" aria-label="Не жирный">Не жирный</button>`:'');
+  const tools=SB_TOOLS.map(([k,l,t])=>`<button type="button" class="sb" data-sb="${k}" title="${t}" aria-label="${t}">${l}</button>`).join('')+(inTh?(nbState(c.r,c.edit?c.root:c.blk)==='normal'?`<button type="button" class="sb" data-sb="nb" title="Сделать выделенный текст снова жирным" aria-label="Жирный">Жирный</button>`:`<button type="button" class="sb" data-sb="nb" title="Сделать выделенную часть подписи нежирной" aria-label="Не жирный">Не жирный</button>`):'');
   bar.innerHTML=tools+(c.edit?'':`<span class="sb-sep"></span><button type="button" class="sb" data-sb="edit" title="Править этот абзац">✎ Править</button>`);
   bar.hidden=false;sbPlace(c.r);
 }
@@ -208,6 +208,18 @@ function rangeAt(root,s,e){
   }
   if(!okS||!okE)return null;return r;
 }
+// подписи карточки жирные по умолчанию: нежирные куски — span font-weight:normal, жирные внутри них — <b>
+function nbSpan(n,R0){let e=n&&(n.nodeType===1?n:n.parentElement);while(e&&e!==R0){if(e.tagName==='SPAN'&&/font-weight\s*:\s*(normal|400)/i.test(e.getAttribute('style')||''))return e;e=e.parentElement;}return null;}
+function nbBold(n,sp){let e=n&&(n.nodeType===1?n:n.parentElement);while(e&&e!==sp){if(e.tagName==='B'||e.tagName==='STRONG')return e;e=e.parentElement;}return null;}
+function nbState(r,R0){const sp=nbSpan(r.startContainer,R0)||nbSpan(r.endContainer,R0);return sp&&!nbBold(r.startContainer,sp)?'normal':'bold';}
+function thWeight(r){
+  const R0=rr(),sp=nbSpan(r.startContainer,R0)||nbSpan(r.endContainer,R0);
+  if(!sp){const s=document.createElement('span');s.setAttribute('style','font-weight:normal');wrapRange(r,s);return;}
+  const b=nbBold(r.startContainer,sp)||nbBold(r.endContainer,sp);
+  if(b){b.replaceWith(...b.childNodes);return;}
+  if(r.toString().trim()===sp.textContent.trim()){const st=safeStyle((sp.getAttribute('style')||'').replace(/font-weight\s*:[^;]*;?/i,''));if(st)sp.setAttribute('style',st);else sp.replaceWith(...sp.childNodes);return;}
+  wrapRange(r,document.createElement('b'));
+}
 function wrapRange(r,el){el.appendChild(r.extractContents());r.insertNode(el);const s=getSelection();s.removeAllRanges();const nr=document.createRange();nr.selectNodeContents(el);s.addRange(nr);}
 function sbInput(kind,val){
   sbMode=kind;const r=selRange();sbRange=r&&r.cloneRange();
@@ -236,19 +248,13 @@ function sbDo(k){
   }
   const r=selRange();if(!r||!rr())return;
   switch(k){
-    case 'b':document.execCommand('bold');break;
+    case 'b':if(rr().closest('th'))thWeight(r);else document.execCommand('bold');break;
     case 'i':document.execCommand('italic');break;
     case 'link':sbInput('link',r.toString().trim());return;
     case 'red':sbInput('red',r.toString().trim());return;
     case 'ref':sbInput('ref','');return;
     case 'unlink':{for(const a of [...rr().querySelectorAll('a.wk-link')])if(r.intersectsNode(a)){a.replaceWith(...a.childNodes);}break;}
-    case 'nb':{
-      // уже нежирный — возвращаем жирный, иначе оборачиваем в span font-weight:normal
-      const R0=rr();const an=n=>{let e=n.nodeType===1?n:n.parentElement;while(e&&e!==R0){if(e.tagName==='SPAN'&&/font-weight\s*:\s*(normal|400)/i.test(e.getAttribute('style')||''))return e;e=e.parentElement;}return null;};
-      const sp=an(r.startContainer)||an(r.endContainer);
-      if(sp){const st=safeStyle((sp.getAttribute('style')||'').replace(/font-weight\s*:[^;]*;?/i,''));if(st)sp.setAttribute('style',st);else sp.replaceWith(...sp.childNodes);}
-      else{const s=document.createElement('span');s.setAttribute('style','font-weight:normal');wrapRange(r,s);}
-      break;}
+    case 'nb':thWeight(r);break;
     case 'clear':{const t=r.toString();r.deleteContents();const tn=document.createTextNode(t);r.insertNode(tn);const nr=document.createRange();nr.selectNodeContents(tn);const s=getSelection();s.removeAllRanges();s.addRange(nr);break;}
   }
   selbarShow(true);
@@ -297,6 +303,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();ieSave();return;}
   if(IE.rich&&e.target===IE.rich){
     if(e.key==='Enter'){e.preventDefault();if(/^H/.test(IE.rich.tagName))ieSave();else document.execCommand('insertLineBreak');return;}
+    if((e.ctrlKey||e.metaKey)&&(e.key.toLowerCase()==='b'||e.key.toLowerCase()==='и')&&IE.rich.closest('th')){e.preventDefault();const r=selRange();if(r&&!r.collapsed){RR=IE.rich;thWeight(r);selbarShow(true);}return;}
     if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(selRange())sbInput('link',selRange().toString().trim());return;}
   }
 });
