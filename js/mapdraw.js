@@ -45,6 +45,7 @@ function makeMapDraw(d3,topojson){
       p.fitExtent([[pad,pad],[W-pad,H-pad]],fc);
       return {p,W,H,only:true};
     }}
+    if(geo&&geo.world&&spec.proj!=='ortho')return worldProj(spec,geo.world);
     const p=PROJ[spec.proj]?PROJ[spec.proj].make():PROJ.ortho.make();
     const zoom=Math.max(1,+spec.zoom||1),lon=+spec.lon||0,lat=+spec.lat||0;const a=ASPECTS[spec.aspect]||0;
     if(spec.proj==='ortho'||!PROJ[spec.proj]){
@@ -69,6 +70,20 @@ function makeMapDraw(d3,topojson){
     return {p,W,H};
   }
 
+  /* Свой мир (из картинки): весь мир в кадре при масштабе 1, центр — spec.lon/lat */
+  function worldFrame(w){const [x0,y0,x1,y1]=w.ext;const pts=[];for(let k=0;k<=8;k++){const t=k/8;pts.push([x0+(x1-x0)*t,y0],[x0+(x1-x0)*t,y1],[x0,y0+(y1-y0)*t],[x1,y0+(y1-y0)*t]);}return {type:'MultiPoint',coordinates:pts};}
+  function worldProj(spec,w){
+    const p=(PROJ[spec.proj]||PROJ.eqrect).make();const cx=(w.ext[0]+w.ext[2])/2;
+    if(spec.proj==='conic'){const cy=(w.ext[1]+w.ext[3])/2;p.parallels([cy-10,cy+10]);}
+    p.rotate([-cx,spec.proj==='laea'?-(w.ext[1]+w.ext[3])/2:0]);
+    const a=ASPECTS[spec.aspect]||0;const W=1000;const fr=worldFrame(w);
+    p.fitWidth(W,fr);const b=d3.geoPath(p).bounds(fr);const H=a?Math.round(W/a):Math.max(200,Math.round(b[1][1]-b[0][1]));
+    p.fitExtent([[0,0],[W,H]],fr);
+    const zoom=Math.max(1,+spec.zoom||1);p.scale(p.scale()*zoom);
+    const lon=spec.lon==null?cx:+spec.lon,lat=spec.lat==null?(w.ext[1]+w.ext[3])/2:+spec.lat;
+    p.translate([0,0]);const c=p([lon,lat])||[0,0];p.translate([W/2-c[0],H/2-c[1]]).clipExtent([[-2,-2],[W+2,H+2]]);
+    return {p,W,H};
+  }
   /* ---------- данные ----------
      geo = {countries: topology, prov: {КОД: topology}, tpl: {год: topology с units и own}, names} */
   function buildP(t,obj){
@@ -160,7 +175,7 @@ function makeMapDraw(d3,topojson){
     let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`;
     if(globe)s+=`<defs><radialGradient id="mo" cx="42%" cy="40%" r="62%"><stop offset="0" stop-color="${spec.ocean}"/><stop offset=".72" stop-color="${spec.ocean}"/><stop offset="1" stop-color="#d4d4d4"/></radialGradient><radialGradient id="ms" cx="42%" cy="40%" r="62%"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".16"/></radialGradient></defs>`;
     const sph=path(SPHERE)||'';
-    const regional=spec.proj==='laea'||spec.proj==='conic';
+    const regional=spec.proj==='laea'||spec.proj==='conic'||!!geo.world&&!globe;
     if(regional&&!one)s+=`<rect width="${W}" height="${H}" fill="${spec.ocean}"/>`;
     if(!one)s+=`<path d="${sph}" fill="${globe&&spec.shade?'url(#mo)':spec.ocean}"/>`;
     if(spec.grat&&!one)s+=`<path d="${path(d3.geoGraticule10())}" fill="none" stroke="#000" stroke-opacity=".13" stroke-width=".5"/>`;
@@ -217,7 +232,10 @@ function makeMapDraw(d3,topojson){
     // кружок вокруг маленьких государств (как на карте Данцига)
     (spec.groups||[]).forEach((g,i)=>{if(!g.circle)return;const c=groupCentroid(spec,i,geo);const xy=c&&p(c);
       if(xy&&isFinite(xy[0]))s+=`<circle cx="${xy[0].toFixed(1)}" cy="${xy[1].toFixed(1)}" r="${regional||globe?11:8}" fill="none" stroke="#333" stroke-width="1.4" pointer-events="none"/>`;});
-    if(spec.inset&&!opt.inner)s+=insetSVG(spec,geo,p,W,H);
+    if(spec.inset&&!opt.inner&&!geo.world)s+=insetSVG(spec,geo,p,W,H);
+    // исходная картинка своего мира поверх — чтобы обводить по ней границы
+    if(opt.bg&&geo.world&&geo.world.img&&spec.proj==='eqrect'){const w=geo.world;const a=p([w.ext[0],w.ext[3]]),b=p([w.ext[2],w.ext[1]]);
+      if(a&&b)s+=`<image href="${w.img}" x="${r1(a[0])}" y="${r1(a[1])}" width="${r1(b[0]-a[0])}" height="${r1(b[1]-a[1])}" preserveAspectRatio="none" opacity="${opt.bg}" pointer-events="none"/>`;}
     if(spec.zoomBox&&!opt.inner)s+=zoomSVG(spec,geo,p,W,H);
     return s+'</svg>';
   }

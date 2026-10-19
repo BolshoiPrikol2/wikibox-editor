@@ -2,13 +2,17 @@
 /* Редактор карт: основа (современные границы или шаблон по году), государства и союзы цветами,
    провинции, передача провинций между государствами, разрез и объединение провинций */
 
-const GEO={countries:null,prov:{},tpl:{},names:null,tplIndex:null};
-const GV='?v=57';
+/* GEO — данные основы открытой карты: Земля (EARTH) или свой мир из картинки (worlds.js) */
+const EARTH={countries:null,prov:{},tpl:{},names:null,tplIndex:null};
+let GEO=EARTH;
+const GV='?v=58';
 const geoJobs={};
 function fetchJSON(url){return geoJobs[url]=geoJobs[url]||fetch(url).then(r=>{if(!r.ok)throw new Error('нет файла '+url);return r.json();});}
-async function loadTplIndex(){if(!GEO.tplIndex){try{GEO.tplIndex=await fetchJSON('data/geo/tpl/index.json'+GV);}catch(e){GEO.tplIndex={years:[]};}}return GEO.tplIndex;}
+async function loadTplIndex(){if(!EARTH.tplIndex){try{EARTH.tplIndex=await fetchJSON('data/geo/tpl/index.json'+GV);}catch(e){EARTH.tplIndex={years:[]};}}return EARTH.tplIndex;}
 /* Загрузить всё, что нужно для карты: основу, шаблон и файлы провинций разбитых государств */
 async function loadFor(spec,extraUnits){
+  if(spec&&spec.world){const g=worldGeo(spec.world);if(!g)throw new Error('в проекте нет мира, на котором нарисована карта');GEO=g;return g;}
+  GEO=EARTH;
   if(spec&&String(spec.base)==='1938')spec.base='1936';
   if(!GEO.countries)GEO.countries=await fetchJSON('data/geo/countries.json'+GV);
   if(spec&&spec.base&&!GEO.tpl[spec.base])GEO.tpl[spec.base]=await fetchJSON('data/geo/tpl/'+spec.base+'.json'+GV);
@@ -23,7 +27,7 @@ async function loadFor(spec,extraUnits){
 async function renderStoredMaps(){
   const maps=P.media.filter(m=>m.map);if(!maps.length||!window.MapDraw)return false;
   try{
-    for(const m of maps){await loadFor(m.map);m.src=svgURI(MapDraw.drawMap(m.map,GEO));}
+    for(const m of maps){try{const g=await loadFor(m.map);m.src=svgURI(MapDraw.drawMap(m.map,g));}catch(e){if(!m.map.world)throw e;console.warn(m.name,e.message);}}
     return true;
   }catch(e){console.warn(e);toast('Не удалось загрузить данные для карт: '+e.message,true);return false;}
 }
@@ -102,9 +106,10 @@ function viewMapNew(){
   $('#main').classList.remove('is-main');
   const card=(k,t,d,img)=>`<button class="tcard mcard" data-act="map-start" data-k="${k}"><span class="mcard-img">${img}</span><b>${t}</b><span>${d}</span></button>`;
   const globe=`<svg viewBox="0 0 60 60" width="60" height="60"><circle cx="30" cy="30" r="27" fill="#fff" stroke="#999"/><path d="M14 22c6-6 14-8 20-4s10 2 12 8c-4 6-10 4-14 10s-12 4-14-2-8-6-4-12z" fill="#346733"/><path d="M3 30h54M30 3v54" stroke="#ccc" fill="none"/></svg>`;
+  const own=`<svg viewBox="0 0 90 46" width="90" height="46"><rect x="1" y="1" width="88" height="44" fill="#fff" stroke="#999"/><path d="M10 30c2-10 10-16 18-14s6-8 14-8 12 6 10 12 10 4 14 12-8 10-18 8-12 4-22 2-18-4-16-12z" fill="#c0c0c0"/><path d="M42 8c8 0 12 6 10 12s10 4 14 12l-14 2-8-10z" fill="#1f93c0"/><path d="M70 10l4-2 3 3-4 2zM76 16l3 1-2 3z" fill="#c0c0c0"/></svg>`;
   const flat=`<svg viewBox="0 0 90 46" width="90" height="46"><ellipse cx="45" cy="23" rx="43" ry="21" fill="#fff" stroke="#999"/><path d="M12 14h18v10H18zM40 10h10v8h-6v6h-6zM58 12h18v12H62zM24 28h8v10h-6zM46 26h8v10h-8zM66 30h8v6h-8z" fill="#c0c0c0"/><path d="M40 10h10v8h-6v6h-6zM66 30h8v6h-8z" fill="#1f93c0"/></svg>`;
-  setView(mainMenuHTML(),shell({title:'Новая карта',content:`<p>Выберите вид карты. Основу можно взять современную или из шаблона по году, а потом перекроить границы и раскрасить государства и союзы.</p><div class="tgrid">${card('globe','Глобус','Как в карточке статьи «Россия»: государство на глобусе, спорные земли светлее.',globe)}${card('flat','Плоская карта мира','Как у союзов и организаций: страны-участницы одним цветом.',flat)}</div>${tplSectionHTML()}`}),'Новая карта');
-  tplThumbs();
+  setView(mainMenuHTML(),shell({title:'Новая карта',content:`<p>Выберите вид карты. Основу можно взять современную или из шаблона по году, а потом перекроить границы и раскрасить государства и союзы.</p><div class="tgrid">${card('globe','Глобус','Как в карточке статьи «Россия»: государство на глобусе, спорные земли светлее.',globe)}${card('flat','Плоская карта мира','Как у союзов и организаций: страны-участницы одним цветом.',flat)}<a class="tcard mcard" href="#/world"><span class="mcard-img">${own}</span><b>Свой мир по картинке</b><span>Карта выдуманного мира из картинки: рисованной (по береговой линии) или политической (по цветам).</span></a></div>${worldsSectionHTML()}${tplSectionHTML()}`}),'Новая карта');
+  worldThumbs().then(tplThumbs);
 }
 /* ---------- свои шаблоны карт ---------- */
 function tplSectionHTML(){
@@ -114,7 +119,7 @@ function tplSectionHTML(){
 function tplDesc(s){const pr=MapDraw.PROJ[s.proj];const parts=[pr?pr.name:'',s.base?'границы '+(s.base==='1938'?'1936':s.base)+' года':'современные границы'];if(s.only)parts.push('одна страна');const n=(s.groups||[]).filter(g=>g.countries.length||g.regions.length||g.prov.length).length;if(n)parts.push(n+' '+plural(n,'группа','группы','групп'));return parts.filter(Boolean).join(', ');}
 async function tplThumbs(){
   for(const el of $$('[data-tpl]')){const t=P.mapTpl[+el.dataset.tpl];if(!t)continue;
-    try{if(!t.src){await loadFor(t.map);t.src=svgURI(MapDraw.drawMap(t.map,GEO));}if(el.isConnected)el.innerHTML=`<img src="${t.src}" alt="">`;}catch(e){if(el.isConnected)el.innerHTML='<span class="cnt">нет превью</span>';}}
+    try{if(!t.src){const g=await loadFor(t.map);t.src=svgURI(MapDraw.drawMap(t.map,g));}if(el.isConnected)el.innerHTML=`<img src="${t.src}" alt="">`;}catch(e){if(el.isConnected)el.innerHTML='<span class="cnt">нет превью</span>';}}
 }
 function addMapTpl(spec,name){
   const nm=String(name||'').trim();if(!nm)return false;
@@ -205,19 +210,19 @@ function renderMeTools(){
   const h=$('#me-help');if(h)h.textContent=help+(ME.tool!=='pan'?' Двигать и приближать карту: правой кнопкой мыши, с зажатым пробелом или двумя пальцами.':'');
 }
 function renderMePanel(){
-  const s=S();const pr=MapDraw.PROJ;const years=(GEO.tplIndex&&GEO.tplIndex.years)||[];
+  const s=S();const pr=MapDraw.PROJ;const years=(EARTH.tplIndex&&EARTH.tplIndex.years)||[];const WD=s.world?(P.worlds||[]).find(w=>w.id===s.world):null;
   const editedFiles=Object.entries(s.pedit||{}).filter(([c,e])=>e&&(e.del.length||e.add.length)).map(([c])=>c);
   $('#me-panel').innerHTML=`
   <div class="ed-top"><button class="btn pri" data-act="map-save">Сохранить карту</button><button class="btn" data-act="map-save-tpl" title="Запомнить эту карту как основу для новых карт">Сохранить как шаблон</button><a class="btn" href="${ME.target?'#/edit/'+ME.target.pageId:'#/media'}">Отмена</a></div>
   <label class="fld"><span>Имя в медиатеке</span><input id="me-name" value="${esc(ME.name)}"></label>
   <fieldset class="grp"><legend>Основа карты</legend>
-    <select id="me-base" aria-label="Основа карты"><option value="">Современные границы</option>${years.map(y=>`<option value="${y}"${String(y)===String(s.base)?' selected':''}>Границы ${y} года</option>`).join('')}</select>
+    ${WD?`<p>Свой мир: <b>${esc(WD.name)}</b> <a href="#/world/${WD.id}">названия</a></p>${WD.img&&s.proj==='eqrect'?`<label class="inl"><input type="checkbox" id="me-bg"${ME.bg?' checked':''}> показать исходную картинку поверх (только в редакторе)</label>`:WD.img?'<p class="cnt">Исходную картинку можно показать поверх в равнопромежуточной проекции.</p>':''}`:`<select id="me-base" aria-label="Основа карты"><option value="">Современные границы</option>${years.map(y=>`<option value="${y}"${String(y)===String(s.base)?' selected':''}>Границы ${y} года</option>`).join('')}</select>`}
     ${s.base?`<p class="cnt">Исторические границы: <a class="external" href="https://github.com/aourednik/historical-basemaps" target="_blank" rel="noopener">historical-basemaps</a> (А. Уреднек, GPL-3.0), разложены по провинциям — их можно перекраивать.</p>`:''}
   </fieldset>
   <fieldset class="grp"><legend>Государства и союзы (цвета)</legend>
     <div class="me-groups">${s.groups.map((g,i)=>`<div class="me-g${i===ME.active?' on':''}" data-act="me-active" data-i="${i}"><input type="color" value="${esc(g.color)}" data-mg="color" data-i="${i}" aria-label="Цвет"><div class="me-g-txt"><input value="${esc(g.name)}" data-mg="name" data-i="${i}" aria-label="Название"><span class="cnt">${groupStat(g)}</span></div><span class="me-g-btns"><button class="ic${g.circle?' on':''}" data-act="me-gcircle" data-i="${i}" aria-label="Обвести кружком" title="Обвести кружком на карте (для маленьких государств)">◯</button><button class="ic" data-act="me-gup" data-i="${i}" aria-label="Выше" title="Рисовать ниже других">↑</button><button class="ic x" data-act="me-gdel" data-i="${i}" aria-label="Удалить">✕</button></span></div>`).join('')}</div>
     <div class="line"><button class="btn sm" data-act="me-gadd">+ государство или союз</button>
-    ${s.base?'':`<select id="me-preset" aria-label="Готовый союз"><option value="">Готовый союз…</option>${Object.keys(MAP_PRESETS).map(k=>`<option>${k}</option>`).join('')}</select>`}</div>
+    ${s.base||s.world?'':`<select id="me-preset" aria-label="Готовый союз"><option value="">Готовый союз…</option>${Object.keys(MAP_PRESETS).map(k=>`<option>${k}</option>`).join('')}</select>`}</div>
     <p class="cnt">Щёлкните по группе, чтобы рисовать её цветом. Если союзы пересекаются, сверху рисуется тот, что ниже в списке.</p>
   </fieldset>
   ${s.split.length?`<fieldset class="grp"><legend>Разбиты на провинции</legend><div class="chips">${s.split.map(u=>`<span class="chip on">${esc(uname(u))} <button class="ic x" data-act="me-unsplit" data-k="${esc(u)}" aria-label="Собрать обратно" title="Собрать обратно">✕</button></span>`).join('')}</div>
@@ -225,14 +230,14 @@ function renderMePanel(){
   <fieldset class="grp"><legend>Вид</legend>
     <div class="line"><label class="inl">Рисовать <select id="me-only" aria-label="Что рисовать на карте"><option value="">весь мир</option>${unitOptions().map(([id,n])=>`<option value="${esc(id)}"${id===s.only?' selected':''}>только: ${esc(n)}</option>`).join('')}</select></label><button class="btn sm${ME.pick==='only'?' pri':''}" data-act="me-pickonly">Выбрать страну на карте</button></div>
     ${s.only?'<p class="cnt">Рисуется только эта страна: карта сама обрезана по её границам, масштаб и центр подобраны. Разбейте её на провинции или регионы кистью и раскрасьте — получится карта выборов.</p>':''}
-    <label class="fld"><span>Готовый вид</span><select id="me-view"><option value="">Выберите регион…</option>${Object.keys(MAP_VIEWS).map(k=>`<option>${k}</option>`).join('')}</select></label>
+    ${s.world?'':`<label class="fld"><span>Готовый вид</span><select id="me-view"><option value="">Выберите регион…</option>${Object.keys(MAP_VIEWS).map(k=>`<option>${k}</option>`).join('')}</select></label>`}
     <div class="seg">${Object.entries(pr).map(([k,v])=>`<button class="${s.proj===k?'on':''}" data-act="me-proj" data-k="${k}">${v.name}</button>`).join('')}</div>
-    <label class="fld"><span>Долгота центра: <b id="me-lon-v">${Math.round(s.lon)}°</b></span><input type="range" id="me-lon" min="-180" max="180" step="1" value="${s.lon}"></label>
-    ${s.proj==='ortho'||s.zoom>1?`<label class="fld"><span>Широта центра: <b id="me-lat-v">${Math.round(s.lat)}°</b></span><input type="range" id="me-lat" min="-90" max="90" step="1" value="${s.lat}"></label>`:''}
+    <label class="fld"><span>Долгота центра: <b id="me-lon-v">${Math.round(s.lon)}°</b></span><input type="range" id="me-lon" min="${WD?WD.ext[0]:-180}" max="${WD?WD.ext[2]:180}" step="${WD?.1:1}" value="${s.lon}"></label>
+    ${s.proj==='ortho'||s.zoom>1||WD?`<label class="fld"><span>Широта центра: <b id="me-lat-v">${Math.round(s.lat)}°</b></span><input type="range" id="me-lat" min="${WD?WD.ext[1]:-90}" max="${WD?WD.ext[3]:90}" step="${WD?.1:1}" value="${s.lat}"></label>`:''}
     <label class="fld"><span>Масштаб: <b id="me-zoom-v">${(+s.zoom).toFixed(1)}×</b></span><input type="range" id="me-zoom" min="1" max="60" step="0.1" value="${s.zoom}"></label>
     <div><button class="btn sm" data-act="me-center">Повернуть к выбранной группе</button></div>
     <div class="line"><label class="inl">Обрезка <select id="me-aspect">${[['','без обрезки'],['1:1','квадрат 1:1'],['6:5','6:5'],['4:3','4:3'],['3:2','3:2'],['16:9','16:9'],['3:4','вертикально 3:4']].map(([v,l])=>`<option value="${v}"${(s.aspect||'')===v?' selected':''}>${l}</option>`).join('')}</select></label>
-      <label class="inl"><input type="checkbox" data-ms="inset"${s.inset?' checked':''}> мини-карта мира</label>
+      ${WD?'':`<label class="inl"><input type="checkbox" data-ms="inset"${s.inset?' checked':''}> мини-карта мира</label>`}
       <label class="inl"><input type="checkbox" id="me-zb"${s.zoomBox?' checked':''}> выноска с увеличением</label>
       ${s.inset?`<select id="me-insetpos" aria-label="Угол мини-карты">${[['tl','слева вверху'],['tr','справа вверху'],['bl','слева внизу'],['br','справа внизу']].map(([v,l])=>`<option value="${v}"${(s.insetPos||'tl')===v?' selected':''}>${l}</option>`).join('')}</select>`:''}</div>
   </fieldset>
@@ -258,7 +263,7 @@ function renderMePanel(){
 const legendText=()=>S().groups.map(g=>`{{цвет|${g.color}}} ${g.name}`).join('<br>');
 function drawMe(){
   if(!GEO.countries)return;const box=$('#me-svg');if(!box)return;
-  try{box.innerHTML=MapDraw.drawMap(S(),GEO,{interactive:true,hl:ME.tool==='owner'?ME.ownT:'',hlr:ME.tool==='regions'?ME.regT:''});}catch(e){console.error(e);box.innerHTML=`<p class="missing">Ошибка рисования: ${esc(e.message)}</p>`;return;}
+  try{box.innerHTML=MapDraw.drawMap(S(),GEO,{bg:ME.bg&&S().world?.45:0,interactive:true,hl:ME.tool==='owner'?ME.ownT:'',hlr:ME.tool==='regions'?ME.regT:''});}catch(e){console.error(e);box.innerHTML=`<p class="missing">Ошибка рисования: ${esc(e.message)}</p>`;return;}
   for(const id of ME.sel.keys()){const el=box.querySelector(`path[data-p="${CSS.escape(id)}"]`);if(el)el.classList.add('sel');else ME.sel.delete(id);}
   drawDraft();
 }
@@ -647,6 +652,7 @@ document.addEventListener('change',e=>{
   if(el.id==='me-view'&&el.value){meSnap();applyView(el.value);el.value='';renderMePanel();drawMe();return;}
   if(el.id==='me-aspect'){meSnap();s.aspect=el.value;renderMePanel();drawMe();return;}
   if(el.id==='me-insetpos'){meSnap();s.insetPos=el.value;drawMe();return;}
+  if(el.id==='me-bg'){ME.bg=el.checked;drawMe();return;}
   if(el.id==='me-only'){meSnap();if(el.value)s.only=el.value;else delete s.only;renderMePanel();drawMe();return;}
   if(el.id==='me-zb'){meSnap();if(el.checked)s.zoomBox={lon:+(+s.lon).toFixed(2),lat:+(+s.lat).toFixed(2),span:8,size:.42,ratio:1.2,pos:'tl'};else delete s.zoomBox;renderMePanel();drawMe();if(el.checked)toast('Выноска добавлена. Нажмите «Выбрать место щелчком по карте» и щёлкните по нужному месту');return;}
   if(el.id==='me-zb-pos'&&s.zoomBox){meSnap();s.zoomBox.pos=el.value;drawMe();return;}

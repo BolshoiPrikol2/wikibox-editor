@@ -18,6 +18,8 @@ function normalize(p){
   if(!p||!Array.isArray(p.pages))throw new Error('в тексте нет списка страниц (pages)');
   // свои шаблоны карт: [{id, name, map, created}]
   p.mapTpl=Array.isArray(p.mapTpl)?p.mapTpl.filter(t=>t&&t.map):[];
+  // свои миры из картинок: [{id, name, countries, prov, names, ext, img}]
+  p.worlds=Array.isArray(p.worlds)?p.worlds.filter(w=>w&&w.id&&w.countries&&w.prov):[];
   p.wiki=Object.assign({name:'Wikibox Editor',motto:'',tag:'Материал из Wikibox Editor — свободной энциклопедии',welcome:'энциклопедия несбывшейся истории, которую может редактировать каждый'},p.wiki||{});
   // старое название сайта меняем на новое
   if(p.wiki.name==='Апокрифопедия')p.wiki.name='Wikibox Editor';
@@ -141,6 +143,7 @@ function route(){
   else if(k==='search')viewSearch(arg);
   else if(k==='media')viewMedia();
   else if(k==='map'){if(arg==='new')viewMapEditor(null);else if(arg)viewMapEditor(arg);else viewMapNew();}
+  else if(k==='world')viewWorld(arg);
   else if(k==='file')viewFile();
   else viewMain();
   window.scrollTo(0,0);
