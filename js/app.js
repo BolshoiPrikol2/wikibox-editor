@@ -504,12 +504,18 @@ async function snap(which){
   /* «главное»: всё, что выше первого раздела, — заголовок, вступление и карточка */
   const cut=[];$$('.tabs',area).forEach(el=>{cut.push([el,el.style.display]);el.style.display='none';});if(which==='lead'){const mc=$('.mw-content',area);let past=false;for(const el of [...mc.children]){if(/^H[2-4]$/.test(el.tagName))past=true;if((past&&!el.classList.contains('clear'))||el.matches('.toc-mobile,.reflist,.catlinks')){cut.push([el,el.style.display]);el.style.display='none';}}}
   closeIE();
+  /* html2canvas сдвигает и обрезает SVG (диаграмма парламента) — в копии для снимка подменяем их картинками того же размера */
+  const svgs=$$('svg',target).map((s,i)=>{s.dataset.snap=i;const r=s.getBoundingClientRect(),cs=getComputedStyle(s),c=s.cloneNode(true);
+    c.setAttribute('width',r.width);c.setAttribute('height',r.height);c.setAttribute('color',cs.color);
+    return {w:r.width,h:r.height,blk:cs.display==='block',src:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(c))};});
+  const onclone=doc=>doc.querySelectorAll('svg[data-snap]').forEach(s=>{const v=svgs[+s.dataset.snap];if(!v||!v.w)return;const im=doc.createElement('img');im.src=v.src;
+    im.style.cssText=`width:${v.w}px;height:${v.h}px;display:${v.blk?'block;margin:0 auto':'inline-block'};max-width:none;vertical-align:middle`;s.replaceWith(im);});
   try{
     await prepImgs(target);
-    const cv=await html2canvas(target,{backgroundColor:getComputedStyle(document.body).backgroundColor,scale:2,logging:false,useCORS:true,imageTimeout:20000});
+    const cv=await html2canvas(target,{backgroundColor:getComputedStyle(document.body).backgroundColor,scale:2,logging:false,useCORS:true,imageTimeout:20000,onclone});
     cv.toBlob(b=>download(((cur()?.title)||'статья')+(which==='ib'?' — карточка':which==='lead'?' — главное':'')+'.png',b));
   }catch(e){toast('Не получилось сделать снимок: '+(e.message||e),true);}
-  finally{ed.forEach(e=>e.style.visibility='');cut.forEach(([el,d])=>el.style.display=d);}
+  finally{ed.forEach(e=>e.style.visibility='');cut.forEach(([el,d])=>el.style.display=d);$$('svg[data-snap]',target).forEach(s=>delete s.dataset.snap);}
 }
 function cur(){const {k,arg}=parseHash();if(k==='edit')return edPage;if(k==='wiki')return pageFind(arg);return null;}
 async function dlHTML(pg){

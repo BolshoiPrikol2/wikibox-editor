@@ -5,7 +5,7 @@
 /* GEO — данные основы открытой карты: Земля (EARTH) или свой мир из картинки (worlds.js) */
 const EARTH={countries:null,prov:{},tpl:{},names:null,tplIndex:null};
 let GEO=EARTH;
-const GV='?v=58';
+const GV='?v=59';
 const geoJobs={};
 function fetchJSON(url){return geoJobs[url]=geoJobs[url]||fetch(url).then(r=>{if(!r.ok)throw new Error('нет файла '+url);return r.json();});}
 async function loadTplIndex(){if(!EARTH.tplIndex){try{EARTH.tplIndex=await fetchJSON('data/geo/tpl/index.json'+GV);}catch(e){EARTH.tplIndex={years:[]};}}return EARTH.tplIndex;}
