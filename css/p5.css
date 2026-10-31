@@ -166,7 +166,9 @@ html[data-ui="p5"][data-ui]{
   .infobox .ib-hr hr{background:var(--p5red);height:3px}
   .infobox-image{background:var(--p5cut,linear-gradient(var(--p5g),var(--p5g))),var(--p5pat,none) 50% var(--p5py,50%)/cover,var(--p5g);padding:10px 8px!important;clip-path:var(--p5c)}
   #main .infobox tr[data-ib]:hover>.infobox-image{background-color:var(--p5g)}
-  .infobox-image:is([data-pat=full],[data-st])>img,.infobox-image:is([data-pat=full],[data-st]) .ib-flags img{filter:drop-shadow(2px 0 0 var(--paper)) drop-shadow(-2px 0 0 var(--paper)) drop-shadow(0 2px 0 var(--paper)) drop-shadow(0 -2px 0 var(--paper)) drop-shadow(4px 4px 0 var(--ink))}
+  .infobox-image[data-so]{--p5so:drop-shadow(2px 0 0 var(--paper)) drop-shadow(-2px 0 0 var(--paper)) drop-shadow(0 2px 0 var(--paper)) drop-shadow(0 -2px 0 var(--paper))}
+  .infobox-image[data-ss]{--p5ss:drop-shadow(4px 4px 0 var(--ink))}
+  .infobox-image:is([data-so],[data-ss])>img,.infobox-image:is([data-so],[data-ss]) .ib-flags img{filter:var(--p5so,) var(--p5ss,)}
   .infobox .ib-flags img.ib-flag{border:0}
   .infobox-image .ib-switch{--text:#fff;--subtle:#c4c0b8;--link:#ff5a64;--link-hover:#fff;--red:#19e0e6;width:fit-content;max-width:100%;margin:8px auto 0;padding:3px 9px;background:var(--ink);color:#fff}
   .infobox-image .media-caption,.mw-content .thumbcaption,.mw-content figcaption{--text:#fff;--subtle:#c4c0b8;--link:#ff5a64;--link-hover:#fff;--red:#19e0e6;display:block;width:fit-content;max-width:100%;margin:8px auto 0;background:var(--ink);color:#fff;padding:3px 9px;text-align:center}

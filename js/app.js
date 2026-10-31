@@ -326,7 +326,7 @@ const inp=(path,val,ph='')=>`<input id="${fid(path)}" data-p="${path}" value="${
 const ta=(path,val,ph='',rows)=>`<textarea id="${fid(path)}" data-p="${path}" rows="${rows||Math.min(6,Math.max(1,String(val||'').split('\n').length))}" placeholder="${esc(ph)}">${esc(val)}</textarea>`;
 const ta1=(path,val,ph='')=>`<textarea class="one" id="${fid(path)}" data-p="${path}" rows="${Math.max(1,String(val||'').split('\n').length)}" placeholder="${esc(ph)}">${esc(val)}</textarea>`;
 const num=(path,val,min,max)=>`<input type="number" id="${fid(path)}" data-p="${path}" value="${esc(val)}"${min!=null?` min="${min}"`:''}${max!=null?` max="${max}"`:''}>`;
-const patSel=(p,r)=>APP.ui==='p5'?`<label class="inl">Узор <select id="${fid(p+'.pat')}" data-p="${p}.pat"><option value="">по краям</option><option value="full"${r.pat==='full'?' selected':''}>сплошной</option></select></label><label class="inl"><input type="checkbox" id="${fid(p+'.capPlain')}" data-p="${p}.capPlain"${r.capPlain?' checked':''}> без плашки под подписью</label><label class="inl" title="При сплошном узоре они есть всегда"><input type="checkbox" id="${fid(p+'.sticker')}" data-p="${p}.sticker"${r.sticker?' checked':''}> белая обводка и чёрная тень у картинки</label>`:'';
+const patSel=(p,r)=>APP.ui==='p5'?`<label class="inl">Узор <select id="${fid(p+'.pat')}" data-p="${p}.pat"><option value="">по краям</option><option value="full"${r.pat==='full'?' selected':''}>сплошной</option></select></label><label class="inl"><input type="checkbox" id="${fid(p+'.capPlain')}" data-p="${p}.capPlain"${r.capPlain?' checked':''}> без плашки под подписью</label><label class="inl"><input type="checkbox" id="${fid(p+'.outline')}" data-p="${p}.outline"${imgStick(r)[0]?' checked':''}> белая обводка у картинки</label><label class="inl"><input type="checkbox" id="${fid(p+'.shadow')}" data-p="${p}.shadow"${imgStick(r)[1]?' checked':''}> чёрная тень у картинки</label>`:'';
 const col=(path,val)=>`<input type="color" id="${fid(path)}" data-p="${path}" value="${esc(/^#[0-9a-f]{6}$/i.test(val)?val:'#888888')}" aria-label="Цвет">`;
 function picker(path,val,label){
   const s=mediaSrc(val);
@@ -570,7 +570,7 @@ document.addEventListener('change',async e=>{
   if(el.dataset.mnob!=null){const m=P.media[+el.dataset.mnob];if(el.checked)m.noborder=true;else delete m.noborder;save();toast(el.checked?'Флажок «'+m.name+'» теперь без рамки во всех статьях':'Рамка у флажка «'+m.name+'» вернулась');return;}
   if(el.dataset.mrename!=null){if(renameMedia(+el.dataset.mrename,el.value)){save();viewMedia();toast('Переименовано, ссылки в статьях обновлены');}else el.value=P.media[+el.dataset.mrename].name;return;}
   if(el.id==='imp-file'&&el.files[0]){const f=el.files[0];importText=await f.text();$('#imp-name').textContent=f.name+' — выберите, добавить или заменить';return;}
-  if(el.dataset.p&&edPage&&/\.(cands\.\d+\.name|parties\.\d+\.seats)$/.test(el.dataset.p))rerenderForm();
+  if(el.dataset.p&&edPage&&/\.(cands\.\d+\.name|parties\.\d+\.seats|pat)$/.test(el.dataset.p))rerenderForm();
 });
 function armed(btn,label){if(btn.dataset.armed)return true;btn.dataset.armed='1';const o=btn.textContent;btn.textContent=label;setTimeout(()=>{if(btn.isConnected){delete btn.dataset.armed;btn.textContent=o;}},3500);return false;}
 document.addEventListener('submit',e=>{
