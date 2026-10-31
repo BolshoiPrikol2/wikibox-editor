@@ -63,9 +63,17 @@ const P5=(()=>{
     el.style.setProperty('--p5x',Math.round(rr(R,0,1)*100)/100);
   }
   // Пункты меню стоят лесенкой разной длины, как в главном меню игры
-  // Прямоугольник с мелкими случайными неровностями: шаг и отступ точек разные на каждой стороне
+  // Контур как в меню игры: длинные прямые отрезки под разным углом, между ними короткий косой уступ
   function rough(R,x0,y0,x1,y1,d){
-    const pts=[],side=(ax,ay,bx,by,nx,ny)=>{const L=Math.hypot(bx-ax,by-ay);let t=0;while(t<L){const k=t/L,o=rr(R,-d,d)*(R()<.14?1.7:1);pts.push((ax+(bx-ax)*k+nx*o).toFixed(1)+','+(ay+(by-ay)*k+ny*o).toFixed(1));t+=rr(R,26,84);}};
+    const pts=[],at=(x,y)=>pts.push(x.toFixed(1)+','+y.toFixed(1)),off=()=>rr(R,-d,d);
+    const side=(ax,ay,bx,by,nx,ny)=>{
+      const L=Math.hypot(bx-ax,by-ay),ux=(bx-ax)/L,uy=(by-ay)/L,pt=(t,o)=>at(ax+ux*t+nx*o,ay+uy*t+ny*o);
+      pt(0,off());
+      for(let t=rr(R,90,240);t<L-70;t+=rr(R,130,360)){
+        const o=off(),q=o+(o>0?-1:1)*rr(R,d*.6,d*1.2),w=rr(R,5,11);
+        pt(t,o);t+=w;pt(t,q);
+      }
+    };
     side(x0,y0,x1,y0,0,1);side(x1,y0,x1,y1,1,0);side(x1,y1,x0,y1,0,1);side(x0,y1,x0,y0,1,0);
     return pts.join(' ');
   }
@@ -73,19 +81,21 @@ const P5=(()=>{
     document.querySelectorAll('.infobox').forEach(e=>{
       const W=e.offsetWidth,H=e.offsetHeight,key=W+'x'+H;if(!W||e._p5f===key)return;e._p5f=key;e.dataset.p5f='1';
       const R=rng(hash('card'+(e.querySelector('.infobox-above')?.textContent||''))),FW=W+24,FH=H+26;
-      const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${FW} ${FH}" preserveAspectRatio="none"><polygon points="${rough(R,10,12,W+21,H+23,2.4)}" fill="#e60012"/><polygon points="${rough(R,1.5,1.5,W+10.5,H+10.5,1.8)}" fill="#f2f2f0"/><polygon points="${rough(R,6,6,W+6,H+6,2)}" fill="#0a0a0a"/></svg>`;
+      const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${FW} ${FH}" preserveAspectRatio="none"><polygon points="${rough(R,10,12,W+21,H+23,2.4)}" fill="#e60012"/><polygon points="${rough(R,1.5,1.5,W+10.5,H+10.5,1.6)}" fill="#f2f2f0"/><polygon points="${rough(R,6,6,W+6,H+6,1.8)}" fill="#0a0a0a"/></svg>`;
       e.style.setProperty('--p5frame','url("data:image/svg+xml,'+encodeURIComponent(svg)+'")');});
   }
-  // Те же неровности для блоков заглавной: точки в процентах, отступы в пикселях
+  // То же для блоков заглавной: положение уступов в процентах, отступы в пикселях, размер блока не важен
   function roughClip(R,d){
-    const p=[],j=()=>rr(R,0,d).toFixed(1),n=9,m=5;
-    for(let i=0;i<n;i++)p.push(`${(i/n*100+rr(R,0,6)).toFixed(1)}% ${j()}px`);
-    for(let i=0;i<m;i++)p.push(`calc(100% - ${j()}px) ${(i/m*100+rr(R,0,8)).toFixed(1)}%`);
-    for(let i=n;i>0;i--)p.push(`${(i/n*100-rr(R,0,6)).toFixed(1)}% calc(100% - ${j()}px)`);
-    for(let i=m;i>0;i--)p.push(`${j()}px ${(i/m*100-rr(R,0,8)).toFixed(1)}%`);
+    const p=[],j=()=>rr(R,0,d).toFixed(1);
+    const steps=(n,a,b)=>{const out=[];for(let i=0;i<n;i++){const k=(i+rr(R,.3,.7))/n*(b-a)+a;out.push([k.toFixed(1),rr(R,5,11).toFixed(1)]);}return out;};
+    const H=()=>steps(R()<.5?1:2,8,92),V=()=>steps(R()<.5?0:1,15,85);
+    p.push(`0px ${j()}px`);H().forEach(([k,w])=>p.push(`${k}% ${j()}px`,`calc(${k}% + ${w}px) ${j()}px`));
+    p.push(`100% ${j()}px`);V().forEach(([k,w])=>p.push(`calc(100% - ${j()}px) ${k}%`,`calc(100% - ${j()}px) calc(${k}% + ${w}px)`));
+    p.push(`calc(100% - ${j()}px) 100%`);H().reverse().forEach(([k,w])=>p.push(`calc(${k}% + ${w}px) calc(100% - ${j()}px)`,`${k}% calc(100% - ${j()}px)`));
+    p.push(`${j()}px 100%`);V().reverse().forEach(([k,w])=>p.push(`${j()}px calc(${k}% + ${w}px)`,`${j()}px ${k}%`));
     return `polygon(${p.join(',')})`;
   }
-  function roughen(list){list.forEach(e=>{if(e.dataset.p5r)return;e.dataset.p5r='1';e.style.setProperty('--p5c',roughClip(rng(hash('rough'+(e.textContent||'').slice(0,50))),3.5));});}
+  function roughen(list){list.forEach(e=>{if(e.dataset.p5r)return;e.dataset.p5r='1';e.style.setProperty('--p5c',roughClip(rng(hash('rough'+(e.textContent||'').slice(0,50))),7));});}
   function stagger(list){[...list.children].forEach((li,i)=>{const R=rng(hash(li.textContent+i));li.style.setProperty('--p5m',Math.round(rr(R,0,26))+'px');const a=li.querySelector('a');const long=Math.max(1,...(a?a.textContent:li.textContent).split(/\s+/).map(w=>w.length));li.style.setProperty('--p5z',Math.min(rr(R,.94,1.14),11/long).toFixed(2));});}
 
   // Цвета текста из Википедии рассчитаны на белый фон: на чёрной панели тёмные осветляем, оттенок оставляем
