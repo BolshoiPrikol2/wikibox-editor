@@ -191,6 +191,17 @@ abbr[title]{text-decoration:underline dotted;cursor:help}
 .ib-in{width:100%;border-collapse:collapse}
 .ib-in td{padding:1px 4px;vertical-align:top}
 .ib-cols td+td{border-left:1px solid var(--border)}
+.ib-cols-c td{text-align:center}
+.ib-bilat:not(.ib-bi-l){border-collapse:separate;border-spacing:2px}
+.ib-bi-bar td{height:.6em;padding:0}
+.ib-bilat th{width:50%;text-align:center;vertical-align:top;padding:1px;font-weight:bold}
+.ib-bilat.ib-bi-l td{width:50%}
+.ib-bilat.ib-bi-l th+th{border-left:1px solid var(--ib-rel-hd)}
+.ib-bilat img{display:inline-block;height:auto;border:1px solid var(--border-sub);vertical-align:middle}
+.ib-bilateral>tbody>tr>.infobox-header{background:var(--ib-rel-hd)!important}
+.infobox.ib-bilateral{border-collapse:collapse}
+.ib-bilateral .ib-cols td{padding:1px}
+.ib-bilateral .ib-cols td+td{border-left-color:var(--ib-rel-hd)}
 .ib-succ td{vertical-align:middle}
 .ib-succ .l{text-align:left;width:34%}.ib-succ .m{text-align:center;font-weight:bold}.ib-succ .r{text-align:right;width:34%}
 .parl{text-align:center!important}
@@ -526,9 +537,9 @@ html[data-wmode="wiki"] #main .mw-content [data-l]:hover,html[data-wmode="wiki"]
 .me-scope .cnt{margin-right:4px}
 
 /* ---------- оформление английской Википедии (en.wikipedia, «Donald Trump») ---------- */
-:root{--ib-en-hd:#e6e6fa}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ib-en-hd:#2e2e4a}}
-:root[data-theme="dark"]{--ib-en-hd:#2e2e4a}
+:root{--ib-en-hd:#e6e6fa;--ib-rel-hd:#d3d3d3}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ib-en-hd:#2e2e4a;--ib-rel-hd:#3a3f47}}
+:root[data-theme="dark"]{--ib-en-hd:#2e2e4a;--ib-rel-hd:#3a3f47}
 .wl-en .infobox{font-size:88%;border-spacing:3px;padding:.2em;line-height:1.5em}
 .wl-en .infobox-above{background:none!important;font-size:125%;padding:.2em!important;color:var(--text)}
 .wl-en .infobox-header{background:var(--ib-en-hd);padding:.2em!important}
