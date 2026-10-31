@@ -63,39 +63,31 @@ const P5=(()=>{
     el.style.setProperty('--p5x',Math.round(rr(R,0,1)*100)/100);
   }
   // Пункты меню стоят лесенкой разной длины, как в главном меню игры
-  // Контур как в меню игры: длинные прямые отрезки под разным углом, между ними короткий косой уступ
-  function rough(R,x0,y0,x1,y1,d){
-    const pts=[],at=(x,y)=>pts.push(x.toFixed(1)+','+y.toFixed(1)),off=()=>rr(R,-d,d);
-    const side=(ax,ay,bx,by,nx,ny)=>{
-      const L=Math.hypot(bx-ax,by-ay),ux=(bx-ax)/L,uy=(by-ay)/L,pt=(t,o)=>at(ax+ux*t+nx*o,ay+uy*t+ny*o);
-      pt(0,off());
-      for(let t=rr(R,90,240);t<L-70;t+=rr(R,130,360)){
-        const o=off(),q=o+(o>0?-1:1)*rr(R,d*.6,d*1.2),w=rr(R,5,11);
-        pt(t,o);t+=w;pt(t,q);
-      }
-    };
-    side(x0,y0,x1,y0,0,1);side(x1,y0,x1,y1,1,0);side(x1,y1,x0,y1,0,1);side(x0,y1,x0,y0,1,0);
-    return pts.join(' ');
+  // Два сдвига концов одной стороны: заметно разные, чтобы сторона всегда шла под углом
+  function slant(R,lo,hi){
+    const a=rr(R,lo,hi),gap=(hi-lo)*.4;let b=rr(R,lo,hi);
+    if(Math.abs(a-b)<gap)b=a+(a<(lo+hi)/2?gap:-gap);
+    return [a,b];
   }
+  // Рамка как в диалогах игры: стороны прямые, а все четыре угла сдвинуты каждый в свою сторону
   function frames(){
     document.querySelectorAll('.infobox').forEach(e=>{
       const W=e.offsetWidth,H=e.offsetHeight,key=W+'x'+H;if(!W||e._p5f===key)return;e._p5f=key;e.dataset.p5f='1';
-      const R=rng(hash('card'+(e.querySelector('.infobox-above')?.textContent||''))),FW=W+24,FH=H+26;
-      const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${FW} ${FH}" preserveAspectRatio="none"><polygon points="${rough(R,10,12,W+21,H+23,2.4)}" fill="#e60012"/><polygon points="${rough(R,1.5,1.5,W+10.5,H+10.5,1.6)}" fill="#f2f2f0"/><polygon points="${rough(R,6,6,W+6,H+6,1.8)}" fill="#0a0a0a"/></svg>`;
+      const R=rng(hash('card'+(e.querySelector('.infobox-above')?.textContent||'')));
+      const [t0,t1]=slant(R,-4,6),[b0,b1]=slant(R,-6,5),[l0,l1]=slant(R,-14,7),[r0,r1]=slant(R,-7,4);
+      const ink=[[l0,t0],[W+r0,t1],[W+r1,H+b1],[l1,H+b0]];
+      const paper=ink.map(([x,y],i)=>[x+(i%3?1:-1)*rr(R,3,8),y+(i<2?-1:1)*rr(R,3,8)]);
+      const red=paper.map(([x,y])=>[x+11+rr(R,-3,3),y+12+rr(R,-3,3)]);
+      const pts=a=>a.map(([x,y])=>(x+24).toFixed(1)+','+(y+24).toFixed(1)).join(' ');
+      const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W+50} ${H+56}" preserveAspectRatio="none"><polygon points="${pts(red)}" fill="#e60012"/><polygon points="${pts(paper)}" fill="#f2f2f0"/><polygon points="${pts(ink)}" fill="#0a0a0a"/></svg>`;
       e.style.setProperty('--p5frame','url("data:image/svg+xml,'+encodeURIComponent(svg)+'")');});
   }
-  // То же для блоков заглавной: положение уступов в процентах, отступы в пикселях, размер блока не важен
-  function roughClip(R,d){
-    const p=[],j=()=>rr(R,0,d).toFixed(1);
-    const steps=(n,a,b)=>{const out=[];for(let i=0;i<n;i++){const k=(i+rr(R,.3,.7))/n*(b-a)+a;out.push([k.toFixed(1),rr(R,5,11).toFixed(1)]);}return out;};
-    const H=()=>steps(R()<.5?1:2,8,92),V=()=>steps(R()<.5?0:1,15,85);
-    p.push(`0px ${j()}px`);H().forEach(([k,w])=>p.push(`${k}% ${j()}px`,`calc(${k}% + ${w}px) ${j()}px`));
-    p.push(`100% ${j()}px`);V().forEach(([k,w])=>p.push(`calc(100% - ${j()}px) ${k}%`,`calc(100% - ${j()}px) calc(${k}% + ${w}px)`));
-    p.push(`calc(100% - ${j()}px) 100%`);H().reverse().forEach(([k,w])=>p.push(`calc(${k}% + ${w}px) calc(100% - ${j()}px)`,`${k}% calc(100% - ${j()}px)`));
-    p.push(`${j()}px 100%`);V().reverse().forEach(([k,w])=>p.push(`${j()}px calc(${k}% + ${w}px)`,`${j()}px ${k}%`));
-    return `polygon(${p.join(',')})`;
+  // То же для блоков заглавной: углы только внутрь, размер блока не важен
+  function quadClip(R,d){
+    const [t0,t1]=slant(R,0,d),[r0,r1]=slant(R,0,d),[b0,b1]=slant(R,0,d),[l0,l1]=slant(R,0,d),f=x=>x.toFixed(1)+'px';
+    return `polygon(${f(l0)} ${f(t0)},calc(100% - ${f(r0)}) ${f(t1)},calc(100% - ${f(r1)}) calc(100% - ${f(b1)}),${f(l1)} calc(100% - ${f(b0)}))`;
   }
-  function roughen(list){list.forEach(e=>{if(e.dataset.p5r)return;e.dataset.p5r='1';e.style.setProperty('--p5c',roughClip(rng(hash('rough'+(e.textContent||'').slice(0,50))),7));});}
+  function roughen(list){list.forEach(e=>{if(e.dataset.p5r)return;e.dataset.p5r='1';e.style.setProperty('--p5c',quadClip(rng(hash('rough'+(e.textContent||'').slice(0,50))),10));});}
   function stagger(list){[...list.children].forEach((li,i)=>{const R=rng(hash(li.textContent+i));li.style.setProperty('--p5m',Math.round(rr(R,0,26))+'px');const a=li.querySelector('a');const long=Math.max(1,...(a?a.textContent:li.textContent).split(/\s+/).map(w=>w.length));li.style.setProperty('--p5z',Math.min(rr(R,.94,1.14),11/long).toFixed(2));});}
 
   // Цвета текста из Википедии рассчитаны на белый фон: на чёрной панели тёмные осветляем, оттенок оставляем

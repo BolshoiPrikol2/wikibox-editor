@@ -144,8 +144,8 @@ html[data-ui="p5"][data-ui]{
   /* ---------- бумажные блоки: карточка, таблицы, иллюстрации ---------- */
   .mw-content .wikitable,.infobox-header,.infobox-image,.mw-content .thumb,.mw-content figure{--bg:#fff;--bg-sub:var(--paper);--bg-neutral:#dcd8d0;--text:var(--ink);--subtle:#4a4742;--link:#c30015;--link-hover:#7c0010;--red:#006f8a;--border:var(--ink);--border-sub:#a09c94;--border-muted:#cfcbc3;color:var(--ink)}
   .infobox{position:relative;isolation:isolate;z-index:2;background:none;border:0;color:#fff;font-size:93%;line-height:1.3;padding:12px 13px 16px;border-collapse:separate;border-spacing:0 4px;margin:16px 26px 34px 34px}
-  /* рамку рисует p5.js по размеру карточки: чёрная панель, светлая обводка и красная тень, у каждой свой неровный контур */
-  .infobox::before{content:"";position:absolute;inset:-6px -18px -20px -6px;background:var(--p5frame,linear-gradient(var(--ink),var(--ink))) center/100% 100% no-repeat;z-index:-1}
+  /* рамку рисует p5.js по размеру карточки: чёрная панель, светлая обводка и красная тень, у каждой свой четырёхугольник */
+  .infobox::before{content:"";position:absolute;inset:-24px -26px -32px -24px;background:var(--p5frame,linear-gradient(var(--ink),var(--ink))) center/100% 100% no-repeat;z-index:-1}
   .infobox td,.infobox th{padding:3px 6px}
   .infobox a:hover{background:var(--p5red);color:#fff}
   .infobox-pre{color:var(--subtle)}
