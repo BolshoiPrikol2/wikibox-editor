@@ -3,7 +3,7 @@
    Случайность везде из хэша текста или адреса: у разных заголовков разные буквы и фигуры, но при перерисовке ничего не прыгает.
    Буквы — отдельные span с той же буквой внутри, поэтому textContent заголовков не меняется, и якоря, оглавление и правка работают как обычно. */
 const P5=(()=>{
-  const FONT_URL='https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Russo+One&family=Rubik+One&family=Playfair+Display:wght@900&family=Old+Standard+TT:wght@700&family=Podkova:wght@800&family=Dela+Gothic+One&family=Fira+Sans+Extra+Condensed:wght@800;900&family=Cousine:wght@700&family=Rubik:ital,wght@0,400;0,500;0,700;1,400&display=swap';
+  const FONT_URL='https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Russo+One&family=Rubik+One&family=Playfair+Display:wght@900&family=Old+Standard+TT:wght@700&family=Podkova:wght@800&family=Dela+Gothic+One&family=Fira+Sans+Extra+Condensed:wght@800;900&family=Cousine:wght@400;700&family=Fira+Sans+Condensed:ital,wght@0,400;0,500;0,700;0,800;1,500&display=swap';
   const NF=9;                                     // шрифтов у букв, классы .f0–.f8 в p5.css
   const hash=s=>{let h=2166136261;for(const c of String(s)){h^=c.codePointAt(0);h=Math.imul(h,16777619);}return h>>>0;};
   const rng=seed=>{let a=seed>>>0;return ()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};};
@@ -78,7 +78,11 @@ const P5=(()=>{
     document.querySelectorAll('.btn,.tabs a,.tabs .sel,.tabs .off,.tab-btn').forEach(e=>shape(e,4,'',1.3));
     document.querySelectorAll('.mp-box,.mp-welcome,.tcard,.mitem,.mw-content .thumb,.mw-content figure,.hatnote,.mw-content blockquote').forEach(e=>shape(e,6,'',.9));
     document.querySelectorAll('.mw-content h2:not(.mp-h),.mw-content h3,.side-h,.infobox-above').forEach(e=>shape(e,5,'',.8));
-    document.querySelectorAll('.infobox').forEach(e=>shape(e,0,'ib'+(e.querySelector('.infobox-above')?.textContent||''),.7));
+    document.querySelectorAll('.infobox').forEach(e=>shape(e,9,'ib'+(e.querySelector('.infobox-above')?.textContent||''),.7));
+    // ярлык строки — отдельная плашка по размеру текста, иначе рядом с длинным значением она вытягивается на всю высоту строки
+    document.querySelectorAll('.infobox>tbody>tr>th[scope=row]:not(.ib-l2)').forEach(th=>{if(th.querySelector(':scope>.p5tag')||th.closest('.ie-rich'))return;const s=document.createElement('span');s.className='p5tag';s.append(...th.childNodes);th.appendChild(s);});
+    document.querySelectorAll('.infobox-header,.p5tag').forEach(e=>shape(e,3,'',.8));
+    document.querySelectorAll('.infobox-image').forEach((e,i)=>shape(e,5,'im'+i+location.hash,.7));
     const v=$('#tools');if(v)shape(v,8,'tools');
   }
 
@@ -128,6 +132,7 @@ const P5=(()=>{
       if(!mo){mo=new MutationObserver(queue);mo.observe(document.body,{childList:true,subtree:true,characterData:true});addEventListener('hashchange',onHash);}
     }else if(mo){mo.disconnect();mo=null;removeEventListener('hashchange',onHash);$('#p5-bg')?.remove();
       document.querySelectorAll('.p5w').forEach(w=>w.replaceWith(w.textContent));
+      document.querySelectorAll('.p5tag').forEach(s=>s.replaceWith(...s.childNodes));
       document.querySelectorAll('[data-p5s]').forEach(e=>{delete e.dataset.p5s;['--p5c','--p5t','--p5x'].forEach(v=>e.style.removeProperty(v));});
       document.querySelectorAll('#side li').forEach(e=>{e.style.removeProperty('--p5m');e.style.removeProperty('--p5z');});}
     wasOn=now;
