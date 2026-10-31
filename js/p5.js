@@ -99,19 +99,15 @@ const P5=(()=>{
     const {L,p}=along(100,W,H);let B=p(b.l-pad-lead,b.t),E=p(b.r+pad,b.b);if(B<min)B=-1;if(L-E<min)E=L+1;
     return `linear-gradient(100deg,#0000 ${B.toFixed(1)}px,var(--p5g) ${(B+.5).toFixed(1)}px ${E.toFixed(1)}px,#0000 ${(E+.5).toFixed(1)}px)`;
   }
-  function belowCut(W,H,b,pad){
-    const {p}=along(176,W,H),Y=Math.min(p(b.l,b.t),p(b.r,b.t))-pad;
-    return `linear-gradient(176deg,#0000 ${Y.toFixed(1)}px,var(--p5g) ${(Y+.5).toFixed(1)}px)`;
-  }
   function patterned(){
     document.querySelectorAll('.mw-content h2:not(.mp-h),.infobox-image,.infobox-header,.mw-content .thumbinner,.mw-content figure,.mp-welcome').forEach((e,i)=>{
       if(!e.dataset.p5p){e.dataset.p5p='1';const h=hash((e.textContent||'').slice(0,40)+i+location.hash);
         e.style.setProperty('--p5pat',pattern(h%NP));e.style.setProperty('--p5py',(h>>>8)%101+'%');}
       const full=e.dataset.pat==='full',W=e.offsetWidth,H=e.offsetHeight,key=[gen,W,H,full,e.textContent.length].join();
       if(e._p5k===key)return;e._p5k=key;
-      const b=boxOf(e,!full);
-      if(!b)e.style.setProperty('--p5cut',full?'none':'linear-gradient(var(--p5g),var(--p5g))');
-      else if(full)e.style.setProperty('--p5cut',belowCut(W,H,b,8));
+      const b=!full&&boxOf(e,true);
+      if(full)e.style.setProperty('--p5cut','none');
+      else if(!b)e.style.setProperty('--p5cut','linear-gradient(var(--p5g),var(--p5g))');
       else{const img=e.matches('.infobox-image,.thumbinner,figure'),head=e.matches('.infobox-header');
         e.style.setProperty('--p5cut',sideCut(W,H,b,img?5:14,head?26:0,img?6:9));}
     });
