@@ -173,6 +173,7 @@ html[data-ui="p5"][data-ui]{
   .infobox-image .ib-switch{--text:#fff;--subtle:#c4c0b8;--link:#ff5a64;--link-hover:#fff;--red:#19e0e6;width:fit-content;max-width:100%;margin:8px auto 0;padding:3px 9px;background:var(--ink);color:#fff}
   .infobox-image .media-caption,.mw-content .thumbcaption,.mw-content figcaption{--text:#fff;--subtle:#c4c0b8;--link:#ff5a64;--link-hover:#fff;--red:#19e0e6;display:block;width:fit-content;max-width:100%;margin:8px auto 0;background:var(--ink);color:#fff;padding:3px 9px;text-align:center}
   .infobox .ib-flags tr+tr td{--text:#fff;--subtle:#c4c0b8;--link:#ff5a64;--link-hover:#fff;--red:#19e0e6;background:var(--ink);color:#fff;padding:1px 6px}
+  .infobox-image[data-cap=plain] .media-caption,.infobox-image[data-cap=plain] .ib-switch,.infobox-image[data-cap=plain] .ib-flags tr+tr td{--text:var(--ink);--subtle:#4a4742;--link:#c30015;--link-hover:#7c0010;--red:#006f8a;background:none;color:var(--ink)}
   #main .infobox tr[data-ib]:hover>th[scope=row]{background-color:transparent}
   #main .infobox tr[data-ib]:hover>th>.p5tag{background:var(--p5cyan);color:var(--ink)}
   #main .infobox tr[data-ib]:hover>td:not(.infobox-image){background-color:#2a2825}
@@ -182,7 +183,7 @@ html[data-ui="p5"][data-ui]{
   .mw-content .wikitable a:hover{background:var(--p5red);color:#fff}
   .mw-content .thumb,.mw-content figure{--pad:0}
   .mw-content .thumbinner,.mw-content figure{background:var(--p5cut,linear-gradient(var(--p5g),var(--p5g))),var(--p5pat,none) 50% var(--p5py,50%)/cover,var(--p5g);color:var(--ink);border:0;padding:12px 16px;box-shadow:0 0 0 3px var(--ink),6px 6px 0 3px var(--p5red)}
-  .mw-content .thumbcaption,.mw-content figcaption{font-family:var(--mono);font-weight:400;font-size:12.5px;line-height:1.35}
+  .mw-content .thumbcaption,.mw-content figcaption{font-family:var(--sans);font-weight:500;font-size:14.9px;line-height:1.3}
 
   /* ---------- заглавная и служебные страницы ---------- */
   .mp-welcome{position:relative;background:var(--p5cut,linear-gradient(var(--p5g),var(--p5g))),var(--p5pat,none) 50% var(--p5py,50%)/cover,var(--p5g);color:var(--ink);border:0;clip-path:var(--p5c);--text:var(--ink);--subtle:#4a4742;--link:#c30015;transform:rotate(var(--p5t,0deg))}
