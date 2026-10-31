@@ -73,8 +73,26 @@ const P5=(()=>{
       e.classList.remove('p5lift');const c=getComputedStyle(e).color;
       if(lum(c)<.2){e.style.setProperty('--p5lc',c);e.classList.add('p5lift');}});
   }
+  /* Узор как справа в меню игры: зигзаги и звёзды из вложенных контуров, чёрное на сером. Вариантов несколько, у блока свой вариант и свой срез */
+  const NP=6,pats=[];
+  function pattern(i){
+    if(pats[i])return pats[i];
+    const R=rng(hash('pat'+i)),W=520,H=520;let s='<rect width="520" height="520" fill="#cfcfcd"/>';
+    for(let k=0;k<7;k++){const a=rr(R,-.5,.5),st=rr(R,34,60),w=rr(R,7,15),x0=rr(R,-120,120),y0=rr(R,0,H);let p='';
+      for(let t=0;t<16;t++){const x=x0+t*st,y=y0+(t%2?st*.8:0)+x*Math.tan(a);p+=x.toFixed(0)+','+y.toFixed(0)+' ';}
+      s+='<polyline points="'+p+'" fill="none" stroke="#0a0a0a" stroke-width="'+w.toFixed(1)+'" stroke-linejoin="miter"/>';}
+    for(let k=0;k<5;k++){const cx=rr(R,0,W),cy=rr(R,0,H),q=rr(R,90,210),n=Math.round(rr(R,5,8));let rot=rr(R,0,1.2);
+      for(let c=0;c<n;c++){const r=q*(1-c/n);rot+=rr(R,.01,.06);s+='<polygon points="'+starPts(cx,cy,r,r*.47,rot)+'" fill="'+(c%2?'#cfcfcd':'#0a0a0a')+'"/>';}}
+    return pats[i]='url("data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 520">'+s+'</svg>')+'")';
+  }
+  function patterned(){
+    document.querySelectorAll('.mw-content h2:not(.mp-h),.infobox-image,.infobox-header,.mw-content .thumbinner,.mw-content figure,.mp-welcome').forEach((e,i)=>{
+      if(e.dataset.p5p)return;e.dataset.p5p='1';const h=hash((e.textContent||'').slice(0,40)+i+location.hash);
+      e.style.setProperty('--p5pat',pattern(h%NP));e.style.setProperty('--p5py',(h>>>8)%101+'%');});
+  }
   function decorate(){
     if(!on())return;
+    patterned();
     liftDark();
     const lv=(sel,n)=>document.querySelectorAll(sel).forEach(e=>ransom(e,n));
     lv('#logo-name,.titlebar h1,.mp-w-t',2);
@@ -98,12 +116,12 @@ const P5=(()=>{
   /* ---------- фон ---------- */
   const starPts=(cx,cy,R0,r0,rot,n=5)=>{let s='';for(let i=0;i<n*2;i++){const a=rot+i*Math.PI/n,q=i%2?r0:R0;s+=`${(cx+q*Math.sin(a)).toFixed(1)},${(cy-q*Math.cos(a)).toFixed(1)} `;}return s;};
   function burst(R,cx,cy,size){let s='',rot=rr(R,-.3,.3);const n=9;
-    for(let k=0;k<n;k++){const q=size*(1-k/n);rot+=rr(R,.02,.09);s+=`<polygon points="${starPts(cx,cy,q,q*.47,rot)}" fill="${k%2?'#f4f1ea':'#0a0a0a'}"/>`;}
+    for(let k=0;k<n;k++){const q=size*(1-k/n);rot+=rr(R,.02,.09);s+=`<polygon points="${starPts(cx,cy,q,q*.47,rot)}" fill="${k%2?'#cfcfcd':'#0a0a0a'}"/>`;}
     return s;}
   function background(seed){
     const R=rng(hash(seed));const W=1600,H=1000;let s='';
     s+=`<defs><linearGradient id="p5g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7c0010"/><stop offset=".55" stop-color="#c5001a"/><stop offset="1" stop-color="#6a000c"/></linearGradient>
-      <pattern id="p5d" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(${rr(R,20,50).toFixed(0)})"><circle cx="7" cy="7" r="4.2" fill="#f4f1ea"/></pattern>
+      <pattern id="p5d" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(${rr(R,20,50).toFixed(0)})"><circle cx="7" cy="7" r="4.2" fill="#cfcfcd"/></pattern>
       <pattern id="p5c" width="150" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(90)"><rect width="150" height="5" fill="#000" opacity=".09"/></pattern></defs>`;
     s+=`<rect width="${W}" height="${H}" fill="url(#p5g)"/><rect width="${W}" height="${H}" fill="url(#p5c)"/>`;
     // широкая серая лента через весь экран и чёрная тень под ней
@@ -118,9 +136,9 @@ const P5=(()=>{
     const hx=rr(R,40,140),hy=H-rr(R,190,260);
     s+=`<polygon points="${hx},${hy} ${hx+rr(R,170,250)},${hy+rr(R,10,50)} ${hx+rr(R,120,200)},${hy+rr(R,130,170)} ${hx-rr(R,10,30)},${hy+rr(R,110,160)}" fill="url(#p5d)"/>`;
     // осколки и маленькие звёзды
-    for(let i=0;i<16;i++){const x=rr(R,0,W),y=rr(R,0,H),q=rr(R,18,70),a=rr(R,0,6.3),c=pick(R,['#0a0a0a','#f4f1ea','#e60012','#0a0a0a']);
+    for(let i=0;i<16;i++){const x=rr(R,0,W),y=rr(R,0,H),q=rr(R,18,70),a=rr(R,0,6.3),c=pick(R,['#0a0a0a','#cfcfcd','#e60012','#0a0a0a']);
       s+=`<polygon points="${x.toFixed(0)},${y.toFixed(0)} ${(x+q*Math.cos(a)).toFixed(0)},${(y+q*Math.sin(a)).toFixed(0)} ${(x+q*.5*Math.cos(a+1.9)).toFixed(0)},${(y+q*.5*Math.sin(a+1.9)).toFixed(0)}" fill="${c}"/>`;}
-    for(let i=0;i<9;i++){const x=rr(R,0,W),y=rr(R,0,H),q=rr(R,8,24);s+=`<polygon points="${starPts(x,y,q,q*.45,rr(R,0,1))}" fill="#0a0a0a" stroke="#f4f1ea" stroke-width="2"/>`;}
+    for(let i=0;i<9;i++){const x=rr(R,0,W),y=rr(R,0,H),q=rr(R,8,24);s+=`<polygon points="${starPts(x,y,q,q*.45,rr(R,0,1))}" fill="#0a0a0a" stroke="#cfcfcd" stroke-width="2"/>`;}
     return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${s}</svg>`;
   }
   function setBg(){let b=$('#p5-bg');if(!b){b=document.createElement('div');b.id='p5-bg';document.body.prepend(b);}
@@ -142,6 +160,7 @@ const P5=(()=>{
     }else if(mo){mo.disconnect();mo=null;removeEventListener('hashchange',onHash);$('#p5-bg')?.remove();
       document.querySelectorAll('.p5w').forEach(w=>w.replaceWith(w.textContent));
       document.querySelectorAll('.p5tag').forEach(s=>s.replaceWith(...s.childNodes));
+      document.querySelectorAll('[data-p5p]').forEach(e=>{delete e.dataset.p5p;e.style.removeProperty('--p5pat');e.style.removeProperty('--p5py');});
       document.querySelectorAll('.p5lift').forEach(e=>e.classList.remove('p5lift'));
       document.querySelectorAll('[data-p5s]').forEach(e=>{delete e.dataset.p5s;['--p5c','--p5t','--p5x'].forEach(v=>e.style.removeProperty(v));});
       document.querySelectorAll('#side li').forEach(e=>{e.style.removeProperty('--p5m');e.style.removeProperty('--p5z');});}
