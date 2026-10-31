@@ -367,6 +367,7 @@ function rowEditor(r,i){
       <div class="stats"><span class="cnt">Строки данных: подпись, затем значение для каждого кандидата</span>${r.stats.map((s,k)=>`<div class="stat" style="grid-template-columns:minmax(110px,1.3fr) repeat(${n},minmax(80px,1fr)) auto">${inp(p+'.stats.'+k+'.label',s.label,'Подпись')}${r.cands.map((c,j)=>inp(p+'.stats.'+k+'.values.'+j,(s.values||[])[j]||'','№ '+(j+1))).join('')}<button class="ic x" data-act="stat-del" data-i="${i}" data-j="${k}" aria-label="Убрать строку">✕</button></div>`).join('')}</div>
       <div><button class="btn sm" data-act="stat-add" data-i="${i}">+ строка данных</button></div>`;break;}
   }
+  if(r.t==='image'&&r.more&&r.more.length)x+=`<div class="two">${r.more.map((m,j)=>picker(p+'.more.'+j+'.src',m.src,'Ещё фото')).join('')}</div>`;
   return `<div class="rw" data-row="${i}"><div class="rw-h"><span class="rw-type">${ROWTYPES[r.t]?ROWTYPES[r.t][0]:r.t}</span>${rbtns(i,true,FOLDABLE.includes(r.t))}</div>${x}${rowSet(r,i)}</div>`;
 }
 let edPage=null;

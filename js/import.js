@@ -7,6 +7,7 @@ const WI_TYPES=[
   [/выбор|election|референдум|referendum/i,'election'],
   [/государственный деятель|политик|officeholder|ib-officeholder|president|prime minister/i,'leader'],
   [/монарх|royalty|ib-royalty/i,'monarch'],
+  [/музыкальный коллектив/i,'band'],
   [/вооружённый конфликт|сражение|military conflict|ib-military-conflict|battle/i,'battle'],
   [/политическая партия|political party|ib-political-party/i,'party'],
   [/выборы|election|ib-election/i,'election'],
@@ -110,10 +111,13 @@ function makeConverter(lang,opts){
         const href=el.getAttribute('href')||'';
         if(el.querySelector('img')){out+=inl(el,ctx);continue;}
         const text=inl(el,ctx).replace(/\s*\n\s*/g,' ').trim();if(!text)continue;
-        if(el.classList.contains('external')||/^https?:/.test(href)){out+=href.startsWith('http')?`[${href} ${text}]`:text;continue;}
+        if(el.classList.contains('external')||/^https?:/.test(href)){
+          // [ru] у межъязыковой ссылки: квадратная скобка перед ссылкой не должна склеиться с ней в [[…]]
+          if(out.endsWith('['))out+='\u2060';out+=href.startsWith('http')?`[${href} ${text}]`:text;continue;}
         if(/^#/.test(href)&&!/^#cite/.test(href)){let id=href.slice(1);try{id=decodeURIComponent(id);}catch(e){}const tg=el.ownerDocument.getElementById(id);const h=tg&&(tg.closest('th,h2,h3,h4,.mw-heading')||tg);const ht=h&&h.textContent.replace(/\[[^\]]*\]/g,'').replace(/\s+/g,' ').trim();if(ht){out+=`[[#${ht}|${text}]]`;continue;}out+=text;continue;}
         const t=linkTitle(href)||(el.classList.contains('new')&&(el.getAttribute('title')||'').replace(/\s*\(.*(страница|page).*\)\s*$/i,''));
-        if(t){out+=(t===text?`[[${t}]]`:(text.startsWith(t)&&/^[а-яёa-z]*$/i.test(text.slice(t.length))?`[[${t}]]${text.slice(t.length)}`:`[[${t}|${text}]]`));}else out+=text;
+        const m=el.classList.contains('new')?'!':'';
+        if(t){out+=(t===text?`[[${m}${t}]]`:(text.startsWith(t)&&/^[а-яёa-z]*$/i.test(text.slice(t.length))?`[[${m}${t}]]${text.slice(t.length)}`:`[[${m}${t}|${text}]]`));}else out+=text;
         continue;
       }
       if(tag==='b'||tag==='strong'){out+=wrapLines(inl(el,ctx),"'''","'''");continue;}
@@ -164,6 +168,9 @@ function makeConverter(lang,opts){
 function wiSideColor(c){const st=c.getAttribute('style')||'';return (st.match(/background(?:-color)?\s*:\s*(#[0-9a-f]{3,8}|[a-z]+)/i)||st.match(/border-top\s*:\s*[\d.]+em\s+solid\s+(#[0-9a-f]{3,8}|[a-z]+)/i)||[])[1]||'';}
 function wiInfobox(tbl,C){
   const rows=[];let title='',lightHd=false,biCols=null;
+  // en.wiki «Infobox musical artist»: цвет шапок зависит от типа исполнителя, пустые заголовки — цветные линии между блоками
+  const isBand=[...tbl.querySelectorAll('.infobox-header')].some(h=>/^background information$/i.test(h.textContent.trim()));
+  const hdBg=isBand?((tbl.querySelector('.infobox-above')?.getAttribute('style')||'').match(/background(?:-color)?\s*:\s*(#[0-9a-f]{3,8})/i)||[])[1]||'':'';
   const cap=tbl.querySelector(':scope > caption');if(cap)title=C.inline(cap,false);
   // en и ru: строка из двух цветных ячеек, под ней флаги с названиями; de: полоска над флагом в той же ячейке, названия строкой ниже
   const biRow=tr=>{const cs=[...tr.cells];if(cs.length!==2)return false;
@@ -201,6 +208,7 @@ function wiInfobox(tbl,C){
       if(text&&/background:\s*lightgrey/i.test(one.getAttribute('style')||''))lightHd=true;
       if(imgs.length>=2&&lbl){rows.push(R.h(text,C.mediaName(imgs[0]),C.mediaName(imgs[imgs.length-1])));}
       else if(text)rows.push(R.h(text));
+      else if(isBand)rows.push(R.hr());
       continue;
     }
     if(one&&one.querySelector('hr')&&!one.textContent.trim()){rows.push(R.hr());continue;}
@@ -235,6 +243,10 @@ function wiInfobox(tbl,C){
           const cl=one.cloneNode(true);cl.querySelector('.switcher-container').remove();cl.querySelectorAll('img').forEach(i=>{if((+i.getAttribute('width')||0)>60)i.remove();});
           const ri=R.i(alts[0].src,C.inline(cl,false),Math.min(400,+simgs[0].getAttribute('width')||250));ri.alts=alts;ri.swAll=C.lang==='en'?'Show all':'Показать все';rows.push(ri);continue;
         }
+        // несколько фото с одной подписью (состав группы в ru.wiki) — одна строка-картинка, а не флаг с гербом
+        if(big.length>=2&&one.querySelectorAll('.media-caption').length===1&&(big.length>2||!one.querySelector('table'))){
+          const ri=R.i(C.mediaName(big[0]),C.inline(one.querySelector('.media-caption'),false),Math.min(400,+big[0].getAttribute('width')||250));
+          ri.more=big.slice(1).map(i=>({src:C.mediaName(i),w:Math.min(400,+i.getAttribute('width')||250)}));rows.push(ri);continue;}
         if(big.length>=2){
           // флаг и герб: подпись под каждой картинкой ищем в ближайшем общем блоке
           const isBig=i=>(+i.getAttribute('width')||0)>60||(+i.getAttribute('height')||0)>60;
@@ -314,7 +326,7 @@ function wiInfobox(tbl,C){
   // своя ширина карточки (у СССР style="width:28em")
   const wm=(tbl.getAttribute('style')||'').match(/(?:^|;)\s*width\s*:\s*([\d.]+)\s*(em|px)/i);
   const w=wm?(wm[2].toLowerCase()==='px'?+wm[1]/14.4:+wm[1]):0;
-  return {title,rows,w:w>=14&&w<=40?Math.round(w*10)/10:0,kind:(String(tbl.className).match(/(?:^|\s)ib-([a-z][a-z-]*)(?:\s|$)/)||[])[1]||(lightHd&&rows.some(r=>r.t==='bilat')?'bilateral':'')};
+  return {title,rows,w:w>=14&&w<=40?Math.round(w*10)/10:0,kind:(String(tbl.className).match(/(?:^|\s)ib-([a-z][a-z-]*)(?:\s|$)/)||[])[1]||(lightHd&&rows.some(r=>r.t==='bilat')?'bilateral':isBand?'band':''),theme:hdBg.toLowerCase()};
 }
 
 function wiBody(root,C,opts){
@@ -401,7 +413,8 @@ async function wikiImport(q,lang,opts){
   if(ibEl){const key=(ibEl.getAttribute('data-name')||'')+' '+ibEl.className.replace(/\b(vevent|vcard|geography|hproduct|infobox)\b/g,'');for(const [re,t] of WI_TYPES)if(re.test(key)){type=t;break;}}
   const ib=ibEl?wiInfobox(ibEl,C):{title:'',rows:[]};
   const extraIb=ibAll.slice(1).map(t=>{const x=wiInfobox(t,C);const o={title:x.title||'',custom:false,theme:'#3366cc',w:x.w||23,rows:x.rows};if(x.kind)o.kind=x.kind;return o;});
-  if(ib.rows.some(r=>r.t==='bilat'))type='relations';
+  if(ib.theme==='#b0c4de')type='band';
+  else if(ib.rows.some(r=>r.t==='bilat'))type='relations';
   else if(ib.rows.some(r=>r.t==='cols'&&!r.center)&&!['battle','war'].includes(type))type='battle';
   const {body,hatnote}=opts.body?wiBody(root,C,opts):{body:'',hatnote:''};
   let pageTitle=disp,k=2;while(pageFind(pageTitle))pageTitle=`${disp} (${k++})`;
@@ -410,7 +423,7 @@ async function wikiImport(q,lang,opts){
   if(L==='en')pg.lang='en';else if(L==='ru'&&(P.wiki.lang||'ru')!=='ru')pg.lang='ru';
   Object.assign(pg,{hatnote:opts.body?hatnote:'',body:body||`'''${pageTitle}''' — …`,cats:cats.join(', '),
     source:{lang:L,title:parse.title,url:`https://${L}.wikipedia.org/wiki/${encodeURIComponent(parse.title.replace(/ /g,'_'))}`}});
-  pg.ib={title:ib.title||pageTitle,custom:false,theme:'#3366cc',w:ib.w||23,rows:ib.rows.length?ib.rows:pg.ib.rows};if(ib.kind)pg.ib.kind=ib.kind;
+  pg.ib={title:ib.title||pageTitle,custom:false,theme:'#3366cc',w:ib.w||23,rows:ib.rows.length?ib.rows:pg.ib.rows};if(ib.kind)pg.ib.kind=ib.kind;if(ib.theme)Object.assign(pg.ib,{custom:true,theme:ib.theme});
   pg.extra=extraIb;
   P.media.push(...C.media);P.pages.push(pg);save();
   return {pg,images:C.media.length,refs:C.refCount};

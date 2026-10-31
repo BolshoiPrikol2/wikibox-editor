@@ -275,7 +275,8 @@ const RENDER={
       const im=alts.map((a,k)=>`<img class="sw-img" data-sw="${k}" src="${mediaSrc(a.src)}" alt="" style="width:${W}px"${k?' hidden':''}>`).join('');
       const sw=`<div class="ib-switch">${alts.map((a,k)=>`<label${k?'':' class="first"'}><input type="radio" name="${id}" value="${k}"${k?'':' checked'}>${inline(a.label||'',c)}</label>`).join('')}${r.swAll?`<label><input type="radio" name="${id}" value="all">${inline(r.swAll,c)}</label>`:''}</div>`;
       return `<tr><td colspan="2" class="infobox-image">${im}${sw}${r.caption?`<span class="media-caption"${r.capLeft?' style="text-align:left"':''}>${legendWrap(inline(r.caption,c),r.lcols)}</span>`:''}</td></tr>`;}
-    return `<tr><td colspan="2" class="infobox-image"><img src="${s}" alt="" style="width:${W}px">${r.caption?`<span class="media-caption"${r.capLeft?' style="text-align:left"':''}>${legendWrap(inline(r.caption,c),r.lcols)}</span>`:''}</td></tr>`;},
+    const more=(r.more||[]).filter(m=>mediaSrc(m.src)).map(m=>` <img src="${mediaSrc(m.src)}" alt="" style="width:${Math.max(40,+m.w||W)}px">`).join('');
+    return `<tr><td colspan="2" class="infobox-image"><img src="${s}" alt="" style="width:${W}px">${more}${r.caption?`<span class="media-caption"${r.capLeft?' style="text-align:left"':''}>${legendWrap(inline(r.caption,c),r.lcols)}</span>`:''}</td></tr>`;},
   images2:(r,c)=>{const a=mediaSrc(r.src1),b=mediaSrc(r.src2);if(!a&&!b)return '';
     const im=[a&&[a,'ib-flag',r.cap1],b&&[b,'ib-coat',r.cap2]].filter(Boolean);
     return `<tr><td colspan="2" class="infobox-image"><table class="ib-flags"><tbody><tr>${im.map(([s,k])=>`<td><img class="${k}" src="${s}" alt=""></td>`).join('')}</tr>${im.some(x=>String(x[2]||'').trim())?`<tr>${im.map(x=>`<td>${inline(x[2]||'',c)}</td>`).join('')}</tr>`:''}</tbody></table></td></tr>`;},
@@ -323,7 +324,7 @@ function renderInfobox(ib,ctx,mark,country){
   if(!h&&!ib.title&&!ib.above)return '';
   // стандартная ширина 23em в Википедии на деле 23,4em (ru) и 22em (en); своя ширина (style=width) — ровно как задана
   const w0=Math.min(40,Math.max(14,+ib.w||23));const w=w0===23?(RL==='en'?22:23.4):w0;
-  return `<table class="infobox${country?' ib-country':''}${ib.kind&&ib.kind!=='country'?' ib-'+esc(ib.kind):''}" style="width:${w}em"><tbody>${ib.above?`<tr${mark?` data-ib="${typeof mark==='string'?mark:''}above"`:''}><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr${mark?` data-ib="${typeof mark==='string'?mark:''}title"`:''}><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
+  return `<table class="infobox${country?' ib-country':''}${ib.kind&&ib.kind!=='country'?' ib-'+esc(ib.kind):''}" style="width:${w}em${th?`;--ib-th:${th}`:''}"><tbody>${ib.above?`<tr${mark?` data-ib="${typeof mark==='string'?mark:''}above"`:''}><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr${mark?` data-ib="${typeof mark==='string'?mark:''}title"`:''}><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
 }
 
 /* ---------- article ---------- */

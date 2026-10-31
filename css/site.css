@@ -153,6 +153,8 @@ body.mode-edit .vside,body.mode-edit .vtools{display:none}
 .mw-content dd{margin-left:1.6em}
 .mw-content hr{height:1px;border:0;background:var(--border);margin:.5em 0}
 .mw-content a.external::after{content:"\2197";font-size:.75em;margin-left:2px;color:var(--subtle)}
+.mw-content a.external[href*=".wikipedia.org/"]::after,.mw-content a.external[href*=".wikimedia.org/"]::after{content:none}
+@media (min-width:721px){.wl-en .ib-band .infobox-image img{max-width:none}}
 .mw-content sup.reference{font-size:.75em;line-height:1;white-space:nowrap;unicode-bidi:isolate}
 .mw-content mark{background:var(--blue200);color:var(--text)}
 .hatnote{font-style:italic;padding-left:1.6em;margin-bottom:.5em}
@@ -200,6 +202,8 @@ abbr[title]{text-decoration:underline dotted;cursor:help}
 .ib-bilat img{display:inline-block;height:auto;border:1px solid var(--border-sub);vertical-align:middle}
 .ib-bilateral>tbody>tr>.infobox-header{background:var(--ib-rel-hd)!important}
 .infobox.ib-bilateral{border-collapse:collapse}
+.wl-en .ib-band>tbody>tr>.infobox-above{background:var(--ib-th,none)!important}
+.ib-band .ib-hr hr{height:2px;margin:0;background:var(--ib-th,var(--border))}
 .ib-bilateral .ib-cols td{padding:1px}
 .ib-bilateral .ib-cols td+td{border-left-color:var(--ib-rel-hd)}
 .ib-succ td{vertical-align:middle}
