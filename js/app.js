@@ -7,7 +7,7 @@ const fid=p=>'f-'+p.replace(/\./g,'-');
 const LS='apokrif-v2',LSA='apokrif-appearance';
 let P=null;
 const state={source:'',lastP:'body',edTab:'form',tocHidden:false};
-const APP={size:'1',width:'std',theme:'auto',wmode:'off',ui:'wiki'};
+const APP={size:'1',width:'std',theme:'auto',wmode:'off',ui:'wiki',refs:'on'};
 /* режим Википедии: подпись «Материал из Википедии…» и никакого интерфейса правки */
 const WIKI_TAG='Материал из Википедии — свободной энциклопедии';
 const wikiMode=()=>APP.wmode==='wiki';
@@ -90,7 +90,7 @@ function applyAppearance(){const d=document.documentElement;d.dataset.wmode=APP.
 function appearanceHTML(px){
   const grp=(key,title,opts)=>`<fieldset class="ap-grp"><legend>${title}</legend>${opts.map(([v,l])=>`<label><input type="radio" name="${px}-${key}" data-ap="${key}" value="${v}"${APP[key]===v?' checked':''}> ${l}</label>`).join('')}</fieldset>`;
   const g=(k,t,o)=>grp(k,tr(t),o.map(([v,l])=>[v,tr(l)]));
-  return g('ui','Стиль',[['wiki','Википедия'],['p5','Persona 5 Royal']])+g('size','Текст',[['0','Мелкий'],['1','Стандартный'],['2','Крупный']])+g('width','Ширина',[['std','Стандартная'],['wide','Широкая']])+(APP.ui==='p5'?'':g('theme','Цвета (бета)',[['auto','Автоматически'],['light','Светлая'],['dark','Тёмная']]))+g('wmode','Режим',[['off','Редактор'],['wiki','Википедия (без правки)']]);
+  return g('ui','Стиль',[['wiki','Википедия'],['p5','Persona 5 Royal']])+g('size','Текст',[['0','Мелкий'],['1','Стандартный'],['2','Крупный']])+g('width','Ширина',[['std','Стандартная'],['wide','Широкая']])+(APP.ui==='p5'?'':g('theme','Цвета (бета)',[['auto','Автоматически'],['light','Светлая'],['dark','Тёмная']]))+g('refs','Сноски',[['on','Показывать'],['off','Скрыть']])+g('wmode','Режим',[['off','Редактор'],['wiki','Википедия (без правки)']]);
 }
 function renderTools(){const rd=P&&parseHash().k==='wiki'&&cur();$('#tools').innerHTML=`${rd?`<div class="side-h">${tr('Инструменты')}</div><ul class="menu-list tools-list"><li><button class="linkbtn" data-act="snap" data-w="all">${tr('Скачать статью картинкой')}</button></li><li><button class="linkbtn" data-act="snap" data-w="lead">${tr('Скачать главное картинкой')}</button></li><li><button class="linkbtn" data-act="snap" data-w="ib">${tr('Скачать карточку картинкой')}</button></li><li><button class="linkbtn" data-act="wmode">${wikiMode()?tr('Выключить режим Википедии'):tr('Режим Википедии')}</button></li></ul><p class="tools-hint">${tr('Двойной щелчок по абзацу, заголовку или строке карточки — быстрая правка прямо на странице. Выделите текст — появится меню оформления.')}</p>`:''}<div class="side-h">${tr('Внешний вид')} <button class="pill" data-act="ap-toggle">${state.apHidden?tr('показать'):tr('скрыть')}</button></div><div class="ap-body"${state.apHidden?' hidden':''}>${appearanceHTML('t')}</div>`;}
 
@@ -543,7 +543,7 @@ document.addEventListener('input',e=>{
   if(el.id==='q'){suggest(el.value);return;}
   if(el.id&&el.id.startsWith('fb-')&&el.id!=='fb-name'){$('#fb-prev').src=flagSVG(fbParams());return;}
   if(el.dataset.ap==='wmode'){setWikiMode(el.value==='wiki');return;}
-  if(el.dataset.ap){APP[el.dataset.ap]=el.value;try{localStorage.setItem(LSA,JSON.stringify(APP));}catch(x){}applyAppearance();if(el.dataset.ap==='ui'){applyBrand();route();}$$(`input[data-ap="${el.dataset.ap}"][value="${el.value}"]`).forEach(r=>r.checked=true);return;}
+  if(el.dataset.ap){APP[el.dataset.ap]=el.value;try{localStorage.setItem(LSA,JSON.stringify(APP));}catch(x){}applyAppearance();if(el.dataset.ap==='ui'){applyBrand();route();}$$(`input[data-ap="${el.dataset.ap}"][value="${el.value}"]`).forEach(r=>r.checked=true);if(el.dataset.ap==='refs'){closeIE();const y=window.scrollY;route();window.scrollTo(0,y);}return;}
   const p=el.dataset.p;if(!p)return;
   if(el.dataset.scope==='proj'){setPath(P,p,el.value);applyBrand();clearTimeout(svT);svT=setTimeout(save,500);return;}
   const pg=edPage;if(!pg||!$('#edform')?.contains(el))return;
