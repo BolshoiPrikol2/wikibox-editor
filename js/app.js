@@ -7,7 +7,7 @@ const fid=p=>'f-'+p.replace(/\./g,'-');
 const LS='apokrif-v2',LSA='apokrif-appearance';
 let P=null;
 const state={source:'',lastP:'body',edTab:'form',tocHidden:false};
-const APP={size:'1',width:'std',theme:'auto',wmode:'off'};
+const APP={size:'1',width:'std',theme:'auto',wmode:'off',ui:'wiki'};
 /* режим Википедии: подпись «Материал из Википедии…» и никакого интерфейса правки */
 const WIKI_TAG='Материал из Википедии — свободной энциклопедии';
 const wikiMode=()=>APP.wmode==='wiki';
@@ -86,11 +86,11 @@ function setWikiMode(on){
   toast(on?'Режим Википедии: правка скрыта. Выключить — в «Внешнем виде» справа или в меню ⋮':'Режим Википедии выключен');
 }
 function loadAppearance(){try{Object.assign(APP,JSON.parse(localStorage.getItem(LSA)||'{}'));}catch(e){}}
-function applyAppearance(){const d=document.documentElement;d.dataset.wmode=APP.wmode;d.dataset.size=APP.size;d.dataset.width=APP.width;if(APP.theme==='auto')delete d.dataset.theme;else d.dataset.theme=APP.theme;}
+function applyAppearance(){const d=document.documentElement;d.dataset.wmode=APP.wmode;d.dataset.size=APP.size;d.dataset.width=APP.width;if(APP.theme==='auto')delete d.dataset.theme;else d.dataset.theme=APP.theme;if(APP.ui==='p5')d.dataset.ui='p5';else delete d.dataset.ui;P5.sync();}
 function appearanceHTML(px){
   const grp=(key,title,opts)=>`<fieldset class="ap-grp"><legend>${title}</legend>${opts.map(([v,l])=>`<label><input type="radio" name="${px}-${key}" data-ap="${key}" value="${v}"${APP[key]===v?' checked':''}> ${l}</label>`).join('')}</fieldset>`;
   const g=(k,t,o)=>grp(k,tr(t),o.map(([v,l])=>[v,tr(l)]));
-  return g('size','Текст',[['0','Мелкий'],['1','Стандартный'],['2','Крупный']])+g('width','Ширина',[['std','Стандартная'],['wide','Широкая']])+g('theme','Цвета (бета)',[['auto','Автоматически'],['light','Светлая'],['dark','Тёмная']])+g('wmode','Режим',[['off','Редактор'],['wiki','Википедия (без правки)']]);
+  return g('ui','Стиль',[['wiki','Википедия'],['p5','Persona 5 Royal']])+g('size','Текст',[['0','Мелкий'],['1','Стандартный'],['2','Крупный']])+g('width','Ширина',[['std','Стандартная'],['wide','Широкая']])+(APP.ui==='p5'?'':g('theme','Цвета (бета)',[['auto','Автоматически'],['light','Светлая'],['dark','Тёмная']]))+g('wmode','Режим',[['off','Редактор'],['wiki','Википедия (без правки)']]);
 }
 function renderTools(){const rd=P&&parseHash().k==='wiki'&&cur();$('#tools').innerHTML=`${rd?`<div class="side-h">${tr('Инструменты')}</div><ul class="menu-list tools-list"><li><button class="linkbtn" data-act="snap" data-w="all">${tr('Скачать статью картинкой')}</button></li><li><button class="linkbtn" data-act="snap" data-w="lead">${tr('Скачать главное картинкой')}</button></li><li><button class="linkbtn" data-act="snap" data-w="ib">${tr('Скачать карточку картинкой')}</button></li><li><button class="linkbtn" data-act="wmode">${wikiMode()?tr('Выключить режим Википедии'):tr('Режим Википедии')}</button></li></ul><p class="tools-hint">${tr('Двойной щелчок по абзацу, заголовку или строке карточки — быстрая правка прямо на странице. Выделите текст — появится меню оформления.')}</p>`:''}<div class="side-h">${tr('Внешний вид')} <button class="pill" data-act="ap-toggle">${state.apHidden?tr('показать'):tr('скрыть')}</button></div><div class="ap-body"${state.apHidden?' hidden':''}>${appearanceHTML('t')}</div>`;}
 
@@ -510,11 +510,11 @@ async function snap(which){
   const svgs=$$('svg',target).map((s,i)=>{s.dataset.snap=i;const r=s.getBoundingClientRect(),cs=getComputedStyle(s),c=s.cloneNode(true);
     c.setAttribute('width',r.width);c.setAttribute('height',r.height);c.setAttribute('color',cs.color);
     return {w:r.width,h:r.height,blk:cs.display==='block',src:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(c))};});
-  const onclone=doc=>doc.querySelectorAll('svg[data-snap]').forEach(s=>{const v=svgs[+s.dataset.snap];if(!v||!v.w)return;const im=doc.createElement('img');im.src=v.src;
-    im.style.cssText=`width:${v.w}px;height:${v.h}px;display:${v.blk?'block;margin:0 auto':'inline-block'};max-width:none;vertical-align:middle`;s.replaceWith(im);});
+  const onclone=doc=>{doc.documentElement.setAttribute('data-snap','1');doc.querySelectorAll('.snap-area>html2canvaspseudoelement').forEach(e=>e.remove());doc.querySelectorAll('svg[data-snap]').forEach(s=>{const v=svgs[+s.dataset.snap];if(!v||!v.w)return;const im=doc.createElement('img');im.src=v.src;
+    im.style.cssText=`width:${v.w}px;height:${v.h}px;display:${v.blk?'block;margin:0 auto':'inline-block'};max-width:none;vertical-align:middle`;s.replaceWith(im);});};
   try{
     await prepImgs(target);
-    const cv=await html2canvas(target,{backgroundColor:getComputedStyle(document.body).backgroundColor,scale:2,logging:false,useCORS:true,imageTimeout:20000,onclone});
+    const cv=await html2canvas(target,{backgroundColor:APP.ui==='p5'?'#0a0a0a':getComputedStyle(document.body).backgroundColor,scale:2,logging:false,useCORS:true,imageTimeout:20000,onclone});
     cv.toBlob(b=>download(((cur()?.title)||'статья')+(which==='ib'?' — карточка':which==='lead'?' — главное':'')+'.png',b));
   }catch(e){toast('Не получилось сделать снимок: '+(e.message||e),true);}
   finally{ed.forEach(e=>e.style.visibility='');cut.forEach(([el,d])=>el.style.display=d);$$('svg[data-snap]',target).forEach(s=>delete s.dataset.snap);}
@@ -542,7 +542,7 @@ document.addEventListener('input',e=>{
   if(el.id==='q'){suggest(el.value);return;}
   if(el.id&&el.id.startsWith('fb-')&&el.id!=='fb-name'){$('#fb-prev').src=flagSVG(fbParams());return;}
   if(el.dataset.ap==='wmode'){setWikiMode(el.value==='wiki');return;}
-  if(el.dataset.ap){APP[el.dataset.ap]=el.value;try{localStorage.setItem(LSA,JSON.stringify(APP));}catch(x){}applyAppearance();$$(`input[data-ap="${el.dataset.ap}"][value="${el.value}"]`).forEach(r=>r.checked=true);return;}
+  if(el.dataset.ap){APP[el.dataset.ap]=el.value;try{localStorage.setItem(LSA,JSON.stringify(APP));}catch(x){}applyAppearance();if(el.dataset.ap==='ui'){applyBrand();route();}$$(`input[data-ap="${el.dataset.ap}"][value="${el.value}"]`).forEach(r=>r.checked=true);return;}
   const p=el.dataset.p;if(!p)return;
   if(el.dataset.scope==='proj'){setPath(P,p,el.value);applyBrand();clearTimeout(svT);svT=setTimeout(save,500);return;}
   const pg=edPage;if(!pg||!$('#edform')?.contains(el))return;

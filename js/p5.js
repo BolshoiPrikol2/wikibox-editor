@@ -1,0 +1,136 @@
+'use strict';
+/* Оформление в духе меню Persona 5 Royal: буквы-вырезки из разных шрифтов, рваные панели, клинья, полутон, звёзды.
+   Случайность везде из хэша текста или адреса: у разных заголовков разные буквы и фигуры, но при перерисовке ничего не прыгает.
+   Буквы — отдельные span с той же буквой внутри, поэтому textContent заголовков не меняется, и якоря, оглавление и правка работают как обычно. */
+const P5=(()=>{
+  const FONT_URL='https://fonts.googleapis.com/css2?family=Oswald:wght@700&family=Russo+One&family=Rubik+One&family=Playfair+Display:wght@900&family=Old+Standard+TT:wght@700&family=Podkova:wght@800&family=Dela+Gothic+One&family=Fira+Sans+Extra+Condensed:wght@800;900&family=Cousine:wght@700&family=Rubik:ital,wght@0,400;0,500;0,700;1,400&display=swap';
+  const NF=9;                                     // шрифтов у букв, классы .f0–.f8 в p5.css
+  const hash=s=>{let h=2166136261;for(const c of String(s)){h^=c.codePointAt(0);h=Math.imul(h,16777619);}return h>>>0;};
+  const rng=seed=>{let a=seed>>>0;return ()=>{a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};};
+  const rr=(R,a,b)=>a+(b-a)*R();
+  const pick=(R,a)=>a[Math.floor(R()*a.length)];
+  const on=()=>document.documentElement.dataset.ui==='p5';
+
+  /* ---------- буквы-вырезки ---------- */
+  // lv: 2 — крупные заголовки, 1 — разделы, 0 — пункты меню: чем мельче текст, тем меньше коробочек, чтобы он оставался читаемым
+  const BOX=[.34,.26,.15];
+  function letter(ch,R,first,lv,prevBox){
+    const isL=/\p{L}/u.test(ch),box=isL&&!prevBox&&R()<(first?.55:BOX[2-lv]);
+    const kind=!box?(isL&&R()<.12?'k4':'k0'):pick(R,['k1','k1','k2','k2','k3']);
+    const s=(first?rr(R,1.16,1.42):rr(R,.86,1.08))*(lv?1:.94);
+    const low=isL&&!first&&R()<.3;
+    const el=document.createElement('span');
+    el.className=`p5l f${Math.floor(R()*NF)} ${kind}${low?' lo':''}`;
+    el.style.cssText=`--r:${rr(R,-6.5,6.5).toFixed(1)}deg;--s:${s.toFixed(2)};--y:${rr(R,-.05,.05).toFixed(3)}em`;
+    el.textContent=ch;return {el,box};
+  }
+  function ransomText(node,lv){
+    const frag=document.createDocumentFragment();
+    node.nodeValue.split(/(\s+)/).forEach(part=>{
+      if(!part)return;if(/^\s+$/.test(part)){frag.appendChild(document.createTextNode(part));return;}
+      const R=rng(hash(part+lv)),w=document.createElement('span');w.className='p5w';let prevBox=false;
+      Array.from(part).forEach((ch,i)=>{const l=letter(ch,R,i===0,lv,prevBox);prevBox=l.box;w.appendChild(l.el);});
+      frag.appendChild(w);});
+    node.parentNode.replaceChild(frag,node);
+  }
+  const done=new WeakMap();
+  function ransom(el,lv){
+    const t=el.textContent;if(done.get(el)===t&&el.querySelector('.p5w'))return;
+    if(!t.trim()||el.closest('.ie-rich,[contenteditable="true"]'))return;
+    const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT,{acceptNode:n=>n.parentElement.closest('button:not(.tcard),input,textarea,select,.mw-editsection,.p5w,sup')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+    const nodes=[];while(w.nextNode())nodes.push(w.currentNode);
+    nodes.forEach(n=>{if(n.nodeValue.trim())ransomText(n,lv);});
+    done.set(el,t);
+  }
+
+  /* ---------- рваные фигуры ---------- */
+  // Четыре угла со сдвигом и пара зазубрин на длинных сторонах. Значения в px от краёв, поэтому фигура не плывёт на длинных страницах
+  function poly(R,d){
+    const j=()=>rr(R,0,d).toFixed(1),p=[];
+    const L=x=>`${x}px`,Rt=x=>`calc(100% - ${x}px)`;
+    p.push(`${L(j())} ${L(j())}`);
+    if(R()<.7){const x=rr(R,20,70).toFixed(1);p.push(`${x}% ${L(j())}`,`${(+x+rr(R,1,3)).toFixed(1)}% ${L(rr(R,d*.8,d*1.7).toFixed(1))}`,`${(+x+rr(R,3,6)).toFixed(1)}% ${L(j())}`);}
+    p.push(`${Rt(j())} ${L(j())}`,`${Rt(j())} ${Rt(j())}`);
+    if(R()<.7){const x=rr(R,25,75).toFixed(1);p.push(`${x}% ${Rt(j())}`,`${(x-rr(R,1,3)).toFixed(1)}% ${Rt(rr(R,d*.8,d*1.7).toFixed(1))}`,`${(x-rr(R,3,6)).toFixed(1)}% ${Rt(j())}`);}
+    p.push(`${L(j())} ${Rt(j())}`);
+    return `polygon(${p.join(',')})`;
+  }
+  function shape(el,d,key,tilt){
+    const k=key||(el.textContent||'').slice(0,60)+(el.className||'');
+    if(el.dataset.p5s===k)return;el.dataset.p5s=k;
+    const R=rng(hash(k));el.style.setProperty('--p5c',poly(R,d));
+    if(tilt)el.style.setProperty('--p5t',rr(R,-tilt,tilt).toFixed(2)+'deg');
+    el.style.setProperty('--p5x',Math.round(rr(R,0,1)*100)/100);
+  }
+  // Пункты меню стоят лесенкой разной длины, как в главном меню игры
+  function stagger(list){[...list.children].forEach((li,i)=>{const R=rng(hash(li.textContent+i));li.style.setProperty('--p5m',Math.round(rr(R,0,26))+'px');const a=li.querySelector('a');const long=Math.max(1,...(a?a.textContent:li.textContent).split(/\s+/).map(w=>w.length));li.style.setProperty('--p5z',Math.min(rr(R,.94,1.14),11/long).toFixed(2));});}
+
+  function decorate(){
+    if(!on())return;
+    const lv=(sel,n)=>document.querySelectorAll(sel).forEach(e=>ransom(e,n));
+    lv('#logo-name,.titlebar h1,.mp-w-t',2);
+    lv('.mw-content h2:not(.mp-h),.mw-content>h2,.mp-h,.infobox-above,.side-h>:not(button),.grp>legend,.wi-h',1);
+    lv('.mw-content h3,.mp-cols h3,.tcard b',0);
+    lv('#side .menu-list:not(.tools-list) a,.side-h2',0);
+    document.querySelectorAll('.side-h').forEach(e=>{if(!e.querySelector(':scope>:not(button)'))ransom(e,1);});
+    document.querySelectorAll('#side .menu-list').forEach(stagger);
+    document.querySelectorAll('.snap-area').forEach(e=>shape(e,16,'panel'+location.hash));
+    document.querySelectorAll('.btn,.tabs a,.tabs .sel,.tabs .off,.tab-btn').forEach(e=>shape(e,4,'',1.3));
+    document.querySelectorAll('.mp-box,.mp-welcome,.tcard,.mitem,.mw-content .thumb,.mw-content figure,.hatnote,.mw-content blockquote').forEach(e=>shape(e,6,'',.9));
+    document.querySelectorAll('.mw-content h2:not(.mp-h),.mw-content h3,.side-h,.infobox-above').forEach(e=>shape(e,5,'',.8));
+    document.querySelectorAll('.infobox').forEach(e=>shape(e,0,'ib'+(e.querySelector('.infobox-above')?.textContent||''),.7));
+    const v=$('#tools');if(v)shape(v,8,'tools');
+  }
+
+  /* ---------- фон ---------- */
+  const starPts=(cx,cy,R0,r0,rot,n=5)=>{let s='';for(let i=0;i<n*2;i++){const a=rot+i*Math.PI/n,q=i%2?r0:R0;s+=`${(cx+q*Math.sin(a)).toFixed(1)},${(cy-q*Math.cos(a)).toFixed(1)} `;}return s;};
+  function burst(R,cx,cy,size){let s='',rot=rr(R,-.3,.3);const n=9;
+    for(let k=0;k<n;k++){const q=size*(1-k/n);rot+=rr(R,.02,.09);s+=`<polygon points="${starPts(cx,cy,q,q*.47,rot)}" fill="${k%2?'#f4f1ea':'#0a0a0a'}"/>`;}
+    return s;}
+  function background(seed){
+    const R=rng(hash(seed));const W=1600,H=1000;let s='';
+    s+=`<defs><linearGradient id="p5g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7c0010"/><stop offset=".55" stop-color="#c5001a"/><stop offset="1" stop-color="#6a000c"/></linearGradient>
+      <pattern id="p5d" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(${rr(R,20,50).toFixed(0)})"><circle cx="7" cy="7" r="4.2" fill="#f4f1ea"/></pattern>
+      <pattern id="p5c" width="150" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(90)"><rect width="150" height="5" fill="#000" opacity=".09"/></pattern></defs>`;
+    s+=`<rect width="${W}" height="${H}" fill="url(#p5g)"/><rect width="${W}" height="${H}" fill="url(#p5c)"/>`;
+    // широкая серая лента через весь экран и чёрная тень под ней
+    const y0=rr(R,300,520),y1=rr(R,560,840),b=rr(R,90,170);
+    s+=`<polygon points="-20,${(y0+36).toFixed(0)} ${W+20},${(y1+46).toFixed(0)} ${W+20},${(y1+b+78).toFixed(0)} -20,${(y0+b+40).toFixed(0)}" fill="#0a0a0a"/>`;
+    s+=`<polygon points="-20,${y0.toFixed(0)} ${W*.52},${((y0+y1)/2+rr(R,-14,14)).toFixed(0)} ${W+20},${y1.toFixed(0)} ${W+20},${(y1+b).toFixed(0)} ${W*.46},${((y0+y1)/2+b+rr(R,-16,16)).toFixed(0)} -20,${(y0+b).toFixed(0)}" fill="#c9c6c0"/>`;
+    // звезда из чёрных и белых контуров в углу
+    s+=burst(R,rr(R,1270,1500),rr(R,60,220),rr(R,520,660));
+    // чёрный клин снизу слева и полутон на нём
+    const wx=rr(R,380,560);
+    s+=`<polygon points="-10,${H+10} -10,${(H-rr(R,330,430)).toFixed(0)} ${(wx*.45).toFixed(0)},${(H-rr(R,240,300)).toFixed(0)} ${(wx*.3).toFixed(0)},${(H-rr(R,190,230)).toFixed(0)} ${wx.toFixed(0)},${H+10}" fill="#0a0a0a"/>`;
+    const hx=rr(R,40,140),hy=H-rr(R,190,260);
+    s+=`<polygon points="${hx},${hy} ${hx+rr(R,170,250)},${hy+rr(R,10,50)} ${hx+rr(R,120,200)},${hy+rr(R,130,170)} ${hx-rr(R,10,30)},${hy+rr(R,110,160)}" fill="url(#p5d)"/>`;
+    // осколки и маленькие звёзды
+    for(let i=0;i<16;i++){const x=rr(R,0,W),y=rr(R,0,H),q=rr(R,18,70),a=rr(R,0,6.3),c=pick(R,['#0a0a0a','#f4f1ea','#e60012','#0a0a0a']);
+      s+=`<polygon points="${x.toFixed(0)},${y.toFixed(0)} ${(x+q*Math.cos(a)).toFixed(0)},${(y+q*Math.sin(a)).toFixed(0)} ${(x+q*.5*Math.cos(a+1.9)).toFixed(0)},${(y+q*.5*Math.sin(a+1.9)).toFixed(0)}" fill="${c}"/>`;}
+    for(let i=0;i<9;i++){const x=rr(R,0,W),y=rr(R,0,H),q=rr(R,8,24);s+=`<polygon points="${starPts(x,y,q,q*.45,rr(R,0,1))}" fill="#0a0a0a" stroke="#f4f1ea" stroke-width="2"/>`;}
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${s}</svg>`;
+  }
+  function setBg(){let b=$('#p5-bg');if(!b){b=document.createElement('div');b.id='p5-bg';document.body.prepend(b);}
+    const k=location.hash||'#/';if(b.dataset.k!==k){b.dataset.k=k;b.innerHTML=background(k);}}
+  function wipe(){if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    const R=rng(hash(location.hash)),w=document.createElement('div');w.id='p5-wipe';w.setAttribute('aria-hidden','true');
+    w.innerHTML=`<i style="--a:${rr(R,-14,14).toFixed(1)}deg"></i><b style="--a:${rr(R,-14,14).toFixed(1)}deg"></b>`;
+    document.body.appendChild(w);setTimeout(()=>w.remove(),620);}
+
+  /* ---------- включение ---------- */
+  let mo=null,raf=0,wasOn=false;
+  const queue=()=>{if(!raf)raf=requestAnimationFrame(()=>{raf=0;mo.takeRecords();decorate();mo.takeRecords();});};
+  function loadFonts(){if($('#p5-fonts'))return;const l=document.createElement('link');l.id='p5-fonts';l.rel='stylesheet';l.href=FONT_URL;document.head.appendChild(l);}
+  const onHash=()=>{if(on()){wipe();setBg();}};
+  function sync(){
+    const now=on();if(now===wasOn&&now===false)return;
+    if(now){loadFonts();setBg();decorate();
+      if(!mo){mo=new MutationObserver(queue);mo.observe(document.body,{childList:true,subtree:true,characterData:true});addEventListener('hashchange',onHash);}
+    }else if(mo){mo.disconnect();mo=null;removeEventListener('hashchange',onHash);$('#p5-bg')?.remove();
+      document.querySelectorAll('.p5w').forEach(w=>w.replaceWith(w.textContent));
+      document.querySelectorAll('[data-p5s]').forEach(e=>{delete e.dataset.p5s;['--p5c','--p5t','--p5x'].forEach(v=>e.style.removeProperty(v));});
+      document.querySelectorAll('#side li').forEach(e=>{e.style.removeProperty('--p5m');e.style.removeProperty('--p5z');});}
+    wasOn=now;
+  }
+  return {sync};
+})();
