@@ -150,13 +150,14 @@ html[data-ui="p5"][data-ui]{
   .infobox td,.infobox th{padding:3px 6px}
   .infobox a:hover{background:var(--p5red);color:#fff}
   .infobox-pre{color:var(--subtle)}
-  .infobox-above{background:var(--p5red)!important;color:#fff!important;font-family:var(--sans);font-size:1.75em!important;font-weight:400;line-height:1.12;padding:10px 8px 11px!important;clip-path:var(--p5c);transform:rotate(var(--p5t,0deg)) scale(1.07)}
+  .infobox-above{background:var(--ink)!important;background-clip:padding-box!important;border:7px solid var(--paper);color:#fff!important;font-family:var(--sans);font-size:1.5em!important;font-weight:400;line-height:1.15;padding:7px 6px!important;clip-path:var(--p5c);transform:rotate(var(--p5t,0deg)) scale(1.04)}
   .infobox-header{position:relative;background:var(--paper)!important;color:var(--ink)!important;font-family:var(--label);font-size:1.28em;font-weight:800;line-height:1.15;text-transform:uppercase;letter-spacing:.03em;padding:4px 8px!important;clip-path:var(--p5c);transform:rotate(var(--p5t,0deg))}
   .infobox-header::before{content:"";display:inline-block;width:.8em;height:.8em;margin-right:.35em;background:var(--p5red);clip-path:polygon(50% 0,63% 35%,100% 38%,71% 60%,81% 96%,50% 76%,19% 96%,29% 60%,0 38%,37% 35%);vertical-align:-.04em}
   .infobox-header a{color:inherit}
   .infobox-below{background:var(--p5red)!important;color:#fff!important}
   .infobox-below a{color:#fff}
   .infobox>tbody>tr>*{border-color:#3a3835}
+  .infobox>tbody>tr>.infobox-above{border-color:var(--paper)}
   .infobox>tbody>tr>th[scope=row]{font-family:var(--label);font-weight:800;font-size:1.1em;line-height:1.08;text-transform:uppercase;padding:1px 4px 1px 0}
   .p5tag{display:inline-block;background:#fff;color:var(--ink);padding:3px 12px 3px 7px;clip-path:var(--p5c);transform:rotate(var(--p5t,0deg))}
   .infobox>tbody>tr:nth-child(3n)>th>.p5tag{background:var(--p5red);color:#fff}
@@ -221,7 +222,6 @@ html[data-ui="p5"][data-ui]{
   .titlebar h1{font-size:2.1em}
   .mw-content h2:not(.mp-h){margin-left:-20px;padding-left:20px}
   .infobox{width:calc(100% - 22px)!important;margin:14px 8px 24px;filter:drop-shadow(6px 7px 0 var(--p5red))}
-  .infobox-above{transform:rotate(var(--p5t,0deg)) scale(1.02)}
 }}
 @media (prefers-reduced-motion:reduce){html[data-ui="p5"] *{transition:none!important}}
 }
