@@ -78,7 +78,7 @@ const P5=(()=>{
     document.querySelectorAll('.btn,.tabs a,.tabs .sel,.tabs .off,.tab-btn').forEach(e=>shape(e,4,'',1.3));
     document.querySelectorAll('.mp-box,.mp-welcome,.tcard,.mitem,.mw-content .thumb,.mw-content figure,.hatnote,.mw-content blockquote').forEach(e=>shape(e,6,'',.9));
     document.querySelectorAll('.mw-content h2:not(.mp-h),.mw-content h3,.side-h,.infobox-above').forEach(e=>shape(e,5,'',.8));
-    document.querySelectorAll('.infobox').forEach(e=>shape(e,9,'ib'+(e.querySelector('.infobox-above')?.textContent||''),.7));
+    document.querySelectorAll('.infobox').forEach(e=>shape(e,9,'ib'+(e.querySelector('.infobox-above')?.textContent||'')));
     // ярлык строки — отдельная плашка по размеру текста, иначе рядом с длинным значением она вытягивается на всю высоту строки
     document.querySelectorAll('.infobox>tbody>tr>th[scope=row]:not(.ib-l2)').forEach(th=>{if(th.querySelector(':scope>.p5tag')||th.closest('.ie-rich'))return;const s=document.createElement('span');s.className='p5tag';s.append(...th.childNodes);th.appendChild(s);});
     document.querySelectorAll('.infobox-header,.p5tag').forEach(e=>shape(e,3,'',.8));

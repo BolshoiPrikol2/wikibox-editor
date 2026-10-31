@@ -143,14 +143,15 @@ html[data-ui="p5"][data-ui]{
 
   /* ---------- бумажные блоки: карточка, таблицы, иллюстрации ---------- */
   .mw-content .wikitable,.mw-content .thumb,.mw-content figure,.infobox-image,.infobox-header{--bg:#fff;--bg-sub:var(--paper);--bg-neutral:#dcd8d0;--text:var(--ink);--subtle:#4a4742;--link:#c30015;--link-hover:#7c0010;--red:#006f8a;--border:var(--ink);--border-sub:#a09c94;--border-muted:#cfcbc3;color:var(--ink)}
-  .infobox{position:relative;isolation:isolate;z-index:2;background:none;border:0;color:#fff;font-size:93%;line-height:1.3;padding:12px 13px 16px;border-collapse:separate;border-spacing:0 4px;transform:rotate(var(--p5t,0deg));margin:16px 8px 26px 34px;filter:drop-shadow(9px 10px 0 var(--p5red))}
+  .infobox{position:relative;isolation:isolate;z-index:2;background:none;border:0;color:#fff;font-size:93%;line-height:1.3;padding:12px 13px 16px;border-collapse:separate;border-spacing:0 4px;margin:16px 26px 34px 34px}
   .infobox::before,.infobox::after{content:"";position:absolute;clip-path:var(--p5c)}
-  .infobox::before{inset:-5px;background:var(--paper);z-index:-2}
+  /* красная тень — часть фона ::before с запасом ширины: рваный контур срезает с края до 9px */
+  .infobox::before{inset:-5px -23px -25px -5px;background:linear-gradient(var(--paper),var(--paper)) 0 0/calc(100% - 18px) calc(100% - 20px) no-repeat,linear-gradient(var(--p5red),var(--p5red)) 100% 100%/calc(100% - 18px) calc(100% - 20px) no-repeat;z-index:-2}
   .infobox::after{inset:0;background:var(--ink);z-index:-1}
   .infobox td,.infobox th{padding:3px 6px}
   .infobox a:hover{background:var(--p5red);color:#fff}
   .infobox-pre{color:var(--subtle)}
-  .infobox-above{background:var(--ink)!important;background-clip:padding-box!important;border:7px solid var(--paper);color:#fff!important;font-family:var(--sans);font-size:1.5em!important;font-weight:400;line-height:1.15;padding:7px 6px!important;clip-path:var(--p5c);transform:rotate(var(--p5t,0deg)) scale(1.04)}
+  .infobox-above{background:var(--ink)!important;background-clip:padding-box!important;border:7px solid var(--paper);color:#fff!important;font-family:var(--sans);font-size:1.36em!important;font-weight:400;line-height:1.15;padding:7px 6px!important;clip-path:var(--p5c);transform:rotate(var(--p5t,0deg)) scale(1.04)}
   .infobox-header{position:relative;background:var(--paper)!important;color:var(--ink)!important;font-family:var(--label);font-size:1.28em;font-weight:800;line-height:1.15;text-transform:uppercase;letter-spacing:.03em;padding:4px 8px!important;clip-path:var(--p5c);transform:rotate(var(--p5t,0deg))}
   .infobox-header::before{content:"";display:inline-block;width:.8em;height:.8em;margin-right:.35em;background:var(--p5red);clip-path:polygon(50% 0,63% 35%,100% 38%,71% 60%,81% 96%,50% 76%,19% 96%,29% 60%,0 38%,37% 35%);vertical-align:-.04em}
   .infobox-header a{color:inherit}
@@ -159,7 +160,7 @@ html[data-ui="p5"][data-ui]{
   .infobox>tbody>tr>*{border-color:#3a3835}
   .infobox>tbody>tr>.infobox-above{border-color:var(--paper)}
   .infobox>tbody>tr>th[scope=row]{font-family:var(--label);font-weight:800;font-size:1.1em;line-height:1.08;text-transform:uppercase;padding:1px 4px 1px 0}
-  .p5tag{display:inline-block;background:#fff;color:var(--ink);padding:3px 12px 3px 7px;clip-path:var(--p5c);transform:rotate(var(--p5t,0deg))}
+  .p5tag{display:inline-block;background:#fff;color:var(--ink);padding:6px 12px 4px 7px;clip-path:var(--p5c);transform:rotate(var(--p5t,0deg))}
   .infobox>tbody>tr:nth-child(3n)>th>.p5tag{background:var(--p5red);color:#fff}
   .p5tag a{color:inherit}
   .infobox>tbody>tr>th.ib-l2{color:var(--paper);padding-left:7px}
@@ -221,7 +222,7 @@ html[data-ui="p5"][data-ui]{
   .titlebar{margin-left:-12px}
   .titlebar h1{font-size:2.1em}
   .mw-content h2:not(.mp-h){margin-left:-20px;padding-left:20px}
-  .infobox{width:calc(100% - 22px)!important;margin:14px 8px 24px;filter:drop-shadow(6px 7px 0 var(--p5red))}
+  .infobox{width:calc(100% - 34px)!important;margin:14px 26px 34px 8px}
 }}
 @media (prefers-reduced-motion:reduce){html[data-ui="p5"] *{transition:none!important}}
 }
