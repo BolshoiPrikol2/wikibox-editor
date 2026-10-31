@@ -85,11 +85,39 @@ const P5=(()=>{
       for(let c=0;c<n;c++){const r=q*(1-c/n);rot+=rr(R,.01,.06);s+='<polygon points="'+starPts(cx,cy,r,r*.47,rot)+'" fill="'+(c%2?'#cfcfcd':'#0a0a0a')+'"/>';}}
     return pats[i]='url("data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 520">'+s+'</svg>')+'")';
   }
+  // Граница узора считается по настоящим координатам символов и картинок: узор обрезан косым краем и до них не доходит
+  let gen=0;
+  function boxOf(el,imgs){
+    const o=el.getBoundingClientRect(),r=document.createRange(),w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);let b=null;
+    const add=q=>{if(!q.width||!q.height)return;b=b?{l:Math.min(b.l,q.left),t:Math.min(b.t,q.top),r:Math.max(b.r,q.right),b:Math.max(b.b,q.bottom)}:{l:q.left,t:q.top,r:q.right,b:q.bottom};};
+    while(w.nextNode()){if(!w.currentNode.nodeValue.trim())continue;r.selectNodeContents(w.currentNode);[...r.getClientRects()].forEach(add);}
+    if(imgs)el.querySelectorAll('img,svg').forEach(i=>add(i.getBoundingClientRect()));
+    return b&&{l:b.l-o.left,t:b.t-o.top,r:b.r-o.left,b:b.b-o.top};
+  }
+  const along=(deg,W,H)=>{const a=deg*Math.PI/180,s=Math.sin(a),c=-Math.cos(a),L=W*s+Math.abs(H*c);return {L,p:(x,y)=>(x-W/2)*s+(y-H/2)*c+L/2};};
+  function sideCut(W,H,b,pad,lead,min){
+    const {L,p}=along(100,W,H);let B=p(b.l-pad-lead,b.t),E=p(b.r+pad,b.b);if(B<min)B=-1;if(L-E<min)E=L+1;
+    return `linear-gradient(100deg,#0000 ${B.toFixed(1)}px,var(--p5g) ${(B+.5).toFixed(1)}px ${E.toFixed(1)}px,#0000 ${(E+.5).toFixed(1)}px)`;
+  }
+  function belowCut(W,H,b,pad){
+    const {p}=along(176,W,H),Y=Math.min(p(b.l,b.t),p(b.r,b.t))-pad;
+    return `linear-gradient(176deg,#0000 ${Y.toFixed(1)}px,var(--p5g) ${(Y+.5).toFixed(1)}px)`;
+  }
   function patterned(){
     document.querySelectorAll('.mw-content h2:not(.mp-h),.infobox-image,.infobox-header,.mw-content .thumbinner,.mw-content figure,.mp-welcome').forEach((e,i)=>{
-      if(e.dataset.p5p)return;e.dataset.p5p='1';const h=hash((e.textContent||'').slice(0,40)+i+location.hash);
-      e.style.setProperty('--p5pat',pattern(h%NP));e.style.setProperty('--p5py',(h>>>8)%101+'%');});
+      if(!e.dataset.p5p){e.dataset.p5p='1';const h=hash((e.textContent||'').slice(0,40)+i+location.hash);
+        e.style.setProperty('--p5pat',pattern(h%NP));e.style.setProperty('--p5py',(h>>>8)%101+'%');}
+      const full=e.dataset.pat==='full',W=e.offsetWidth,H=e.offsetHeight,key=[gen,W,H,full,e.textContent.length].join();
+      if(e._p5k===key)return;e._p5k=key;
+      const b=boxOf(e,!full);
+      if(!b)e.style.setProperty('--p5cut',full?'none':'linear-gradient(var(--p5g),var(--p5g))');
+      else if(full)e.style.setProperty('--p5cut',belowCut(W,H,b,8));
+      else{const img=e.matches('.infobox-image,.thumbinner,figure'),head=e.matches('.infobox-header');
+        e.style.setProperty('--p5cut',sideCut(W,H,b,img?5:14,head?26:0,img?6:9));}
+    });
   }
+  const remeasure=()=>{gen++;if(on()&&mo)queue();};
+  const onLoad=e=>{if(e.target.tagName==='IMG'&&e.target.closest('[data-p5p]'))remeasure();};
   function decorate(){
     if(!on())return;
     patterned();
@@ -108,9 +136,6 @@ const P5=(()=>{
     document.querySelectorAll('.infobox').forEach(e=>shape(e,9,'ib'+(e.querySelector('.infobox-above')?.textContent||'')));
     // ярлык строки — отдельная плашка по размеру текста, иначе рядом с длинным значением она вытягивается на всю высоту строки
     document.querySelectorAll('.infobox>tbody>tr>th[scope=row]:not(.ib-l2)').forEach(th=>{if(th.querySelector(':scope>.p5tag')||th.closest('.ie-rich'))return;const s=document.createElement('span');s.className='p5tag';s.append(...th.childNodes);th.appendChild(s);});
-    // текст шапки раздела на своей плашке: узор вокруг неё, а не под буквами
-    document.querySelectorAll('.infobox-header').forEach(th=>{if(th.querySelector(':scope>.p5hd')||th.closest('.ie-rich'))return;const s=document.createElement('span');s.className='p5hd';s.append(...th.childNodes);th.appendChild(s);});
-    document.querySelectorAll('.p5hd').forEach(e=>shape(e,2));
     document.querySelectorAll('.infobox-header,.p5tag').forEach(e=>shape(e,3,'',.8));
     document.querySelectorAll('.infobox-image').forEach((e,i)=>shape(e,5,'im'+i+location.hash,.7));
     const v=$('#tools');if(v)shape(v,8,'tools');
@@ -159,11 +184,11 @@ const P5=(()=>{
   function sync(){
     const now=on();if(now===wasOn&&now===false)return;
     if(now){loadFonts();setBg();decorate();
-      if(!mo){mo=new MutationObserver(queue);mo.observe(document.body,{childList:true,subtree:true,characterData:true});addEventListener('hashchange',onHash);}
-    }else if(mo){mo.disconnect();mo=null;removeEventListener('hashchange',onHash);$('#p5-bg')?.remove();
+      if(!mo){mo=new MutationObserver(queue);mo.observe(document.body,{childList:true,subtree:true,characterData:true});addEventListener('hashchange',onHash);addEventListener('resize',remeasure);document.addEventListener('load',onLoad,true);document.fonts.ready.then(remeasure);}
+    }else if(mo){mo.disconnect();mo=null;removeEventListener('hashchange',onHash);removeEventListener('resize',remeasure);document.removeEventListener('load',onLoad,true);$('#p5-bg')?.remove();
       document.querySelectorAll('.p5w').forEach(w=>w.replaceWith(w.textContent));
-      document.querySelectorAll('.p5tag,.p5hd').forEach(s=>s.replaceWith(...s.childNodes));
-      document.querySelectorAll('[data-p5p]').forEach(e=>{delete e.dataset.p5p;e.style.removeProperty('--p5pat');e.style.removeProperty('--p5py');});
+      document.querySelectorAll('.p5tag').forEach(s=>s.replaceWith(...s.childNodes));
+      document.querySelectorAll('[data-p5p]').forEach(e=>{delete e.dataset.p5p;delete e._p5k;['--p5pat','--p5py','--p5cut'].forEach(v=>e.style.removeProperty(v));});
       document.querySelectorAll('.p5lift').forEach(e=>e.classList.remove('p5lift'));
       document.querySelectorAll('[data-p5s]').forEach(e=>{delete e.dataset.p5s;['--p5c','--p5t','--p5x'].forEach(v=>e.style.removeProperty(v));});
       document.querySelectorAll('#side li').forEach(e=>{e.style.removeProperty('--p5m');e.style.removeProperty('--p5z');});}
