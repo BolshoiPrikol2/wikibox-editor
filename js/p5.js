@@ -108,6 +108,9 @@ const P5=(()=>{
     document.querySelectorAll('.infobox').forEach(e=>shape(e,9,'ib'+(e.querySelector('.infobox-above')?.textContent||'')));
     // ярлык строки — отдельная плашка по размеру текста, иначе рядом с длинным значением она вытягивается на всю высоту строки
     document.querySelectorAll('.infobox>tbody>tr>th[scope=row]:not(.ib-l2)').forEach(th=>{if(th.querySelector(':scope>.p5tag')||th.closest('.ie-rich'))return;const s=document.createElement('span');s.className='p5tag';s.append(...th.childNodes);th.appendChild(s);});
+    // текст шапки раздела на своей плашке: узор вокруг неё, а не под буквами
+    document.querySelectorAll('.infobox-header').forEach(th=>{if(th.querySelector(':scope>.p5hd')||th.closest('.ie-rich'))return;const s=document.createElement('span');s.className='p5hd';s.append(...th.childNodes);th.appendChild(s);});
+    document.querySelectorAll('.p5hd').forEach(e=>shape(e,2));
     document.querySelectorAll('.infobox-header,.p5tag').forEach(e=>shape(e,3,'',.8));
     document.querySelectorAll('.infobox-image').forEach((e,i)=>shape(e,5,'im'+i+location.hash,.7));
     const v=$('#tools');if(v)shape(v,8,'tools');
@@ -159,7 +162,7 @@ const P5=(()=>{
       if(!mo){mo=new MutationObserver(queue);mo.observe(document.body,{childList:true,subtree:true,characterData:true});addEventListener('hashchange',onHash);}
     }else if(mo){mo.disconnect();mo=null;removeEventListener('hashchange',onHash);$('#p5-bg')?.remove();
       document.querySelectorAll('.p5w').forEach(w=>w.replaceWith(w.textContent));
-      document.querySelectorAll('.p5tag').forEach(s=>s.replaceWith(...s.childNodes));
+      document.querySelectorAll('.p5tag,.p5hd').forEach(s=>s.replaceWith(...s.childNodes));
       document.querySelectorAll('[data-p5p]').forEach(e=>{delete e.dataset.p5p;e.style.removeProperty('--p5pat');e.style.removeProperty('--p5py');});
       document.querySelectorAll('.p5lift').forEach(e=>e.classList.remove('p5lift'));
       document.querySelectorAll('[data-p5s]').forEach(e=>{delete e.dataset.p5s;['--p5c','--p5t','--p5x'].forEach(v=>e.style.removeProperty(v));});

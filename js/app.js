@@ -510,7 +510,7 @@ async function snap(which){
   const svgs=$$('svg',target).map((s,i)=>{s.dataset.snap=i;const r=s.getBoundingClientRect(),cs=getComputedStyle(s),c=s.cloneNode(true);
     c.setAttribute('width',r.width);c.setAttribute('height',r.height);c.setAttribute('color',cs.color);
     return {w:r.width,h:r.height,blk:cs.display==='block',src:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(c))};});
-  const onclone=doc=>{doc.documentElement.setAttribute('data-snap','1');doc.querySelectorAll('.snap-area>html2canvaspseudoelement,.infobox>html2canvaspseudoelement,.infobox-header>html2canvaspseudoelement').forEach(e=>e.remove());doc.querySelectorAll('svg[data-snap]').forEach(s=>{const v=svgs[+s.dataset.snap];if(!v||!v.w)return;const im=doc.createElement('img');im.src=v.src;
+  const onclone=doc=>{doc.documentElement.setAttribute('data-snap','1');doc.querySelectorAll('.snap-area>html2canvaspseudoelement,.infobox>html2canvaspseudoelement,.p5hd>html2canvaspseudoelement').forEach(e=>e.remove());doc.querySelectorAll('svg[data-snap]').forEach(s=>{const v=svgs[+s.dataset.snap];if(!v||!v.w)return;const im=doc.createElement('img');im.src=v.src;
     im.style.cssText=`width:${v.w}px;height:${v.h}px;display:${v.blk?'block;margin:0 auto':'inline-block'};max-width:none;vertical-align:middle`;s.replaceWith(im);});};
   try{
     await prepImgs(target);
