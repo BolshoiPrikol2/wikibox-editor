@@ -63,6 +63,29 @@ const P5=(()=>{
     el.style.setProperty('--p5x',Math.round(rr(R,0,1)*100)/100);
   }
   // Пункты меню стоят лесенкой разной длины, как в главном меню игры
+  // Прямоугольник с мелкими случайными неровностями: шаг и отступ точек разные на каждой стороне
+  function rough(R,x0,y0,x1,y1,d){
+    const pts=[],side=(ax,ay,bx,by,nx,ny)=>{const L=Math.hypot(bx-ax,by-ay);let t=0;while(t<L){const k=t/L,o=rr(R,-d,d)*(R()<.14?1.7:1);pts.push((ax+(bx-ax)*k+nx*o).toFixed(1)+','+(ay+(by-ay)*k+ny*o).toFixed(1));t+=rr(R,26,84);}};
+    side(x0,y0,x1,y0,0,1);side(x1,y0,x1,y1,1,0);side(x1,y1,x0,y1,0,1);side(x0,y1,x0,y0,1,0);
+    return pts.join(' ');
+  }
+  function frames(){
+    document.querySelectorAll('.infobox').forEach(e=>{
+      const W=e.offsetWidth,H=e.offsetHeight,key=W+'x'+H;if(!W||e._p5f===key)return;e._p5f=key;e.dataset.p5f='1';
+      const R=rng(hash('card'+(e.querySelector('.infobox-above')?.textContent||''))),FW=W+24,FH=H+26;
+      const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${FW} ${FH}" preserveAspectRatio="none"><polygon points="${rough(R,10,12,W+21,H+23,2.4)}" fill="#e60012"/><polygon points="${rough(R,1.5,1.5,W+10.5,H+10.5,1.8)}" fill="#f2f2f0"/><polygon points="${rough(R,6,6,W+6,H+6,2)}" fill="#0a0a0a"/></svg>`;
+      e.style.setProperty('--p5frame','url("data:image/svg+xml,'+encodeURIComponent(svg)+'")');});
+  }
+  // Те же неровности для блоков заглавной: точки в процентах, отступы в пикселях
+  function roughClip(R,d){
+    const p=[],j=()=>rr(R,0,d).toFixed(1),n=9,m=5;
+    for(let i=0;i<n;i++)p.push(`${(i/n*100+rr(R,0,6)).toFixed(1)}% ${j()}px`);
+    for(let i=0;i<m;i++)p.push(`calc(100% - ${j()}px) ${(i/m*100+rr(R,0,8)).toFixed(1)}%`);
+    for(let i=n;i>0;i--)p.push(`${(i/n*100-rr(R,0,6)).toFixed(1)}% calc(100% - ${j()}px)`);
+    for(let i=m;i>0;i--)p.push(`${j()}px ${(i/m*100-rr(R,0,8)).toFixed(1)}%`);
+    return `polygon(${p.join(',')})`;
+  }
+  function roughen(list){list.forEach(e=>{if(e.dataset.p5r)return;e.dataset.p5r='1';e.style.setProperty('--p5c',roughClip(rng(hash('rough'+(e.textContent||'').slice(0,50))),3.5));});}
   function stagger(list){[...list.children].forEach((li,i)=>{const R=rng(hash(li.textContent+i));li.style.setProperty('--p5m',Math.round(rr(R,0,26))+'px');const a=li.querySelector('a');const long=Math.max(1,...(a?a.textContent:li.textContent).split(/\s+/).map(w=>w.length));li.style.setProperty('--p5z',Math.min(rr(R,.94,1.14),11/long).toFixed(2));});}
 
   // Цвета текста из Википедии рассчитаны на белый фон: на чёрной панели тёмные осветляем, оттенок оставляем
@@ -133,8 +156,9 @@ const P5=(()=>{
     document.querySelectorAll('.snap-area').forEach(e=>shape(e,16,'panel'+location.hash));
     document.querySelectorAll('.btn,.tabs a,.tabs .sel,.tabs .off,.tab-btn').forEach(e=>shape(e,4,'',1.3));
     document.querySelectorAll('.mp-box,.mp-welcome,.tcard,.mitem,.mw-content .thumb,.mw-content figure,.hatnote,.mw-content blockquote').forEach(e=>shape(e,6,'',.9));
+    roughen(document.querySelectorAll('.mp-box,.tcard,.mitem'));
     document.querySelectorAll('.mw-content h2:not(.mp-h),.mw-content h3,.side-h,.infobox-above').forEach(e=>shape(e,5,'',.8));
-    document.querySelectorAll('.infobox').forEach(e=>shape(e,9,'ib'+(e.querySelector('.infobox-above')?.textContent||'')));
+    frames();
     // ярлык строки — отдельная плашка по размеру текста, иначе рядом с длинным значением она вытягивается на всю высоту строки
     document.querySelectorAll('.infobox>tbody>tr>th[scope=row]:not(.ib-l2)').forEach(th=>{if(th.querySelector(':scope>.p5tag')||th.closest('.ie-rich'))return;const s=document.createElement('span');s.className='p5tag';s.append(...th.childNodes);th.appendChild(s);});
     document.querySelectorAll('.infobox-header,.p5tag').forEach(e=>shape(e,3,'',.8));
@@ -189,6 +213,8 @@ const P5=(()=>{
     }else if(mo){mo.disconnect();mo=null;removeEventListener('hashchange',onHash);removeEventListener('resize',remeasure);document.removeEventListener('load',onLoad,true);$('#p5-bg')?.remove();
       document.querySelectorAll('.p5w').forEach(w=>w.replaceWith(w.textContent));
       document.querySelectorAll('.p5tag').forEach(s=>s.replaceWith(...s.childNodes));
+      document.querySelectorAll('[data-p5f]').forEach(e=>{delete e.dataset.p5f;delete e._p5f;e.style.removeProperty('--p5frame');});
+      document.querySelectorAll('[data-p5r]').forEach(e=>delete e.dataset.p5r);
       document.querySelectorAll('[data-p5p]').forEach(e=>{delete e.dataset.p5p;delete e._p5k;['--p5pat','--p5py','--p5cut'].forEach(v=>e.style.removeProperty(v));});
       document.querySelectorAll('.p5lift').forEach(e=>e.classList.remove('p5lift'));
       document.querySelectorAll('[data-p5s]').forEach(e=>{delete e.dataset.p5s;['--p5c','--p5t','--p5x'].forEach(v=>e.style.removeProperty(v));});

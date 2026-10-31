@@ -144,10 +144,8 @@ html[data-ui="p5"][data-ui]{
   /* ---------- бумажные блоки: карточка, таблицы, иллюстрации ---------- */
   .mw-content .wikitable,.infobox-header,.infobox-image,.mw-content .thumb,.mw-content figure{--bg:#fff;--bg-sub:var(--paper);--bg-neutral:#dcd8d0;--text:var(--ink);--subtle:#4a4742;--link:#c30015;--link-hover:#7c0010;--red:#006f8a;--border:var(--ink);--border-sub:#a09c94;--border-muted:#cfcbc3;color:var(--ink)}
   .infobox{position:relative;isolation:isolate;z-index:2;background:none;border:0;color:#fff;font-size:93%;line-height:1.3;padding:12px 13px 16px;border-collapse:separate;border-spacing:0 4px;margin:16px 26px 34px 34px}
-  .infobox::before,.infobox::after{content:"";position:absolute;clip-path:var(--p5c)}
-  /* красная тень — часть фона ::before с запасом ширины: рваный контур срезает с края до 9px */
-  .infobox::before{inset:-5px -23px -25px -5px;background:linear-gradient(var(--paper),var(--paper)) 0 0/calc(100% - 18px) calc(100% - 20px) no-repeat,linear-gradient(var(--p5red),var(--p5red)) 100% 100%/calc(100% - 18px) calc(100% - 20px) no-repeat;z-index:-2}
-  .infobox::after{inset:0;background:var(--ink);z-index:-1}
+  /* рамку рисует p5.js по размеру карточки: чёрная панель, светлая обводка и красная тень, у каждой свой неровный контур */
+  .infobox::before{content:"";position:absolute;inset:-6px -18px -20px -6px;background:var(--p5frame,linear-gradient(var(--ink),var(--ink))) center/100% 100% no-repeat;z-index:-1}
   .infobox td,.infobox th{padding:3px 6px}
   .infobox a:hover{background:var(--p5red);color:#fff}
   .infobox-pre{color:var(--subtle)}
@@ -168,7 +166,7 @@ html[data-ui="p5"][data-ui]{
   .infobox .ib-hr hr{background:var(--p5red);height:3px}
   .infobox-image{background:var(--p5cut,linear-gradient(var(--p5g),var(--p5g))),var(--p5pat,none) 50% var(--p5py,50%)/cover,var(--p5g);padding:10px 8px!important;clip-path:var(--p5c)}
   #main .infobox tr[data-ib]:hover>.infobox-image{background-color:var(--p5g)}
-  .infobox-image[data-pat=full]>img,.infobox-image[data-pat=full] .ib-flags img{filter:drop-shadow(2px 0 0 var(--paper)) drop-shadow(-2px 0 0 var(--paper)) drop-shadow(0 2px 0 var(--paper)) drop-shadow(0 -2px 0 var(--paper)) drop-shadow(4px 4px 0 var(--ink))}
+  .infobox-image:is([data-pat=full],[data-st])>img,.infobox-image:is([data-pat=full],[data-st]) .ib-flags img{filter:drop-shadow(2px 0 0 var(--paper)) drop-shadow(-2px 0 0 var(--paper)) drop-shadow(0 2px 0 var(--paper)) drop-shadow(0 -2px 0 var(--paper)) drop-shadow(4px 4px 0 var(--ink))}
   .infobox .ib-flags img.ib-flag{border:0}
   .infobox-image .ib-switch{--text:#fff;--subtle:#c4c0b8;--link:#ff5a64;--link-hover:#fff;--red:#19e0e6;width:fit-content;max-width:100%;margin:8px auto 0;padding:3px 9px;background:var(--ink);color:#fff}
   .infobox-image .media-caption,.mw-content .thumbcaption,.mw-content figcaption{--text:#fff;--subtle:#c4c0b8;--link:#ff5a64;--link-hover:#fff;--red:#19e0e6;display:block;width:fit-content;max-width:100%;margin:8px auto 0;background:var(--ink);color:#fff;padding:3px 9px;text-align:center}
