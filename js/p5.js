@@ -65,8 +65,17 @@ const P5=(()=>{
   // Пункты меню стоят лесенкой разной длины, как в главном меню игры
   function stagger(list){[...list.children].forEach((li,i)=>{const R=rng(hash(li.textContent+i));li.style.setProperty('--p5m',Math.round(rr(R,0,26))+'px');const a=li.querySelector('a');const long=Math.max(1,...(a?a.textContent:li.textContent).split(/\s+/).map(w=>w.length));li.style.setProperty('--p5z',Math.min(rr(R,.94,1.14),11/long).toFixed(2));});}
 
+  // Цвета текста из Википедии рассчитаны на белый фон: на чёрной панели тёмные осветляем, оттенок оставляем
+  const lum=c=>{const m=c.match(/[\d.]+/g).map(Number);const f=v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4;};return .2126*f(m[0])+.7152*f(m[1])+.0722*f(m[2]);};
+  function liftDark(){
+    document.querySelectorAll('.mw-content [style*="color"]').forEach(e=>{
+      if(!e.style.color||e.style.background||e.style.backgroundColor||e.closest('.wikitable,.thumb,figure,.infobox-image,.infobox-header,.p5tag,.mp-welcome'))return;
+      e.classList.remove('p5lift');const c=getComputedStyle(e).color;
+      if(lum(c)<.2){e.style.setProperty('--p5lc',c);e.classList.add('p5lift');}});
+  }
   function decorate(){
     if(!on())return;
+    liftDark();
     const lv=(sel,n)=>document.querySelectorAll(sel).forEach(e=>ransom(e,n));
     lv('#logo-name,.titlebar h1,.mp-w-t',2);
     lv('.mw-content h2:not(.mp-h),.mw-content>h2,.mp-h,.infobox-above,.side-h>:not(button),.grp>legend,.wi-h',1);
@@ -133,6 +142,7 @@ const P5=(()=>{
     }else if(mo){mo.disconnect();mo=null;removeEventListener('hashchange',onHash);$('#p5-bg')?.remove();
       document.querySelectorAll('.p5w').forEach(w=>w.replaceWith(w.textContent));
       document.querySelectorAll('.p5tag').forEach(s=>s.replaceWith(...s.childNodes));
+      document.querySelectorAll('.p5lift').forEach(e=>e.classList.remove('p5lift'));
       document.querySelectorAll('[data-p5s]').forEach(e=>{delete e.dataset.p5s;['--p5c','--p5t','--p5x'].forEach(v=>e.style.removeProperty(v));});
       document.querySelectorAll('#side li').forEach(e=>{e.style.removeProperty('--p5m');e.style.removeProperty('--p5z');});}
     wasOn=now;
