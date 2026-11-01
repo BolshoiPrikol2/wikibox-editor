@@ -74,10 +74,12 @@ const P5=(()=>{
     document.querySelectorAll('.infobox').forEach(e=>{
       const W=e.offsetWidth,H=e.offsetHeight,key=W+'x'+H;if(!W||e._p5f===key)return;e._p5f=key;e.dataset.p5f='1';
       const R=rng(hash('card'+(e.querySelector('.infobox-above')?.textContent||'')));
-      const [t0,t1]=slant(R,-4,6),[b0,b1]=slant(R,-6,5),[l0,l1]=slant(R,-14,7),[r0,r1]=slant(R,-7,4);
+      const [t0,t1]=slant(R,-4,6),[b0,b1]=slant(R,-6,5),[l0,l1]=slant(R,-14,7),[r0,r1]=slant(R,-7,3);
       const ink=[[l0,t0],[W+r0,t1],[W+r1,H+b1],[l1,H+b0]];
-      const paper=ink.map(([x,y],i)=>[x+(i%3?1:-1)*rr(R,3,8),y+(i<2?-1:1)*rr(R,3,8)]);
-      const red=paper.map(([x,y])=>[x+11+rr(R,-3,3),y+12+rr(R,-3,3)]);
+      // обводка: толщина меняется вдоль каждой стороны, сверху и слева тоньше, справа и снизу толще
+      const [wt0,wt1]=slant(R,3,8),[wb0,wb1]=slant(R,3,12),[wl0,wl1]=slant(R,3,9),[wr0,wr1]=slant(R,3,12);
+      const paper=[[l0-wl0,t0-wt0],[W+r0+wr0,t1-wt1],[W+r1+wr1,H+b1+wb1],[l1-wl1,H+b0+wb0]];
+      const red=paper.map(([x,y])=>[x+9+rr(R,-2,2),y+12+rr(R,-3,3)]);
       const pts=a=>a.map(([x,y])=>(x+24).toFixed(1)+','+(y+24).toFixed(1)).join(' ');
       const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W+50} ${H+56}" preserveAspectRatio="none"><polygon points="${pts(red)}" fill="#e60012"/><polygon points="${pts(paper)}" fill="#f2f2f0"/><polygon points="${pts(ink)}" fill="#0a0a0a"/></svg>`;
       e.style.setProperty('--p5frame','url("data:image/svg+xml,'+encodeURIComponent(svg)+'")');});
