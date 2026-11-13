@@ -170,15 +170,17 @@ function makeMapDraw(d3,topojson){
     // только одна страна: остальной мир, океан и сетка не рисуются
     const one=spec.only&&(PR.only||opt.inner)?spec.only:'';
     const ia=!!opt.interactive,globe=spec.proj==='ortho';
+    // без моря (для PNG с прозрачным фоном): ни океана, ни сетки, ни озёр, ни врезок — только суша
+    const ns=!!opt.noSea;
     const T=tplOf(geo,spec);const D=splitData(geo,spec);const splitSet=D?D.splitSet:new Set();
     const bw=+spec.bw||.5,B=spec.border||'#fff';
     let s=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`;
     if(globe)s+=`<defs><radialGradient id="mo" cx="42%" cy="40%" r="62%"><stop offset="0" stop-color="${spec.ocean}"/><stop offset=".72" stop-color="${spec.ocean}"/><stop offset="1" stop-color="#d4d4d4"/></radialGradient><radialGradient id="ms" cx="42%" cy="40%" r="62%"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".16"/></radialGradient></defs>`;
     const sph=path(SPHERE)||'';
     const regional=spec.proj==='laea'||spec.proj==='conic'||!!geo.world&&!globe;
-    if(regional&&!one)s+=`<rect width="${W}" height="${H}" fill="${spec.ocean}"/>`;
-    if(!one)s+=`<path d="${sph}" fill="${globe&&spec.shade?'url(#mo)':spec.ocean}"/>`;
-    if(spec.grat&&!one)s+=`<path d="${path(d3.geoGraticule10())}" fill="none" stroke="#000" stroke-opacity=".13" stroke-width=".5"/>`;
+    if(regional&&!one&&!ns)s+=`<rect width="${W}" height="${H}" fill="${spec.ocean}"/>`;
+    if(!one&&!ns)s+=`<path d="${sph}" fill="${globe&&spec.shade?'url(#mo)':spec.ocean}"/>`;
+    if(spec.grat&&!one&&!ns)s+=`<path d="${path(d3.geoGraticule10())}" fill="none" stroke="#000" stroke-opacity=".13" stroke-width=".5"/>`;
     // государства основы, которые не разбиты на провинции
     let land='',under='';
     const baseFeats=T?T.feats.map(f=>[f,f.properties.u]):geo._c.map(f=>[f,f.properties.id]);
@@ -226,18 +228,44 @@ function makeMapDraw(d3,topojson){
       }
     }
     // озёра на карте одной страны — только внутри её рамки на экране
-    if(spec.lakes&&geo._lakes.length){let l='';for(const f of geo._lakes){if(one){const c=p(d3.geoCentroid(f));if(!c||c[0]<0||c[1]<0||c[0]>W||c[1]>H)continue;}const d=path(f);if(d)l+=`<path d="${d}"/>`;}s+=`<g fill="${spec.ocean}"${ia?' pointer-events="none"':''}>${l}</g>`;}
-    if(globe&&spec.shade&&!one)s+=`<path d="${sph}" fill="url(#ms)" pointer-events="none"/>`;
-    if(!regional&&!one)s+=`<path d="${sph}" fill="none" stroke="#9a9a9a" stroke-width="${globe?1:.8}" pointer-events="none"/>`;
-    // кружок вокруг маленьких государств (как на карте Данцига)
-    (spec.groups||[]).forEach((g,i)=>{if(!g.circle)return;const c=groupCentroid(spec,i,geo);const xy=c&&p(c);
-      if(xy&&isFinite(xy[0]))s+=`<circle cx="${xy[0].toFixed(1)}" cy="${xy[1].toFixed(1)}" r="${regional||globe?11:8}" fill="none" stroke="#333" stroke-width="1.4" pointer-events="none"/>`;});
-    if(spec.inset&&!opt.inner&&!geo.world)s+=insetSVG(spec,geo,p,W,H);
+    if(spec.lakes&&geo._lakes.length&&!ns){let l='';for(const f of geo._lakes){if(one){const c=p(d3.geoCentroid(f));if(!c||c[0]<0||c[1]<0||c[0]>W||c[1]>H)continue;}const d=path(f);if(d)l+=`<path d="${d}"/>`;}s+=`<g fill="${spec.ocean}"${ia?' pointer-events="none"':''}>${l}</g>`;}
+    if(globe&&spec.shade&&!one&&!ns)s+=`<path d="${sph}" fill="url(#ms)" pointer-events="none"/>`;
+    if(!regional&&!one&&!ns)s+=`<path d="${sph}" fill="none" stroke="#9a9a9a" stroke-width="${globe?1:.8}" pointer-events="none"/>`;
     // исходная картинка своего мира поверх — чтобы обводить по ней границы
     if(opt.bg&&geo.world&&geo.world.img&&spec.proj==='eqrect'){const w=geo.world;const a=p([w.ext[0],w.ext[3]]),b=p([w.ext[2],w.ext[1]]);
       if(a&&b)s+=`<image href="${w.img}" x="${r1(a[0])}" y="${r1(a[1])}" width="${r1(b[0]-a[0])}" height="${r1(b[1]-a[1])}" preserveAspectRatio="none" opacity="${opt.bg}" pointer-events="none"/>`;}
-    if(spec.zoomBox&&!opt.inner)s+=zoomSVG(spec,geo,p,W,H);
+    if(!ns)s+=overlays(spec,geo,PR,opt,true);
     return s+'</svg>';
+  }
+  /* Пометки поверх карты: кружки вокруг маленьких государств, мини-карта мира и выноска с увеличением */
+  function overlays(spec,geo,PR,opt,frames){
+    const {p,W,H}=PR;const globe=spec.proj==='ortho';
+    const regional=spec.proj==='laea'||spec.proj==='conic'||!!geo.world&&!globe;let s='';
+    // кружок вокруг маленьких государств (как на карте Данцига)
+    (spec.groups||[]).forEach((g,i)=>{if(!g.circle)return;const c=groupCentroid(spec,i,geo);const xy=c&&p(c);
+      if(xy&&isFinite(xy[0]))s+=`<circle cx="${xy[0].toFixed(1)}" cy="${xy[1].toFixed(1)}" r="${regional||globe?11:8}" fill="none" stroke="#333" stroke-width="1.4" pointer-events="none"/>`;});
+    if(frames&&spec.inset&&!opt.inner&&!geo.world)s+=insetSVG(spec,geo,p,W,H);
+    if(frames&&spec.zoomBox&&!opt.inner)s+=zoomSVG(spec,geo,p,W,H);
+    return s;
+  }
+  /* Слои для PNG без моря: суша без океана, силуэт суши (маска прозрачности), озёра и пометки поверх.
+     Склеивает их на холсте mapexport.js */
+  function exportLayers(spec,geo,o={}){
+    prepare(geo);const PR=projection(spec,geo);const {p,W,H}=PR;
+    const path=d3.geoPath(p).digits(1);
+    const head=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`;
+    const one=spec.only&&PR.only?spec.only:'';
+    const T=tplOf(geo,spec);
+    const feats=one?onlyFC(geo,spec).features:(T?T.feats:geo._c);
+    let d='';for(const f of feats){const x=path(f);if(x)d+=x;}
+    let lakes='';
+    if(o.lakes)for(const f of geo._lakes){if(one){const c=p(d3.geoCentroid(f));if(!c||c[0]<0||c[1]<0||c[0]>W||c[1]>H)continue;}const x=path(f);if(x)lakes+=x;}
+    const ov=overlays(spec,geo,PR,{},!!o.frames);
+    return {W,H,bw:+spec.bw||.5,
+      land:drawMap(spec,geo,{proj:PR,noSea:true}),
+      mask:`${head}<path d="${d}" fill="#000"/></svg>`,
+      lakes:lakes?`${head}<path d="${lakes}" fill="#000"/></svg>`:'',
+      overlay:ov?`${head}${ov}</svg>`:''};
   }
   /* Выноска с увеличением (как на карте Тайваня): рамка на карте, большая рамка с приближением и «луч» между ними */
   function zoomSVG(spec,geo,p,W,H){
@@ -290,7 +318,7 @@ function makeMapDraw(d3,topojson){
     const c=d3.geoCentroid({type:'FeatureCollection',features:feats});
     return isFinite(c[0])?c:null;
   }
-  return {PROJ,ASPECTS,defaults,projection,onlyFC,prepare,provFor,splitData,baseUnit,ownerOf,regionOf,filesFor,unitName,tplOf,drawMap,groupCentroid,owns,colorOf};
+  return {PROJ,ASPECTS,defaults,projection,onlyFC,prepare,provFor,splitData,baseUnit,ownerOf,regionOf,filesFor,unitName,tplOf,drawMap,exportLayers,groupCentroid,owns,colorOf};
 }
 if(typeof module!=='undefined'&&module.exports)module.exports=makeMapDraw;
 else root.MapDraw=makeMapDraw(root.d3,root.topojson);

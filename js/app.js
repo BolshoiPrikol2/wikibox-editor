@@ -100,7 +100,7 @@ function mainMenuHTML(){
   const counts={};P.pages.forEach(p=>counts[p.type]=(counts[p.type]||0)+1);
   return `<div class="side-h">Главное меню</div><ul class="menu-list">
     <li><a href="#/">Заглавная страница</a></li><li><a href="#/all">Все статьи</a></li><li><a href="#/random">Случайная статья</a></li><li><a href="#/new">Создать статью</a></li><li><a href="#/import">Импорт из Википедии</a></li></ul>
-    <div class="side-h2">Служебные</div><ul class="menu-list"><li><a href="#/media">Медиатека</a></li><li><a href="#/file">Файл проекта</a></li></ul>
+    <div class="side-h2">Служебные</div><ul class="menu-list"><li><a href="#/media">Медиатека</a></li><li><a href="#/render">Рендер карт (PNG)</a></li><li><a href="#/file">Файл проекта</a></li></ul>
     <div class="side-h2">Разделы</div><ul class="menu-list">${Object.keys(TPL).filter(k=>counts[k]).map(k=>`<li><a href="#/all/${k}">${TPL[k].name}</a> <span class="cnt">${counts[k]}</span></li>`).join('')||'<li class="cnt">пока пусто</li>'}</ul>`;
 }
 function tabsHTML(mode,pg){
@@ -144,6 +144,7 @@ function route(){
   else if(k==='media')viewMedia();
   else if(k==='map'){if(arg==='new')viewMapEditor(null);else if(arg)viewMapEditor(arg);else viewMapNew();}
   else if(k==='world')viewWorld(arg);
+  else if(k==='render')viewRender(arg);
   else if(k==='file')viewFile();
   else viewMain();
   window.scrollTo(0,0);
@@ -237,7 +238,7 @@ function viewMedia(){
   $('#main').classList.remove('is-main');
   const content=`<p>Флаги, гербы, портреты, карты. Картинки хранятся внутри проекта и уменьшаются до 900 пикселей по большей стороне. В тексте их зовут по имени: <code>{{флаг|Имя}}</code>, <code>[[Файл:Имя|Подпись]]</code>. Если переименовать картинку, ссылки на неё обновятся во всех статьях.</p>
   <p><label class="btn pri">Загрузить картинки<input type="file" accept="image/*" multiple data-upmedia="1" hidden></label> <a class="btn" href="#/map/">Нарисовать карту</a></p>
-  <div class="mgrid">${P.media.map((m,i)=>`<div class="mitem"><div class="mthumb">${m.src?`<img src="${m.src}" alt="">`:'<span class="cnt">карта рисуется…</span>'}</div><input id="m-name-${i}" value="${esc(m.name)}" data-mrename="${i}" aria-label="Имя картинки"><div class="r">${m.map?`<a class="btn sm" href="#/map/${slug(m.name)}">Изменить карту</a><button class="btn sm" data-act="media-tpl" data-i="${i}" title="Сохранить эту карту как шаблон для новых карт">В шаблоны</button>`:`<button class="btn sm" data-act="mcopy" data-i="${i}">Код флага</button>`}<button class="btn sm danger" data-act="mdel" data-i="${i}">Удалить</button></div>${m.map?'':`<label class="inl mnob"><input type="checkbox" data-mnob="${i}"${m.noborder?' checked':''}> флажок в тексте без серой рамки</label>`}</div>`).join('')||'<p>Пока пусто.</p>'}</div>
+  <div class="mgrid">${P.media.map((m,i)=>`<div class="mitem"><div class="mthumb">${m.src?`<img src="${m.src}" alt="">`:'<span class="cnt">карта рисуется…</span>'}</div><input id="m-name-${i}" value="${esc(m.name)}" data-mrename="${i}" aria-label="Имя картинки"><div class="r">${m.map?`<a class="btn sm" href="#/map/${slug(m.name)}">Изменить карту</a><a class="btn sm" href="#/render/${slug(m.name)}" title="Скачать картинкой PNG с прозрачным морем">PNG без моря</a><button class="btn sm" data-act="media-tpl" data-i="${i}" title="Сохранить эту карту как шаблон для новых карт">В шаблоны</button>`:`<button class="btn sm" data-act="mcopy" data-i="${i}">Код флага</button>`}<button class="btn sm danger" data-act="mdel" data-i="${i}">Удалить</button></div>${m.map?'':`<label class="inl mnob"><input type="checkbox" data-mnob="${i}"${m.noborder?' checked':''}> флажок в тексте без серой рамки</label>`}</div>`).join('')||'<p>Пока пусто.</p>'}</div>
   <h2>Конструктор флагов</h2>
   <div class="fb"><div class="ctl">
     <label class="fld"><span>Схема</span><select id="fb-layout"><option value="h3">Три горизонтальные полосы</option><option value="h2">Две горизонтальные полосы</option><option value="v3">Три вертикальные полосы</option><option value="v2">Две вертикальные полосы</option><option value="nordic">Скандинавский крест</option><option value="canton">Крыж и поле</option><option value="tri">Треугольник у древка</option><option value="diag">По диагонали</option><option value="h1">Одноцветный</option></select></label>

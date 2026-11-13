@@ -5,7 +5,7 @@
 /* GEO — данные основы открытой карты: Земля (EARTH) или свой мир из картинки (worlds.js) */
 const EARTH={countries:null,prov:{},tpl:{},names:null,tplIndex:null};
 let GEO=EARTH;
-const GV='?v=79';
+const GV='?v=80';
 const geoJobs={};
 function fetchJSON(url){return geoJobs[url]=geoJobs[url]||fetch(url).then(r=>{if(!r.ok)throw new Error('нет файла '+url);return r.json();});}
 async function loadTplIndex(){if(!EARTH.tplIndex){try{EARTH.tplIndex=await fetchJSON('data/geo/tpl/index.json'+GV);}catch(e){EARTH.tplIndex={years:[]};}}return EARTH.tplIndex;}
@@ -213,7 +213,7 @@ function renderMePanel(){
   const s=S();const pr=MapDraw.PROJ;const years=(EARTH.tplIndex&&EARTH.tplIndex.years)||[];const WD=s.world?(P.worlds||[]).find(w=>w.id===s.world):null;
   const editedFiles=Object.entries(s.pedit||{}).filter(([c,e])=>e&&(e.del.length||e.add.length)).map(([c])=>c);
   $('#me-panel').innerHTML=`
-  <div class="ed-top"><button class="btn pri" data-act="map-save">Сохранить карту</button><button class="btn" data-act="map-save-tpl" title="Запомнить эту карту как основу для новых карт">Сохранить как шаблон</button><a class="btn" href="${ME.target?'#/edit/'+ME.target.pageId:'#/media'}">Отмена</a></div>
+  <div class="ed-top"><button class="btn pri" data-act="map-save">Сохранить карту</button><button class="btn" data-act="map-save-tpl" title="Запомнить эту карту как основу для новых карт">Сохранить как шаблон</button><button class="btn" data-act="me-png" title="Скачать карту картинкой PNG: море и озёра прозрачные. Ширина и другие настройки — на странице «Рендер карт»">PNG без моря</button><a class="btn" href="${ME.target?'#/edit/'+ME.target.pageId:'#/media'}">Отмена</a></div>
   <label class="fld"><span>Имя в медиатеке</span><input id="me-name" value="${esc(ME.name)}"></label>
   <fieldset class="grp"><legend>Основа карты</legend>
     ${WD?`<p>Свой мир: <b>${esc(WD.name)}</b> <a href="#/world/${WD.id}">названия</a></p>${WD.img&&s.proj==='eqrect'?`<label class="inl"><input type="checkbox" id="me-bg"${ME.bg?' checked':''}> показать исходную картинку поверх (только в редакторе)</label>`:WD.img?'<p class="cnt">Исходную картинку можно показать поверх в равнопромежуточной проекции.</p>':''}`:`<select id="me-base" aria-label="Основа карты"><option value="">Современные границы</option>${years.map(y=>`<option value="${y}"${String(y)===String(s.base)?' selected':''}>Границы ${y} года</option>`).join('')}</select>`}
