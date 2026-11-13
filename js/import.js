@@ -191,7 +191,22 @@ function wiInfobox(tbl,C){
       if(/border-left/i.test(cs[1].getAttribute('style')||''))rb.line=true;biCols=null;rows.push(rb);return true;}
     if(last&&last.t==='bilat'&&!last.name1&&!last.name2&&cs.every(c=>!img(c)&&c.textContent.trim())){last.name1=nameOf(cs[0]);last.name2=nameOf(cs[1]);return true;}
     return false;};
+  const isCountry=tbl.classList.contains('ib-country');let pend=null;
+  const flushMerge=()=>{if(pend)for(let k=pend.n0;k<rows.length;k++)if(rows[k].merge==null)rows[k].merge=pend.mc;};
+  // подпись с линией и списком (en «Infobox former country»): абзацы, <hr>, блок слева по строкам
+  const richCap=x=>{let out='',buf=x.ownerDocument.createElement('div');
+    const flush=()=>{const t=C.inline(buf,false).trim();if(t)out+=(out&&!/(<hr>|<\/span>)$/.test(out)?'<br>':'')+t;buf=x.ownerDocument.createElement('div');};
+    for(const n of [...x.childNodes]){
+      if(n.nodeType===1&&n.tagName==='HR'){flush();out+='<hr>';continue;}
+      if(n.nodeType===1&&/^(DIV|UL)$/.test(n.tagName)&&n.querySelector('li')){flush();
+        const st=n.getAttribute('style')||'',pl=(st.match(/padding-left\s*:\s*([\d.]+em)/i)||[])[1];
+        const lines=C.inline(n,true).split('\n').map(l=>l.replace(/^\*\s*/,'').trim()).filter(Boolean).join('<br>');
+        const ss=[/text-align\s*:\s*left/i.test(st)?'text-align:left':'',pl?'padding-left:'+pl:''].filter(Boolean).join(';');
+        out+=`<span style="display:block${ss?';'+ss:''}">${lines}</span>`;continue;}
+      buf.appendChild(n.cloneNode(true));}
+    flush();return out;};
   for(const tr of tbl.rows){
+    flushMerge();pend=isCountry?{n0:rows.length,mc:(String(tr.className).match(/\bmerged(?:top|bottom)?row\b/)||[''])[0]}:null;
     const cells=[...tr.cells];if(!cells.length||/display:\s*none/i.test(tr.getAttribute('style')||''))continue;
     if(biRow(tr))continue;
     {const nest=cells.length===1&&cells[0].querySelector('table');if(nest&&nest.rows.length===2&&biRow(nest.rows[0])&&biRow(nest.rows[1]))continue;}
@@ -247,6 +262,7 @@ function wiInfobox(tbl,C){
       // колонки из квадратов легенды (карта выборов) — без линии и без чужого заголовка
       if(vals.filter(Boolean).every(v=>/^(\{\{легенда\|[^{}]*\}\}\s*)+$/.test(v.trim()))){const rc=R.c('',vals);rc.plain=true;rows.push(rc);continue;}
       if(prev&&prev.t==='header'&&!prev.l&&!prev.r){rows.pop();rows.push(R.c(prev.text,vals));}else rows.push(R.c('',vals));
+      if(/text-align\s*:\s*center/i.test(nt.getAttribute('style')||'')){const rc=rows[rows.length-1];rc.center=true;rc.plain=true;}
       continue;
     }
     if(one){
@@ -274,7 +290,7 @@ function wiInfobox(tbl,C){
         }else{
           const clone=one.cloneNode(true);clone.querySelectorAll('img').forEach(i=>{const w=+i.getAttribute('width')||0;if(w>60)i.remove();});
           clone.querySelectorAll('figcaption').forEach(f=>{if(!f.textContent.trim())f.remove();});
-          const capText=caps.map(x=>C.inline(x,false)).find(Boolean)||C.inline(clone,false);
+          const capText=caps.map(x=>x.querySelector('hr,ul')?richCap(x):C.inline(x,false)).find(Boolean)||C.inline(clone,false);
           const ri=R.i(C.mediaName(big[0]),capText,Math.min(400,+big[0].getAttribute('width')||250));
           if(big[0].closest('.mw-image-border'))ri.frame=true;
           const pst=one.getAttribute('style')||'',pt=+((pst.match(/padding-top\s*:\s*([\d.]+)em/i)||[])[1])||0,pb=+((pst.match(/padding-bottom\s*:\s*([\d.]+)em/i)||[])[1])||0;
@@ -336,6 +352,7 @@ function wiInfobox(tbl,C){
     }
     const v=C.inline(tr,true);if(v)rows.push(R.t(v));
   }
+  flushMerge();
   // кандидаты: убираем пустые колонки (в ru.wiki их всегда на одну больше)
   for(const r of rows){if(r.t!=='cands')continue;delete r._open;delete r._base;
     const W=Math.max(1,r.per||2);let n=Math.max(r.cands.length,...r.stats.map(s=>s.values.length));

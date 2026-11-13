@@ -10,9 +10,9 @@ const tr=s=>RL==='en'&&I18N_EN[s]||s;
 const pgLang=pg=>(pg&&pg.lang)||(typeof P!=='undefined'&&P&&P.wiki&&P.wiki.lang)||'ru';
 /* оставляем только безопасные свойства: цвет, фон, начертание, размер, перенос */
 function safeStyle(st){
-  const ok=/^(color|background|background-color|font-weight|font-style|font-size|white-space|text-decoration|font-variant)$/i;
+  const ok=/^(color|background|background-color|font-weight|font-style|font-size|white-space|text-decoration|font-variant|text-align|padding-left|display)$/i;
   return String(st||'').split(';').map(x=>x.trim()).filter(Boolean).map(x=>{const i=x.indexOf(':');if(i<0)return '';const k=x.slice(0,i).trim().toLowerCase(),v=x.slice(i+1).trim();
-    if(!ok.test(k)||!/^[#\w\s.%(),-]+$/.test(v)||/url|expression/i.test(v))return '';return k+':'+v;}).filter(Boolean).join(';');
+    if(!ok.test(k)||!/^[#\w\s.%(),-]+$/.test(v)||/url|expression/i.test(v))return '';if(k==='display'&&!/^(block|inline-block)$/i.test(v))return '';return k+':'+v;}).filter(Boolean).join(';');
 }
 const norm=s=>String(s||'').trim().toLowerCase().replace(/ё/g,'е').replace(/_/g,' ').replace(/\s+/g,' ');
 const slug=t=>encodeURIComponent(String(t||'').trim().replace(/ /g,'_'));
@@ -113,7 +113,7 @@ function inline(src,ctx){
   const tok=[];const keep=h=>'\u0001'+(tok.push(h)-1)+'\u0002';
   let s=String(src).replace(REF_RE,(m,name,content)=>keep(refHTML(name,content,ctx)));
   s=esc(s);
-  s=s.replace(/\r?\n/g,'<br>').replace(/&lt;br\s*\/?&gt;/gi,'<br>').replace(/&lt;(\/?)(small|big|s|u|sup|sub|code)&gt;/gi,'<$1$2>');
+  s=s.replace(/\r?\n/g,'<br>').replace(/&lt;br\s*\/?&gt;/gi,'<br>').replace(/&lt;hr\s*\/?&gt;/gi,'<hr>').replace(/&lt;(\/?)(small|big|s|u|sup|sub|code)&gt;/gi,'<$1$2>');
   // <span style="…"> с безопасными свойствами; закрываем столько, сколько открыли
   {let open=0;s=s.replace(/&lt;span\s+style=&quot;([^&<>]*)&quot;\s*&gt;/gi,(m,st)=>{const ss=safeStyle(unesc(st));open++;return ss?`<span style="${esc(ss)}">`:'<span>';});
    let left=open;s=s.replace(/&lt;\/span&gt;/gi,m=>left>0?(left--,'</span>'):m);s+='</span>'.repeat(left);}
@@ -325,7 +325,7 @@ function renderInfobox(ib,ctx,mark,country){
   let h='',fold=null;rowsA.forEach((r,i)=>{
     if(r.t==='header')fold=r.fold&&r.text?{id:'f'+i,open:!!r.foldOpen}:null;
     let x=RENDER[r.t]?RENDER[r.t](r,ctx,hs,i):'';if(mark)x=x.replace(/<tr(?=[ >])/g,`<tr data-ib="${typeof mark==='string'?mark:''}${i}"`);
-    if(country&&x){const nx=nextShown(i);const cls=isSub(r)?(isSub(nx)?'mergedrow':'mergedbottomrow'):(isSub(nx)?'mergedtoprow':'');if(cls)x=x.replace(/<tr(?=[ >])/g,`<tr class="${cls}"`);}
+    if(country&&x){const nx=nextShown(i);const cls=r.merge!=null?r.merge:isSub(r)?(isSub(nx)?'mergedrow':'mergedbottomrow'):(isSub(nx)?'mergedtoprow':'');if(cls)x=x.replace(/<tr(?=[ >])/g,`<tr class="${cls}"`);}
     if(fold&&r.t!=='header')x=x.replace(/<tr(?=[ >])/g,`<tr data-fold="${fold.id}"${fold.open?'':' hidden'}`);
     h+=x;});
   if(!h&&!ib.title&&!ib.above)return '';
