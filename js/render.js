@@ -79,7 +79,8 @@ function tplInline(inner){
     case 'вниз':case 'texticon down':return ticon('down','bad')+(a[1]||'');
     case 'вверх-':return ticon('up','bad')+(a[1]||'');
     case 'вниз+':return ticon('down','good')+(a[1]||'');
-    case 'плеер':case 'гимн':case 'аудио':case 'player':return playerHTML(a[a.length-1]&&a.length>1?a[a.length-1]:'');
+    case 'плеер':case 'гимн':case 'аудио':case 'player':{const pw=a.slice(1).find(x=>/^\d{2,3}px$/.test(x));const d=a.slice(1).filter(x=>x!==pw);return playerHTML(d[d.length-1]||'',pw?parseInt(pw):0);}
+    case 'abbr':case 'сокр':return a[1]?`<abbr title="${(a[2]||'').replace(/"/g,'&quot;')}">${a[1]}</abbr>`:'';
     case 'и. о.':case 'ио':return '<abbr title="исполняющий обязанности">и.&nbsp;о.</abbr>';
     case 'нп':case 'nowrap':return '<span class="nowrap">'+a.slice(1).join('|')+'</span>';
     default:return '{{'+inner+'}}';
@@ -102,9 +103,9 @@ function ticon(dir,mood){return `<span class="ticon ${mood==='good'?'ticon-g':'t
 /* Фейковый аудиоплеер, как у гимна в карточке «Чехии»: звука нет, но кнопка и время работают */
 function durSec(d){const m=String(d||'').trim().match(/^(?:(\d+):)?(\d{1,2}):(\d{2})$/);if(m)return (+m[1]||0)*3600+(+m[2])*60+(+m[3]);const n=parseInt(d,10);return n>0?n:0;}
 function fmtDur(s){s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),c=String(s%60).padStart(2,'0');return h?`${h}:${String(m).padStart(2,'0')}:${c}`:`${m}:${c}`;}
-function playerHTML(dur){
+function playerHTML(dur,w){
   const s=durSec(dur)||73;
-  return `<span class="fplayer" data-dur="${s}" role="button" tabindex="0" aria-label="Воспроизвести аудио (${fmtDur(s)})" title="Воспроизвести аудио"><span class="fp-fill"></span><span class="fp-play" aria-hidden="true"></span><span class="fp-dur">${fmtDur(s)}</span></span>`;
+  return `<span class="fplayer"${w>=60?` style="width:${Math.min(400,w)}px"`:''} data-dur="${s}" role="button" tabindex="0" aria-label="Воспроизвести аудио (${fmtDur(s)})" title="Воспроизвести аудио"><span class="fp-fill"></span><span class="fp-play" aria-hidden="true"></span><span class="fp-dur">${fmtDur(s)}</span></span>`;
 }
 function inline(src,ctx){
   if(src==null||src==='')return '';
@@ -260,18 +261,18 @@ function parlSVG(parties){
 /* Кнопка «показать/скрыть», как в карточке «НАТО»: у строки сворачивается значение, у заголовка — строки до следующего заголовка */
 function foldBtn(open,id){return `<button type="button" class="fold-tg" aria-expanded="${open}"${id?` data-fold="${id}"`:''}>${open?tr('скрыть'):tr('показать')}</button>`;}
 function foldBox(r,html,c){if(!r.fold)return html;const open=!!r.foldOpen;return `<div class="ib-fold">${foldBtn(open)}${String(r.foldSum||'').trim()?`<div class="fold-sum">${inline(r.foldSum,c)}</div>`:''}<div class="fold-body"${open?'':' hidden'}>${html}</div></div>`;}
-function hdr(content,c,hs){return `<tr><th colspan="2" scope="colgroup" class="infobox-header${hs.dk}"${hs.st}>${content}</th></tr>`;}
+function hdr(content,c,hs){return `<tr><th colspan="2" scope="colgroup" class="infobox-header${hs.dk}${hs.hc||''}"${hs.hst==null?hs.st:hs.hst}>${content}</th></tr>`;}
 const RENDER={
   header:(r,c,hs,i)=>{
     if(!r.text)return '';
     const l=mediaSrc(r.l),rr=mediaSrc(r.r);const fb=r.fold?foldBtn(!!r.foldOpen,'f'+i):'';
     if(!l&&!rr)return hdr(fb+inline(r.text,c),c,hs);
     return hdr(fb+`<div class="ib-office"><div class="ib-office-img">${l?`<img src="${l}" alt="">`:''}</div><div class="ib-office-label">${inline(r.text,c)}</div><div class="ib-office-img">${rr?`<img src="${rr}" alt="">`:''}</div></div>`,c,hs);},
-  field:(r,c)=>{const lb=String(r.label||'');if(/^=/.test(lb))return `<tr><td colspan="2" class="ib-sub">${inline(lb.replace(/^=\s*/,''),c)}${String(r.value||'').trim()?' '+ibVal(r.value,c):''}</td></tr>`;if(!String(r.value||'').trim())return '';return r.label?`<tr><th scope="row" class="plainlist${/^\s*•/.test(lb)?' ib-l2':''}">${/^\s*•/.test(lb)&&RL==='en'?`<div class="fake-li">${inline('•\u00a0'+lb.replace(/^\s*•\s*/,''),c)}</div>`:inline(/^\s*•/.test(lb)?'\u00a0•\u00a0'+lb.replace(/^\s*•\s*/,''):r.label,c)}</th><td class="plainlist">${foldBox(r,ibVal(r.value,c),c)}</td></tr>`:`<tr><td colspan="2" class="plainlist">${foldBox(r,ibVal(r.value,c),c)}</td></tr>`;},
+  field:(r,c)=>{const lb=String(r.label||'');if(/^=/.test(lb))return `<tr><td colspan="2" class="ib-sub">${inline(lb.replace(/^=\s*/,''),c)}${String(r.value||'').trim()?' '+ibVal(r.value,c):''}</td></tr>`;if(!String(r.value||'').trim())return '';return r.label?`<tr><th scope="row" class="plainlist${/^\s*•/.test(lb)?' ib-l2':''}">${/^\s*•/.test(lb)&&RL==='en'?`<div class="fake-li">${inline('•\u00a0'+lb.replace(/^\s*•\s*/,''),c)}</div>`:inline(/^\s*•/.test(lb)?'\u00a0•\u00a0'+lb.replace(/^\s*•\s*/,''):r.label,c)}</th><td class="${r.bullets?'ib-ul':'plainlist'}${r.hang?' ib-hang':''}">${foldBox(r,ibVal(r.value,c),c)}</td></tr>`:`<tr><td colspan="2" class="${r.bullets?'ib-ul':'plainlist'}${r.hang?' ib-hang':''}">${foldBox(r,ibVal(r.value,c),c)}</td></tr>`;},
   text:(r,c)=>String(r.value||'').trim()?`<tr><td colspan="2" class="plainlist" style="text-align:center">${foldBox(r,ibVal(r.value,c),c)}</td></tr>`:'',
   hr:()=>`<tr><td colspan="2" class="ib-hr"><hr></td></tr>`,
   anthem:(r,c)=>{const v=String(r.value||'').trim();if(!v&&!r.dur)return '';return `<tr><td colspan="2" class="plainlist ib-anthem">${r.label?inline(r.label,c)+': ':''}${v?ibVal(v,c):''}${r.dur?playerHTML(r.dur):''}</td></tr>`;},
-  below:(r,c,hs)=>String(r.value||'').trim()?`<tr><td colspan="2" class="infobox-below${hs.dk}"${hs.st2}>${ibVal(r.value,c)}</td></tr>`:'',
+  below:(r,c,hs)=>String(r.value||'').trim()?`<tr><td colspan="2" class="infobox-below${hs.dk}${hs.rule?' ib-ruled':''}"${hs.st2}>${hs.rule?`<div class="ib-rule-b" style="border-color:${hs.rule}">${ibVal(r.value,c)}</div>`:ibVal(r.value,c)}</td></tr>`:'',
   image:(r,c)=>{const s=mediaSrc(r.src);if(!s)return '';const W=Math.max(40,+r.w||250);
     const alts=(r.alts||[]).filter(a=>mediaSrc(a.src));
     if(alts.length>1){const id='sw'+(++SWN);
@@ -279,7 +280,8 @@ const RENDER={
       const sw=`<div class="ib-switch">${alts.map((a,k)=>`<label${k?'':' class="first"'}><input type="radio" name="${id}" value="${k}"${k?'':' checked'}>${inline(a.label||'',c)}</label>`).join('')}${r.swAll?`<label><input type="radio" name="${id}" value="all">${inline(r.swAll,c)}</label>`:''}</div>`;
       return `<tr><td colspan="2" class="infobox-image"${r.pat==='full'?' data-pat="full"':''}${r.capPlain?' data-cap="plain"':''}${imgStick(r).map((on,i)=>on?(i?' data-ss="1"':' data-so="1"'):'').join('')}>${im}${sw}${r.caption?`<span class="media-caption"${r.capLeft?' style="text-align:left"':''}>${legendWrap(inline(r.caption,c),r.lcols)}</span>`:''}</td></tr>`;}
     const more=(r.more||[]).filter(m=>mediaSrc(m.src)).map(m=>` <img src="${mediaSrc(m.src)}" alt="" style="width:${Math.max(40,+m.w||W)}px">`).join('');
-    return `<tr><td colspan="2" class="infobox-image"${r.pat==='full'?' data-pat="full"':''}${r.capPlain?' data-cap="plain"':''}${imgStick(r).map((on,i)=>on?(i?' data-ss="1"':' data-so="1"'):'').join('')}><img src="${s}" alt="" style="width:${W}px">${more}${r.caption?`<span class="media-caption"${r.capLeft?' style="text-align:left"':''}>${legendWrap(inline(r.caption,c),r.lcols)}</span>`:''}</td></tr>`;},
+    const pad=Array.isArray(r.pad)?` style="padding-top:${+r.pad[0]||0}em;padding-bottom:${+r.pad[1]||0}em"`:'';
+    return `<tr><td colspan="2" class="infobox-image"${pad}${r.pat==='full'?' data-pat="full"':''}${r.capPlain?' data-cap="plain"':''}${imgStick(r).map((on,i)=>on?(i?' data-ss="1"':' data-so="1"'):'').join('')}><img${r.frame?' class="ib-frame"':''} src="${s}" alt="" style="width:${W}px">${more}${r.caption?`<span class="media-caption"${r.capLeft?' style="text-align:left"':''}>${legendWrap(inline(r.caption,c),r.lcols)}</span>`:''}</td></tr>`;},
   images2:(r,c)=>{const a=mediaSrc(r.src1),b=mediaSrc(r.src2);if(!a&&!b)return '';
     const im=[a&&[a,'ib-flag',r.cap1],b&&[b,'ib-coat',r.cap2]].filter(Boolean);
     return `<tr><td colspan="2" class="infobox-image"${r.pat==='full'?' data-pat="full"':''}${r.capPlain?' data-cap="plain"':''}${imgStick(r).map((on,i)=>on?(i?' data-ss="1"':' data-so="1"'):'').join('')}><table class="ib-flags"><tbody><tr>${im.map(([s,k])=>`<td><img class="${k}" src="${s}" alt=""></td>`).join('')}</tr>${im.some(x=>String(x[2]||'').trim())?`<tr>${im.map(x=>`<td>${inline(x[2]||'',c)}</td>`).join('')}</tr>`:''}</tbody></table></td></tr>`;},
@@ -314,7 +316,9 @@ const RENDER={
 let SWN=0;
 function renderInfobox(ib,ctx,mark,country){
   const th=ib.custom?safeColor(ib.theme):'';const fg=th?textOn(th):'';
-  const hs={st:th?` style="background:${th};color:${fg}"`:'',st2:th?` style="background:${th};color:${fg}"`:'',dk:fg==='#ffffff'?' dk':''};
+  const hs={st:th?` style="background:${th};color:${fg}"`:'',st2:th?` style="background:${th};color:${fg}"`:'',dk:fg==='#ffffff'?' dk':'',rule:ib.ruled?safeColor(ib.rule||'#000000'):''};
+  // шапки без фона и свой межстрочный интервал (импорт из en.wiki, «Infobox political party»)
+  const hst=[th?`background:${th};color:${fg}`:'',+ib.hdLh>0?`line-height:${+ib.hdLh}em`:''].filter(Boolean).join(';');hs.hst=hst?` style="${hst}"`:'';hs.hc=ib.hdPlain&&!th?' ib-hd-plain':'';
   const rowsA=ib.rows||[];const isSub=r=>r&&r.t==='field'&&/^\s*•/.test(String(r.label||''))&&String(r.value||'').trim();
   // следующая видимая строка (пустые поля не рисуются)
   const nextShown=i=>{for(let k=i+1;k<rowsA.length;k++){const q=rowsA[k];if(q.t==='field'&&!String(q.value||'').trim()&&!/^=/.test(String(q.label||'')))continue;return q;}return null;};
@@ -327,7 +331,7 @@ function renderInfobox(ib,ctx,mark,country){
   if(!h&&!ib.title&&!ib.above)return '';
   // стандартная ширина 23em в Википедии на деле 23,4em (ru) и 22em (en); своя ширина (style=width) — ровно как задана
   const w0=Math.min(40,Math.max(14,+ib.w||23));const w=w0===23?(RL==='en'?22:23.4):w0;
-  return `<table class="infobox${country?' ib-country':''}${ib.kind&&ib.kind!=='country'?' ib-'+esc(ib.kind):''}" style="width:${w}em${th?`;--ib-th:${th}`:''}"><tbody>${ib.above?`<tr${mark?` data-ib="${typeof mark==='string'?mark:''}above"`:''}><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr${mark?` data-ib="${typeof mark==='string'?mark:''}title"`:''}><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
+  return `<table class="infobox${country?' ib-country':''}${ib.kind&&ib.kind!=='country'?' ib-'+esc(ib.kind):''}" style="width:${w}em${th?`;--ib-th:${th}`:''}${+ib.lh>0?`;--ib-lh:${+ib.lh}em`:''}"><tbody>${ib.above?`<tr${mark?` data-ib="${typeof mark==='string'?mark:''}above"`:''}><td colspan="2" class="infobox-pre">${inline(ib.above,ctx)}</td></tr>`:''}${ib.title?`<tr${mark?` data-ib="${typeof mark==='string'?mark:''}title"`:''}><th colspan="2" scope="colgroup" class="infobox-above${hs.dk}"${hs.st}>${hs.rule?`<div class="ib-rule-t" style="border-color:${hs.rule}">${inline(ib.title,ctx)}</div>`:inline(ib.title,ctx)}</th></tr>`:''}${h}</tbody></table>`;
 }
 
 /* ---------- article ---------- */

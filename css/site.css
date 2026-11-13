@@ -547,6 +547,23 @@ html[data-wmode="wiki"] #main .mw-content [data-l]:hover,html[data-wmode="wiki"]
 .wl-en .infobox{font-size:88%;border-spacing:3px;padding:.2em;line-height:1.5em}
 .wl-en .infobox-above{background:none!important;font-size:125%;padding:.2em!important;color:var(--text)}
 .wl-en .infobox-header{background:var(--ib-en-hd);padding:.2em!important}
+.wl-en .infobox-below{background:none}
+/* карточка партии en.wiki: шапки без фона, плотные строки, линии цвета партии, список с маркерами */
+.infobox>tbody>tr>.ib-hd-plain{background:none!important;padding:1px!important}
+.infobox>tbody>tr>th[scope=row],.infobox>tbody>tr>th[scope=row]+td{line-height:var(--ib-lh,inherit)}
+.ib-rule-t{padding:.3em 0;border-top:2px solid;border-bottom:2px solid;line-height:1}
+.infobox>tbody>tr>.infobox-below.ib-ruled{padding-top:0!important}
+.ib-rule-b{line-height:1.3em;padding-top:.3em;border-top:2px solid}
+.ib-ul ul{margin:.3em 0 0 1.6em;padding:0;list-style:disc}
+.ib-ul li{margin-bottom:.1em}
+.infobox>tbody>tr>td.ib-hang{padding-left:calc(1em + 1px)!important;text-indent:-1em}
+/* плеер в колонке значений стоит в строке текста, как аудио в en.wiki: отступ сверху и тонкая рамка */
+.infobox td:not([colspan]) .fplayer{display:inline-flex;vertical-align:baseline;margin:.4em 0 .3em;border:1px solid var(--border-muted);box-sizing:content-box}
+.infobox>tbody>tr>.infobox-above:has(>.ib-rule-t){padding:1px!important}
+.ib-rule-t>span[style]{display:block;padding-top:.3em}
+.infobox-image img.ib-frame{border:1px solid var(--border-muted);box-sizing:content-box}
+.wl-en .legend-color{width:auto;min-width:1.25em;height:1.25em;line-height:1.25;vertical-align:baseline;border-color:#a9a9a9;box-sizing:content-box}
+.wl-en .legend-color:empty::before{content:"\a0"}
 .wl-en .infobox th,.wl-en .infobox td{padding:1px}
 .wl-en .infobox-image .media-caption{text-align:center}
 .wl-en .mw-editsection .sep{display:none}

@@ -92,11 +92,13 @@ function makeConverter(lang,opts){
       {const hx=sqColor(el);if(hx){out+=`{{цвет|${hx}}}`;continue;}}
       if(el.classList.contains('nowrap')&&el.textContent.trim()){const t=inl(el,ctx);out+=t.includes('\n')?t:`<span style="white-space:nowrap">${t}</span>`;continue;}
       if(/\bib-country-(largest|lang|ethnic|religion|sovereignty)\b|\bnobold\b/.test(el.className||'')&&el.textContent.trim()){const t=inl(el,ctx).trim();out+=(tag==='div'?(ctx.lines?'\n':'<br>'):'')+wrapLines(t,'<span style="font-weight:normal">','</span>');continue;}
+      if((tag==='abbr'||el.classList.contains('tooltip-dotted'))&&el.getAttribute('title')&&el.closest('table.infobox')){const t=inl(el,ctx).trim();if(t&&!/[|{}\[\]\n]/.test(t)){const ab=`{{abbr|${t}|${el.getAttribute('title').replace(/[|{}\[\]]/g,' ').trim()}}}`;const ss=safeStyle(el.getAttribute('style')||'');out+=ss?`<span style="${ss}">${ab}</span>`:ab;continue;}}
       if(tag==='span'&&el.getAttribute('style')){const ss=safeStyle(el.getAttribute('style'));if(ss&&el.textContent.trim()){const t=inl(el,ctx);out+=t.trim()?wrapLines(t,`<span style="${ss}">`,'</span>'):t;continue;}}
       if(el.classList.contains('mw-tmh-player')||tag==='audio'||tag==='video'){
         const a=tag==='audio'||tag==='video'?el:el.querySelector('audio,video');const hint=+(a&&a.getAttribute('data-durationhint'))||0;
         const lab=el.querySelector('.mw-tmh-duration [aria-hidden]');const d=(lab&&lab.textContent.trim())||(hint?Math.floor(hint/60)+':'+String(Math.round(hint%60)).padStart(2,'0'):'');
-        out+=(ctx.lines?'\n':' ')+`{{плеер${d?'|'+d:''}}}`+(ctx.lines?'\n':' ');continue;}
+        const pw=a&&el.closest('table.infobox')?(+((a.getAttribute('style')||'').match(/width:\s*(\d+)px/i)||[])[1]||+a.getAttribute('width')||0):0;
+        out+=(ctx.lines?'\n':' ')+`{{плеер${d?'|'+d:''}${pw>=60&&pw<=400?'|'+pw+'px':''}}}`+(ctx.lines?'\n':' ');continue;}
       if(tag==='br'){out+=ctx.lines?'\n':'<br>';continue;}
       if(tag==='img'){
         const w=+el.getAttribute('width')||0,h=+el.getAttribute('height')||0;
@@ -171,6 +173,13 @@ function wiInfobox(tbl,C){
   // en.wiki «Infobox musical artist»: цвет шапок зависит от типа исполнителя, пустые заголовки — цветные линии между блоками
   const isBand=[...tbl.querySelectorAll('.infobox-header')].some(h=>/^background information$/i.test(h.textContent.trim()));
   const hdBg=isBand?((tbl.querySelector('.infobox-above')?.getAttribute('style')||'').match(/background(?:-color)?\s*:\s*(#[0-9a-f]{3,8})/i)||[])[1]||'':'';
+  // en.wiki: фон шапок задаёт сам шаблон в style; у «Infobox political party» его нет, а строки плотнее (line-height:1.3em)
+  const own=e=>e.closest('table.infobox')===tbl,emOf=(e,k)=>+(((e.getAttribute('style')||'').match(new RegExp(k+'\\s*:\\s*([\\d.]+)em','i'))||[])[1])||0;
+  const hds=[...tbl.querySelectorAll('.infobox-header')].filter(h=>own(h)&&h.textContent.trim());
+  const hdPlain=!isBand&&!tbl.classList.contains('ib-country')&&hds.length>0&&hds.every(h=>!/background/i.test(h.getAttribute('style')||''));
+  const hdLh=hds.map(h=>emOf(h,'line-height')).find(Boolean)||0;
+  const labs=[...tbl.querySelectorAll('.infobox-label')].filter(own);const lh0=labs.length?emOf(labs[0],'line-height'):0;const lh=lh0&&labs.every(l=>emOf(l,'line-height')===lh0)?lh0:0;
+  let rule='';
   const cap=tbl.querySelector(':scope > caption');if(cap)title=C.inline(cap,false);
   // en и ru: строка из двух цветных ячеек, под ней флаги с названиями; de: полоска над флагом в той же ячейке, названия строкой ниже
   const biRow=tr=>{const cs=[...tr.cells];if(cs.length!==2)return false;
@@ -189,7 +198,15 @@ function wiInfobox(tbl,C){
     biCols=null;
     const th=cells.filter(c=>c.tagName==='TH'),td=cells.filter(c=>c.tagName==='TD');
     const one=cells.length===1?cells[0]:null;
-    if(one&&(one.classList.contains('infobox-above')||(!rows.length&&!title&&one.tagName==='TH'&&!one.querySelector('img')))){if(!title){const nm=one.querySelector('.ib-country-names');if(nm){const cl=one.cloneNode(true);cl.querySelector('.ib-country-names').remove();const n2=C.inline(nm,false).trim();title=C.inline(cl,false).trim()+(n2?'<br><span style="font-weight:normal">'+n2+'</span>':'');}else title=C.inline(one,false);}continue;}
+    if(one&&(one.classList.contains('infobox-above')||(!rows.length&&!title&&one.tagName==='TH'&&!one.querySelector('img')))){if(!title){const nm=one.querySelector('.ib-country-names');if(nm){const cl=one.cloneNode(true);cl.querySelector('.ib-country-names').remove();const n2=C.inline(nm,false).trim();title=C.inline(cl,false).trim()+(n2?'<br><span style="font-weight:normal">'+n2+'</span>':'');}
+      else{
+        // название и второе название отдельными блоками (en «Infobox political party»), над и под ними линии цвета партии
+        const box=[...one.querySelectorAll('div')].find(d=>/border-top\s*:/i.test(d.getAttribute('style')||''));
+        const m=box&&(box.getAttribute('style')||'').match(/border-top\s*:\s*[\d.]+px\s+solid\s+(#[0-9a-f]{3,8}|[a-z]+)/i);if(m)rule=m[1];
+        const blocks=[...(box||one).children].filter(d=>d.tagName==='DIV'&&d.textContent.trim());
+        if(blocks.length>=2)title=blocks.map((d,k)=>{const t=C.inline(d,false).trim();const ss=k?safeStyle(d.getAttribute('style')||''):'';return ss?`<span style="${ss}">${t}</span>`:t;}).join('<br>');
+        else title=C.inline(one,false);
+      }}continue;}
     if(one&&one.classList.contains('infobox-below')){const v=C.inline(one,true);if(v)rows.push(R.below(v));continue;}
     // строка предшественников и преемников (ru.wiki «Государство»): плавающие блоки слева и справа, даты посередине
     if(one){const ch=[...one.children].filter(d=>d.tagName==='DIV');const fl=d=>(d.getAttribute('style')||'').match(/float:\s*(left|right)/i);
@@ -258,7 +275,11 @@ function wiInfobox(tbl,C){
           const clone=one.cloneNode(true);clone.querySelectorAll('img').forEach(i=>{const w=+i.getAttribute('width')||0;if(w>60)i.remove();});
           clone.querySelectorAll('figcaption').forEach(f=>{if(!f.textContent.trim())f.remove();});
           const capText=caps.map(x=>C.inline(x,false)).find(Boolean)||C.inline(clone,false);
-          rows.push(R.i(C.mediaName(big[0]),capText,Math.min(400,+big[0].getAttribute('width')||250)));
+          const ri=R.i(C.mediaName(big[0]),capText,Math.min(400,+big[0].getAttribute('width')||250));
+          if(big[0].closest('.mw-image-border'))ri.frame=true;
+          const pst=one.getAttribute('style')||'',pt=+((pst.match(/padding-top\s*:\s*([\d.]+)em/i)||[])[1])||0,pb=+((pst.match(/padding-bottom\s*:\s*([\d.]+)em/i)||[])[1])||0;
+          if(pt||pb)ri.pad=[pt,pb];
+          rows.push(ri);
         }
         continue;
       }
@@ -301,7 +322,10 @@ function wiInfobox(tbl,C){
       const cl=cell.cloneNode(true);cl.querySelectorAll('style,link,sup').forEach(e=>e.remove());const m=cl.textContent.replace(/[\u00a0\u202f\s]+/g,' ').match(/^\s*(\d[\d ]*)\s*(?:из|\/|of)\s*(\d[\d ]*)/i);
       if(bar&&m){const col=(bar.getAttribute('style').match(/background(?:-color)?\s*:\s*(#[0-9a-f]{3,8}|rgb\([^)]*\)|[a-z]+)/i)||[])[1]||'#3366cc';
         rows.push(R.seats(C.inline(th[0],false),+m[1].replace(/ /g,''),+m[2].replace(/ /g,''),col));continue;}
-      const label=C.inline(th[0],false),v=C.inline(td[0],true);if(v)rows.push(R.f(label,v));else if(label)rows.push(R.f(label,'\u200b'));continue;}
+      const label=C.inline(th[0],false),v=C.inline(td[0],true);
+      if(v){const f=R.f(label,v);const ul=td[0].querySelector('ul');if(ul&&!ul.closest('.plainlist,.hlist')&&!ul.querySelector('.legend,.legend-color'))f.bullets=true;
+        const pl=[...td[0].querySelectorAll('.plainlist')].find(e=>/text-indent\s*:\s*-/i.test(e.getAttribute('style')||''));if(pl)f.hang=true;rows.push(f);}
+      else if(label)rows.push(R.f(label,'\u200b'));continue;}
     if(td.length>=2&&!th.length){
       const vals=td.map(c=>C.inline(c,true));
       const prev=rows[rows.length-1];
@@ -326,9 +350,11 @@ function wiInfobox(tbl,C){
   // своя ширина карточки (у СССР style="width:28em")
   const wm=(tbl.getAttribute('style')||'').match(/(?:^|;)\s*width\s*:\s*([\d.]+)\s*(em|px)/i);
   const w=wm?(wm[2].toLowerCase()==='px'?+wm[1]/14.4:+wm[1]):0;
-  return {title,rows,w:w>=14&&w<=40?Math.round(w*10)/10:0,kind:(String(tbl.className).match(/(?:^|\s)ib-([a-z][a-z-]*)(?:\s|$)/)||[])[1]||(lightHd&&rows.some(r=>r.t==='bilat')?'bilateral':isBand?'band':''),theme:hdBg.toLowerCase()};
+  return {title,rows,w:w>=14&&w<=40?Math.round(w*10)/10:0,kind:(String(tbl.className).match(/(?:^|\s)ib-([a-z][a-z-]*)(?:\s|$)/)||[])[1]||(lightHd&&rows.some(r=>r.t==='bilat')?'bilateral':isBand?'band':''),theme:hdBg.toLowerCase(),rule,hdPlain,hdLh,lh};
 }
 
+/* Оформление карточки, которое переносится из Википедии: линии цвета партии, шапки без фона, межстрочный интервал */
+function wiIbLook(x){const o={};if(x.rule){o.ruled=true;o.rule=x.rule;}if(x.hdPlain)o.hdPlain=true;if(x.hdLh)o.hdLh=x.hdLh;if(x.lh)o.lh=x.lh;return o;}
 function wiBody(root,C,opts){
   const out=[];let skipLevel=0;let hatnote='';
   const push=s=>{s=String(s).trim();if(s)out.push(s);};
@@ -412,7 +438,7 @@ async function wikiImport(q,lang,opts){
   let type='blank';
   if(ibEl){const key=(ibEl.getAttribute('data-name')||'')+' '+ibEl.className.replace(/\b(vevent|vcard|geography|hproduct|infobox)\b/g,'');for(const [re,t] of WI_TYPES)if(re.test(key)){type=t;break;}}
   const ib=ibEl?wiInfobox(ibEl,C):{title:'',rows:[]};
-  const extraIb=ibAll.slice(1).map(t=>{const x=wiInfobox(t,C);const o={title:x.title||'',custom:false,theme:'#3366cc',w:x.w||23,rows:x.rows};if(x.kind)o.kind=x.kind;return o;});
+  const extraIb=ibAll.slice(1).map(t=>{const x=wiInfobox(t,C);const o={title:x.title||'',custom:false,theme:'#3366cc',w:x.w||23,rows:x.rows};if(x.kind)o.kind=x.kind;Object.assign(o,wiIbLook(x));return o;});
   if(ib.theme==='#b0c4de')type='band';
   else if(ib.rows.some(r=>r.t==='bilat'))type='relations';
   else if(ib.rows.some(r=>r.t==='cols'&&!r.center)&&!['battle','war'].includes(type))type='battle';
@@ -423,7 +449,7 @@ async function wikiImport(q,lang,opts){
   if(L==='en')pg.lang='en';else if(L==='ru'&&(P.wiki.lang||'ru')!=='ru')pg.lang='ru';
   Object.assign(pg,{hatnote:opts.body?hatnote:'',body:body||`'''${pageTitle}''' — …`,cats:cats.join(', '),
     source:{lang:L,title:parse.title,url:`https://${L}.wikipedia.org/wiki/${encodeURIComponent(parse.title.replace(/ /g,'_'))}`}});
-  pg.ib={title:ib.title||pageTitle,custom:false,theme:'#3366cc',w:ib.w||23,rows:ib.rows.length?ib.rows:pg.ib.rows};if(ib.kind)pg.ib.kind=ib.kind;if(ib.theme)Object.assign(pg.ib,{custom:true,theme:ib.theme});
+  pg.ib={title:ib.title||pageTitle,custom:false,theme:'#3366cc',w:ib.w||23,rows:ib.rows.length?ib.rows:pg.ib.rows};if(ib.kind)pg.ib.kind=ib.kind;Object.assign(pg.ib,wiIbLook(ib));if(ib.theme)Object.assign(pg.ib,{custom:true,theme:ib.theme});
   pg.extra=extraIb;
   P.media.push(...C.media);P.pages.push(pg);save();
   return {pg,images:C.media.length,refs:C.refCount};
