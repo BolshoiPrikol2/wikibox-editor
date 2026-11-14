@@ -287,7 +287,7 @@ const RENDER={
     return `<tr><td colspan="2" class="infobox-image"${r.pat==='full'?' data-pat="full"':''}${r.capPlain?' data-cap="plain"':''}${imgStick(r).map((on,i)=>on?(i?' data-ss="1"':' data-so="1"'):'').join('')}><table class="ib-flags"><tbody><tr>${im.map(([s,k])=>`<td><img class="${k}" src="${s}" alt=""></td>`).join('')}</tr>${im.some(x=>String(x[2]||'').trim())?`<tr>${im.map(x=>`<td>${inline(x[2]||'',c)}</td>`).join('')}</tr>`:''}</tbody></table></td></tr>`;},
   bilat:(r,c)=>{const side=[[r.src1,r.name1,r.w1],[r.src2,r.name2,r.w2]];if(side.every(([s,n])=>!mediaSrc(s)&&!String(n||'').trim()))return '';
     return `<tr><td colspan="2" class="ib-nest"><table class="ib-in ib-bilat${r.line?' ib-bi-l':''}"><tbody><tr class="ib-bi-bar"><td style="background:${safeColor(r.col1)}"></td><td style="background:${safeColor(r.col2)}"></td></tr><tr>${side.map(([s,n,w])=>`<th scope="col">${mediaSrc(s)?`<img src="${mediaSrc(s)}" alt="" style="width:${Math.max(20,+w||45)}px">`:''}${String(n||'').trim()?`<div>${inline(n,c)}</div>`:''}</th>`).join('')}</tr></tbody></table></td></tr>`;},
-  cols:(r,c,hs)=>{const cells=r.cells||[];if(!r.label&&cells.every(x=>!String(x).trim()))return '';const n=cells.length||1;return (r.label?hdr(inline(r.label,c),c,hs):'')+`<tr><td colspan="2" class="ib-nest"><table class="ib-in ib-cols${r.plain?' ib-cols-plain':''}${r.center?' ib-cols-c':''}"><tbody><tr>${cells.map(x=>`<td${r.plain?' class="plainlist"':''} style="width:${(100/n).toFixed(2)}%">${ibVal(x,c)}</td>`).join('')}</tr></tbody></table></td></tr>`;},
+  cols:(r,c,hs)=>{const cells=r.cells||[];if(!r.label&&cells.every(x=>!String(x).trim()))return '';const n=cells.length||1;return (r.label?hdr(inline(r.label,c),c,hs):'')+`<tr><td colspan="2" class="ib-nest"><table class="ib-in ib-cols${r.plain?' ib-cols-plain':''}${r.center?' ib-cols-c':''}"><tbody><tr>${cells.map((x,k)=>`<td${r.plain?' class="plainlist"':''} style="width:${(100/n).toFixed(2)}%${Array.isArray(r.al)&&/^(left|right|center)$/.test(r.al[k])?';text-align:'+r.al[k]:''}">${ibVal(x,c)}</td>`).join('')}</tr></tbody></table></td></tr>`;},
   succ:(r,c,hs)=>{if(!r.prev&&!r.next&&!r.label)return '';
     // raw — стрелки уже в тексте (импорт из Википедии), каждая строка — отдельный предшественник или преемник
     const side=(v,left)=>r.raw?String(v||'').split('\n').filter(x=>x.trim()).map(x=>`<span class="nowrap">${inline(x,c)}</span>`).join('<br>'):(v?(left?'← '+inline(v,c):inline(v,c)+' →'):'');
@@ -301,7 +301,8 @@ const RENDER={
       let t='<table class="ib-cands"><tbody>';
       const lab=k=>r[k]?`<th>${inline(r[k],c)}</th>`:'<td></td>';
       if(r.wiki){
-        if(ch.some(x=>mediaSrc(x.src)))t+=`<tr class="cph">${lab('photoLabel')}${ch.map(x=>`<td ${w}>${mediaSrc(x.src)?`<img src="${mediaSrc(x.src)}" alt="">`:''}<div class="cbar" style="background:${safeColor(x.color)}"></div></td>`).join('')}</tr>`;
+        const ph=Array.isArray(r.ph)?r.ph.map(v=>Math.max(40,Math.min(300,+v||0))):null,pim=x=>ph?`<div class="cimg" style="width:${ph[0]}px;height:${ph[1]}px"><img src="${mediaSrc(x.src)}" alt="" style="width:${ph[0]}px"></div>`:`<img src="${mediaSrc(x.src)}" alt="">`;
+        if(ch.some(x=>mediaSrc(x.src)))t+=`<tr class="cph">${lab('photoLabel')}${ch.map(x=>`<td ${w}>${mediaSrc(x.src)?pim(x):''}<div class="cbar" style="background:${safeColor(x.color)}"></div></td>`).join('')}</tr>`;
         if(ch.some(x=>String(x.name||'').trim()))t+=`<tr>${lab('nameLabel')}${ch.map(x=>`<td class="cl">${inline(x.name,c)}</td>`).join('')}</tr>`;
       }else{
       if(ch.some(x=>mediaSrc(x.src)))t+=`<tr><td></td>${ch.map(x=>`<td ${w}>${mediaSrc(x.src)?`<img src="${mediaSrc(x.src)}" alt="">`:''}</td>`).join('')}</tr>`;
@@ -309,7 +310,7 @@ const RENDER={
       t+=`<tr><td></td>${ch.map(x=>`<td><b>${inline(x.name,c)}</b></td>`).join('')}</tr>`;
       }
       for(const st of r.stats||[])t+=`<tr><th>${inline(st.label,c)}</th>${ch.map(x=>`<td${r.wiki?' class="cl"':''}>${ibVal((st.values||[])[x.idx]||'',c)}</td>`).join('')}</tr>`;
-      h+=`<tr><td colspan="2" class="ib-nest ib-cw">${t.replace('<table class="ib-cands">',`<table class="ib-cands${r.wiki?' ib-cands-w':''}">`)}</tbody></table></td></tr>`;
+      h+=`<tr><td colspan="2" class="ib-nest ib-cw">${t.replace('<table class="ib-cands">',`<table class="ib-cands${r.wiki?' ib-cands-w':''}${r.en?' ib-cands-en':''}">`)}</tbody></table></td></tr>`;
     }
     return h;},
 };

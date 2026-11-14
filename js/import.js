@@ -224,7 +224,8 @@ function wiInfobox(tbl,C){
       }}continue;}
     if(one&&one.classList.contains('infobox-below')){const v=C.inline(one,true);if(v)rows.push(R.below(v));continue;}
     // строка предшественников и преемников (ru.wiki «Государство»): плавающие блоки слева и справа, даты посередине
-    if(one){const ch=[...one.children].filter(d=>d.tagName==='DIV');const fl=d=>(d.getAttribute('style')||'').match(/float:\s*(left|right)/i);
+    if(one){const fl=d=>(d.getAttribute('style')||'').match(/float:\s*(left|right)/i);let host=one;if(one.children.length===1&&one.children[0].tagName==='DIV'&&!fl(one.children[0]))host=one.children[0];
+      const ch=[...host.children].filter(d=>d.tagName==='DIV');
       const L=ch.find(d=>fl(d)&&/left/i.test(fl(d)[1])),Rr=ch.find(d=>fl(d)&&/right/i.test(fl(d)[1]));
       if(L&&Rr){
         const side=(div,left)=>{const parts=[...div.querySelectorAll(':scope > .nowrap, :scope > span')];const items=(parts.length?parts:[div]).map(el=>{const img=el.querySelector('img');
@@ -234,6 +235,8 @@ function wiInfobox(tbl,C){
             return C.inline(el,false);}).filter(Boolean);return items.join('\n');};
         const mid=ch.find(d=>d!==L&&d!==Rr&&d.textContent.trim());
         const rs=R.s(mid?C.inline(mid,false):'',side(L,true),side(Rr,false));rs.raw=true;rs.hd=one.tagName==='TH'||one.classList.contains('infobox-header');rows.push(rs);continue;}}
+    if(one&&one.classList.contains('infobox-header')&&one.firstElementChild&&one.firstElementChild.tagName==='HR'&&tbl.classList.contains('ib-election')){
+      const cl=one.cloneNode(true);cl.querySelectorAll('hr').forEach(e=>e.remove());const v=C.inline(cl,true);rows.push(R.hr());if(v)rows.push(R.t(v));continue;}
     if(one&&(one.classList.contains('infobox-header')||one.tagName==='TH')){
       const imgs=C.opts.images?[...one.querySelectorAll('img')]:[];
       const lbl=one.querySelector('.label');const text=C.inline(lbl||one,false);
@@ -243,7 +246,30 @@ function wiInfobox(tbl,C){
       else if(isBand)rows.push(R.hr());
       continue;
     }
-    if(one&&one.querySelector('hr')&&!one.textContent.trim()){rows.push(R.hr());continue;}
+    if(one&&one.querySelector('hr')&&!one.textContent.trim()){const fi=one.querySelector('.flagicon img');
+      if(fi&&C.opts.images){const ri=R.i(C.mediaName(fi),'',+fi.getAttribute('width')||50);if(fi.closest('.mw-image-border'))ri.frame=true;rows.push(ri);}
+      rows.push(R.hr());continue;}
+    // кандидаты во вложенной таблице (en «Infobox election»): фото с цветной полосой снизу, строки «Leader», «Party»…, группы через <hr>
+    {const isBig=i=>(+i.getAttribute('width')||0)>60||(+i.getAttribute('height')||0)>60;
+     const ct=one&&[...one.querySelectorAll('table')].find(t=>t.closest('td')===one&&[...t.rows].some(r=>[...r.cells].filter(c=>c.tagName==='TD'&&/border-bottom\s*:\s*[\d.]+px\s+solid/i.test(c.getAttribute('style')||'')&&[...c.querySelectorAll('img')].some(isBig)).length>=1&&[...t.rows].some(r2=>r2.cells.length>=2&&r2.cells[0].tagName==='TH'&&r2.cells[1].tagName==='TD')));
+     if(ct){const cr={t:'cands',per:1,cands:[],stats:[],wiki:true,en:true};let base=0;
+       const colorOf=c=>((c.getAttribute('style')||'').match(/border-bottom\s*:[^;]*?(#[0-9a-f]{3,8}\b|rgb\([^)]*\))/i)||[])[1]||'';
+       for(const r of ct.rows){if(r.classList.contains('sr-only'))continue;const cs=[...r.cells];
+         if(cs.length===1&&cs[0].querySelector('hr')&&!cs[0].textContent.trim()){base=cr.cands.length;continue;}
+         const tds=cs.filter(c=>c.tagName==='TD'),th=cs.find(c=>c.tagName==='TH');
+         if(!th&&tds.some(c=>[...c.querySelectorAll('img')].some(isBig))){
+           const dt=tds[0]&&![...tds[0].querySelectorAll('img')].some(isBig)&&!tds[0].textContent.trim()?tds.slice(1):tds;
+           base=cr.cands.length;cr.per=Math.max(cr.per,dt.length);
+           for(const c of dt){const im=[...c.querySelectorAll('img')].find(isBig);cr.cands.push({name:'',src:im&&C.opts.images?C.mediaName(im):'',color:colorOf(c)||'#a2a9b1'});
+             const box=[...c.querySelectorAll('div')].map(d=>(d.getAttribute('style')||'').match(/width\s*:\s*(\d+)px\s*;\s*height\s*:\s*(\d+)px/i)).find(Boolean);if(box)cr.ph=[+box[1],+box[2]];}
+           continue;}
+         if(!th||!tds.length)continue;
+         const label=C.inline(th,false).replace(/\u00a0/g,' ').trim(),vals=tds.map(c=>C.inline(c,true));
+         while(cr.cands.length<base+vals.length)cr.cands.push({name:'',src:'',color:'#a2a9b1'});
+         if(/^(candidate|nominee|leader|кандидат|лидер)$/i.test(label)&&vals.every((v,k)=>!cr.cands[base+k].name)){vals.forEach((v,k)=>cr.cands[base+k].name=v);cr.nameLabel=label;continue;}
+         let st=cr.stats.find(x=>x.label===label);if(!st){st={label,values:[]};cr.stats.push(st);}
+         vals.forEach((v,k)=>st.values[base+k]=v);}
+       if(cr.cands.length){rows.push(cr);continue;}}}
     {const tl=one&&one.querySelector('[class*="хронология"],.ts-Карточка-хронология');
      if(tl){const part=sel=>{const e=tl.querySelector(sel);return e?C.inline(e,false).replace(/^\s*←\s*|\s*→\s*$/g,'').trim():'';};
        rows.push(R.s(part('[class*="изображение"]'),part('[class*="prev"]'),part('[class*="next"]')));continue;}}
@@ -261,6 +287,8 @@ function wiInfobox(tbl,C){
       const prev=rows[rows.length-1];
       // колонки из квадратов легенды (карта выборов) — без линии и без чужого заголовка
       if(vals.filter(Boolean).every(v=>/^(\{\{легенда\|[^{}]*\}\}\s*)+$/.test(v.trim()))){const rc=R.c('',vals);rc.plain=true;rows.push(rc);continue;}
+      if(one.querySelector(':scope > hr')&&!bigOut.length){rows.push(R.hr());const rc=R.c('',vals);rc.plain=true;
+        const al=[...nt.rows[0].cells].map(c=>((c.getAttribute('style')||'').match(/text-align\s*:\s*(left|right|center)/i)||[])[1]||'');if(al.some(Boolean))rc.al=al.map(a=>a.toLowerCase());rows.push(rc);continue;}
       if(prev&&prev.t==='header'&&!prev.l&&!prev.r){rows.pop();rows.push(R.c(prev.text,vals));}else rows.push(R.c('',vals));
       if(/text-align\s*:\s*center/i.test(nt.getAttribute('style')||'')){const rc=rows[rows.length-1];rc.center=true;rc.plain=true;}
       continue;
@@ -276,6 +304,9 @@ function wiInfobox(tbl,C){
           const cl=one.cloneNode(true);cl.querySelector('.switcher-container').remove();cl.querySelectorAll('img').forEach(i=>{if((+i.getAttribute('width')||0)>60)i.remove();});
           const ri=R.i(alts[0].src,C.inline(cl,false),Math.min(400,+simgs[0].getAttribute('width')||250));ri.alts=alts;ri.swAll=C.lang==='en'?'Show all':'Показать все';rows.push(ri);continue;
         }
+        if(big.length>=2&&one.querySelector(':scope > hr')&&!one.querySelector('table,.media-caption,.infobox-caption')){rows.push(R.hr());
+          const cl=one.cloneNode(true);cl.querySelectorAll('img,hr').forEach(e=>e.remove());
+          const ri=R.i(C.mediaName(big[0]),C.inline(cl,false),Math.min(400,+big[0].getAttribute('width')||250));ri.more=big.slice(1).map(i=>({src:C.mediaName(i),w:Math.min(400,+i.getAttribute('width')||250)}));rows.push(ri);continue;}
         // несколько фото с одной подписью (состав группы в ru.wiki) — одна строка-картинка, а не флаг с гербом
         if(big.length>=2&&one.querySelectorAll('.media-caption').length===1&&(big.length>2||!one.querySelector('table'))){
           const ri=R.i(C.mediaName(big[0]),C.inline(one.querySelector('.media-caption'),false),Math.min(400,+big[0].getAttribute('width')||250));
@@ -299,7 +330,9 @@ function wiInfobox(tbl,C){
         }
         continue;
       }
-      const tcs=[...one.children].filter(d=>d.tagName==='DIV'&&/display:\s*table-cell/i.test(d.getAttribute('style')||''));
+      const tcOf=p=>[...p.children].filter(d=>d.tagName==='DIV'&&/display:\s*table-cell/i.test(d.getAttribute('style')||''));
+      let tcs=tcOf(one);if(!tcs.length&&one.children.length===1&&one.children[0].tagName==='DIV')tcs=tcOf(one.children[0]);
+      if(tcs.length===3&&/^\s*←/.test(tcs[0].textContent)&&/→\s*$/.test(tcs[2].textContent)){const v=c=>C.inline(c,false).replace(/^\s*←\s*|\s*→\s*$/g,'').trim();rows.push(R.s(v(tcs[1]),v(tcs[0]),v(tcs[2])));continue;}
       if(tcs.length>=2){const cells=tcs.map(d=>C.inline(d,true));if(cells.some(Boolean)){const rc=R.c('',cells);rc.plain=true;rows.push(rc);continue;}}
       const st=one.getAttribute('style')||'';
       if(/text-align:\s*left/i.test(st)&&/font-weight:\s*bold/i.test(st)){const v=C.inline(one,false);if(v)rows.push(R.f('='+v,''));continue;}

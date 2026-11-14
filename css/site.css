@@ -536,6 +536,13 @@ html[data-wmode="wiki"] #main .mw-content [data-l]:hover,html[data-wmode="wiki"]
 .ib-cands-w img{width:auto;max-width:none;height:180px;aspect-ratio:auto;object-fit:contain}
 .ib-cands-w .cbar{height:6px;margin:.25em 0 0;max-width:none;width:100%}
 @media (max-width:720px){.ib-cands-w img{height:auto;max-width:100%}}
+/* en «Infobox election»: фото в рамке 135×170 с полосой цвета партии, подписи слева, значения по центру */
+.ib-cands-en th{width:75px;min-width:0;padding:1px}
+.ib-cands-en td.cl{text-align:center}
+.ib-cands-en tr.cph td{padding:1px 1px 0}
+.ib-cands-en .cimg{overflow:hidden;margin:0 auto}
+.ib-cands-en .cimg img{height:auto;max-width:none}
+.ib-cands-en .cbar{margin:0}
 
 .me-scope{align-items:center}
 .me-scope .cnt{margin-right:4px}
